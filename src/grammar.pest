@@ -1,0 +1,107 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+
+// ** RPSL character classes **
+char = { ASCII_ALPHANUMERIC }
+extchar = { char | "_" | "-" }
+num = @{ ASCII_DIGIT+ }
+
+// ** RPSL keywords **
+keyword = {
+    any_route | any_as | any_rs | peeras |
+    and | or | not |
+    atomic | from | to | at | action | accept | announce | except | refine |
+    networks | into | inbound | outbound
+}
+    // Special names
+    any_route = @{ ^"ANY" }
+    any_as = @{ ^"AS-ANY" }
+    any_rs = @{ ^"RS-ANY" }
+    peeras = @{ ^"PeerAS" }
+    // set operators
+    and = _{ ^"AND" }
+    or  = _{ ^"OR" }
+    not = _{ ^"NOT" }
+    // policy keywords
+    atomic      = @{ ^"ATOMIC" }
+    from        = @{ ^"FROM" }
+    to          = @{ ^"TO" }
+    at          = @{ ^"AT" }
+    action      = @{ ^"ACTION" }
+    accept      = @{ ^"ACCEPT" }
+    announce    = @{ ^"ANNOUNCE" }
+    except      = @{ ^"EXCEPT" }
+    refine      = @{ ^"REFINE" }
+    networks    = @{ ^"NETWORKS" }
+    into        = @{ ^"INTO" }
+    inbound     = @{ ^"INBOUND" }
+    outbound    = @{ ^"OUTBOUND" }
+
+
+// ** RPSL object names **
+basic_name = @{ !( keyword ~ WHITESPACE ) ~ ( char ~ extchar* ) }
+// special object names
+special_name = @{
+    as_set_name | route_set_name | rtr_set_name |
+    filter_set_name | peering_set_name | autnum
+}
+    // aut-num name
+    autnum = ${ ^"AS" ~ num }
+    // set names
+    set_comp = _{ autnum | peeras }
+    as_set = ${ ( set_comp ~ ":" )* ~ as_set_name ~ ( ":" ~ ( set_comp | as_set_name ) )* }
+        as_set_name = @{ ^"AS-" ~ extchar+ }
+    route_set = ${ ( set_comp ~ ":" )* ~ route_set_name ~ ( ":" ~ ( set_comp | route_set_name ) )* }
+        route_set_name = @{ ^"RS-" ~ extchar+ }
+    rtr_set = ${ ( set_comp ~ ":" )* ~ rtr_set_name ~ ( ":" ~ ( set_comp | rtr_set_name ) )* }
+        rtr_set_name = @{ ^"RTRS-" ~ extchar+ }
+    filter_set = ${ ( set_comp ~ ":" )* ~ filter_set_name ~ ( ":" ~ ( set_comp | filter_set_name ) )* }
+        filter_set_name = @{ ^"FLTR-" ~ extchar+ }
+    peering_set = ${ ( set_comp ~ ":" )* ~ peering_set_name ~ ( ":" ~ ( set_comp | peering_set_name ) )* }
+        peering_set_name = @{ ^"PRNG-" ~ extchar+ }
+// general object names
+object_name = @{ !special_name ~ basic_name }
+mntner      = @{ object_name }
+as_name     = @{ object_name }
+dictionary  = @{ object_name }
+
+ipv4_prefix = @{ ipv4_addr ~ "/" ~ ipv4_prefix_len }
+    ipv4_addr = @{ ipv4_oct ~ ( "." ~ ipv4_oct ){3} }
+    ipv4_oct = @{ ASCII_DIGIT{1,3} }
+    ipv4_prefix_len = @{ ASCII_DIGIT{1,2} }
+ipv6_prefix = @{ ipv6_addr ~ "/" ~ ipv6_prefix_len }
+    ipv6_addr = @{
+        ipv6_mapped_ipv4_addr
+        |                                            ( ipv6_seg ~ ":" ){ 7} ~ ipv6_seg
+        |                                     "::" ~ ( ipv6_seg ~ ":" ){,6} ~ ipv6_seg
+        | ipv6_seg ~                          "::" ~ ( ipv6_seg ~ ":" ){,5} ~ ipv6_seg
+        | ipv6_seg ~ ( ":" ~ ipv6_seg ){,1} ~ "::" ~ ( ipv6_seg ~ ":" ){,4} ~ ipv6_seg
+        | ipv6_seg ~ ( ":" ~ ipv6_seg ){,2} ~ "::" ~ ( ipv6_seg ~ ":" ){,3} ~ ipv6_seg
+        | ipv6_seg ~ ( ":" ~ ipv6_seg ){,3} ~ "::" ~ ( ipv6_seg ~ ":" ){,2} ~ ipv6_seg
+        | ipv6_seg ~ ( ":" ~ ipv6_seg ){,4} ~ "::" ~ ( ipv6_seg ~ ":" ){,1} ~ ipv6_seg
+        | ipv6_seg ~ ( ":" ~ ipv6_seg ){,5} ~ "::" ~                          ipv6_seg
+        | ipv6_seg ~ ( ":" ~ ipv6_seg ){,6} ~ "::"
+        |                                     "::"
+    }
+    ipv6_mapped_ipv4_addr = @{ ^"::ffff:" ~ ipv4_addr }
+    ipv6_seg = @{ ASCII_HEX_DIGIT{1,4} }
+    ipv6_prefix_len = @{ ASCII_DIGIT{1,3} }
+
+range_op = _{ range | exact | less_excl | less_incl }
+    range = ${ "^" ~ num ~ "-" ~ num }
+    exact = ${ "^" ~ num }
+    less_excl = @{ "^-" }
+    less_incl = @{ "^+" }
+
+filter = _{ SOI ~ filter_expr ~ EOI }
+    filter_expr = _{ filter_expr_and | filter_expr_or | filter_expr_not | filter_expr_unit }
+        filter_expr_and  = { filter_term ~ and ~ filter_term }
+        filter_expr_or   = { filter_term ~ or ~ filter_term }
+        filter_expr_not  = { not ~ filter_term }
+        filter_expr_unit = { filter_term }
+            filter_term = _{ named_filter | literal_filter | "(" ~ filter_expr ~ ")" }
+                literal_filter = ${ prefix_set ~ range_op? }
+                    prefix_set = _{ literal_prefix_set | named_prefix_set }
+                        literal_prefix_set = !{ "{" ~ ranged_prefix? ~ ( "," ~ ranged_prefix )* ~ ","? ~ "}" }
+                            ranged_prefix = ${ ( ipv4_prefix | ipv6_prefix ) ~ range_op? }
+                        named_prefix_set = { any_route | route_set | as_set | autnum | peeras }
+                named_filter = { filter_set }
