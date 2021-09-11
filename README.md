@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/rpsl)](https://crates.io/crates/rpsl)
 [![ci/cd](https://github.com/wolcomm/rpsl-rs/actions/workflows/cicd.yml/badge.svg?event=push)](https://github.com/wolcomm/rpsl-rs/actions/workflows/cicd.yml)
-[![codecov](https://codecov.io/gh/wolcomm/rpsl-rs/branch/master/graph/badge.svg?token=9dktFtdydp)](https://codecov.io/gh/wolcomm/rpsl-rs)
+[![codecov](https://codecov.io/gh/wolcomm/rpsl-rs/branch/master/graph/badge.svg?token=opc01gJYPS)](https://codecov.io/gh/wolcomm/rpsl-rs)
 [![docs.rs](https://img.shields.io/docsrs/rpsl)](https://docs.rs/rpsl)
 
 ## About
