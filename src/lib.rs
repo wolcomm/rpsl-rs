@@ -1,5 +1,5 @@
 //!  A parser and syntax tree implementation for the Routing Policy
-//!  Specification Language (RPSL) defined in RFC2622 and RFC4012.
+//!  Specification Language (RPSL) defined in [RFC2622] and [RFC4012].
 //!
 //! # Example
 //!

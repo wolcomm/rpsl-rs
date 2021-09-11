@@ -8,7 +8,7 @@
 ## About
 
 A Rust library crate `rpsl`, implementing a parser and syntax tree for the
-Routing Policy Specification Language (RPSL) defined in RFC2622 and RFC4012.
+Routing Policy Specification Language (RPSL) defined in [RFC2622] and [RFC4012].
 
 [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622
 [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012
