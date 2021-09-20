@@ -1,6 +1,8 @@
+use std::fmt;
+
 use crate::{
     error::{SubstitutionError, SubstitutionResult},
-    expr::{FilterExpr, FilterTerm, NamedPrefixSet, PrefixSetExpr},
+    expr::filter::{Expr, NamedPrefixSet, PrefixSetExpr, Term},
     names::{AsSet, AutNum, FilterSet, RouteSet},
     primitive::SetNameComp,
 };
@@ -40,13 +42,17 @@ pub trait Substitute<P: PeerAs>: Sized {
     fn substitute(&self, p: &P) -> SubstitutionResult<Self>;
 }
 
-impl<P: PeerAs> Substitute<P> for FilterExpr {
+impl<P, T> Substitute<P> for Expr<T>
+where
+    P: PeerAs,
+    T: Clone + fmt::Display,
+{
     fn substitute(&self, p: &P) -> SubstitutionResult<Self> {
         log::info!(
             "trying to substitute 'PeerAS' tokens in filter expression '{}'",
             self
         );
-        debug_substitution!(FilterExpr: self);
+        debug_substitution!(Expr: self);
         match self {
             Self::Unit(term) => Ok(Self::Unit(term.substitute(p)?)),
             Self::Not(term) => Ok(Self::Not(term.substitute(p)?)),
@@ -56,22 +62,31 @@ impl<P: PeerAs> Substitute<P> for FilterExpr {
     }
 }
 
-impl<P: PeerAs> Substitute<P> for FilterTerm {
+impl<P, T> Substitute<P> for Term<T>
+where
+    P: PeerAs,
+    T: Clone + fmt::Display,
+{
     fn substitute(&self, p: &P) -> SubstitutionResult<Self> {
-        debug_substitution!(FilterTerm: self);
+        debug_substitution!(Term: self);
         match self {
             Self::Literal(set_expr, op) => Ok(Self::Literal(set_expr.substitute(p)?, *op)),
             Self::Named(fltr_set_expr) => Ok(Self::Named(fltr_set_expr.substitute(p)?)),
             Self::Expr(expr) => Ok(Self::Expr(Box::new(expr.substitute(p)?))),
+            any @ Self::Any => Ok(any.to_owned()),
         }
     }
 }
 
-impl<P: PeerAs> Substitute<P> for PrefixSetExpr {
+impl<P, T> Substitute<P> for PrefixSetExpr<T>
+where
+    P: PeerAs,
+    T: Clone + fmt::Display,
+{
     fn substitute(&self, p: &P) -> SubstitutionResult<Self> {
         debug_substitution!(PrefixSetExpr: self);
         match self {
-            literal @ Self::Literal(_) => Ok(literal.clone()),
+            literal @ Self::Literal(_) => Ok(literal.to_owned()),
             Self::Named(set) => Ok(Self::Named(set.substitute(p)?)),
         }
     }
@@ -79,7 +94,7 @@ impl<P: PeerAs> Substitute<P> for PrefixSetExpr {
 
 impl<P: PeerAs> Substitute<P> for FilterSet {
     fn substitute(&self, p: &P) -> SubstitutionResult<Self> {
-        debug_substitution!(FilterSetExpr: self);
+        debug_substitution!(FilterSet: self);
         self.into_iter()
             .map(|component| component.substitute(p))
             .collect()

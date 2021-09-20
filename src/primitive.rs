@@ -1,7 +1,9 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
+use std::str::FromStr;
 
-use ipnet::IpNet;
+#[cfg(any(test, feature = "arbitrary"))]
+use ipnet::{IpNet, Ipv4Net};
 
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
@@ -14,19 +16,19 @@ use crate::{
 
 /// IP prefix appearing in a literal prefix set.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct LiteralPrefixSetEntry {
-    prefix: IpNet,
+pub struct LiteralPrefixSetEntry<T> {
+    prefix: T,
     op: RangeOperator,
 }
 
-impl LiteralPrefixSetEntry {
+impl<T> LiteralPrefixSetEntry<T> {
     /// Construct a new [`LiteralPrefixSetEntry`].
-    pub fn new(prefix: IpNet, op: RangeOperator) -> Self {
+    pub fn new(prefix: T, op: RangeOperator) -> Self {
         Self { prefix, op }
     }
 
     /// Get the IP prefix represented by this [`LiteralPrefixSetEntry`].
-    pub fn prefix(&self) -> &IpNet {
+    pub fn prefix(&self) -> &T {
         &self.prefix
     }
 
@@ -36,13 +38,23 @@ impl LiteralPrefixSetEntry {
     }
 }
 
-impl TryFrom<TokenPair<'_>> for LiteralPrefixSetEntry {
+impl<T> TryFrom<TokenPair<'_>> for LiteralPrefixSetEntry<T>
+where
+    T: FromStr,
+    T::Err: Into<ParseError>,
+{
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
         debug_construction!(pair => LiteralPrefixSetEntry);
         let mut pairs = pair.into_inner();
-        let prefix = next_parse_or!(pairs => "failed to get inner prefix");
+        // let prefix = next_parse_or!(pairs => "failed to get inner prefix");
+        let prefix = pairs
+            .next()
+            .ok_or_else(|| err!("failed to get inner prefix"))?
+            .as_str()
+            .parse()
+            .map_err(|err: T::Err| err.into())?;
         let op = match pairs.next() {
             Some(inner) => inner.try_into()?,
             None => RangeOperator::None,
@@ -51,16 +63,40 @@ impl TryFrom<TokenPair<'_>> for LiteralPrefixSetEntry {
     }
 }
 
-impl_from_str!(ParserRule::ranged_prefix => LiteralPrefixSetEntry);
-
-impl fmt::Display for LiteralPrefixSetEntry {
+impl<T: fmt::Display> fmt::Display for LiteralPrefixSetEntry<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.prefix, self.op)
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl Arbitrary for LiteralPrefixSetEntry {
+impl Arbitrary for LiteralPrefixSetEntry<Ipv4Net> {
+    type Parameters = ParamsFor<std::net::Ipv4Addr>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+        use std::net::Ipv4Addr;
+        any_with::<Ipv4Addr>(args)
+            .prop_flat_map(|addr| {
+                let max_len = 32u8;
+                (Just(addr), 0..=max_len, Just(max_len))
+            })
+            .prop_flat_map(|(addr, len, max_len)| {
+                (
+                    Just(addr),
+                    Just(len),
+                    any_with::<RangeOperator>((len, max_len)),
+                )
+            })
+            .prop_map(|(addr, len, op)| {
+                let prefix = Ipv4Net::new(addr, len).unwrap().trunc();
+                Self { prefix, op }
+            })
+            .boxed()
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for LiteralPrefixSetEntry<IpNet> {
     type Parameters = ParamsFor<std::net::IpAddr>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
@@ -135,8 +171,6 @@ impl TryFrom<TokenPair<'_>> for RangeOperator {
     }
 }
 
-impl_from_str!(ParserRule::range_op => RangeOperator);
-
 impl fmt::Display for RangeOperator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -187,7 +221,7 @@ impl TryFrom<TokenPair<'_>> for SetNameComp {
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
         debug_construction!(pair => SetNameComp);
         match pair.as_rule() {
-            ParserRule::autnum => Ok(Self::AutNum(pair.as_str().parse()?)),
+            ParserRule::aut_num => Ok(Self::AutNum(pair.as_str().parse()?)),
             ParserRule::peeras => Ok(Self::PeerAs),
             ParserRule::filter_set_name
             | ParserRule::route_set_name
@@ -225,12 +259,4 @@ impl Arbitrary for SetNameComp {
         ]
         .boxed()
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use paste::paste;
-
-    display_fmt_parses! { LiteralPrefixSetEntry }
 }

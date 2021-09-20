@@ -13,6 +13,12 @@ use crate::{
     primitive::SetNameComp,
 };
 
+/// Enumerated RPSL object namees.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum RpslObjectKey {
+    Mntner(Mntner),
+}
+
 /// RPSL `mntner` name. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
@@ -25,7 +31,7 @@ impl TryFrom<TokenPair<'_>> for Mntner {
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
         debug_construction!(pair => Mntner);
         match pair.as_rule() {
-            ParserRule::mntner => Ok(Self(pair.as_str().to_owned())),
+            ParserRule::mntner_name => Ok(Self(pair.as_str().to_owned())),
             // TODO: factor out into a macro
             _ => Err(err!(
                 "expected a mntner name, got {:?}: {}",
@@ -36,7 +42,7 @@ impl TryFrom<TokenPair<'_>> for Mntner {
     }
 }
 
-impl_from_str!(ParserRule::mntner => Mntner);
+impl_from_str!(ParserRule::mntner_name => Mntner);
 
 impl fmt::Display for Mntner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -75,7 +81,7 @@ impl TryFrom<TokenPair<'_>> for AutNum {
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
         debug_construction!(pair => AutNum);
         match pair.as_rule() {
-            ParserRule::autnum => Ok(Self(
+            ParserRule::aut_num => Ok(Self(
                 next_parse_or!(pair.into_inner() => "failed to parse aut-num"),
             )),
             _ => Err(err!(
@@ -87,7 +93,7 @@ impl TryFrom<TokenPair<'_>> for AutNum {
     }
 }
 
-impl_from_str!(ParserRule::autnum => AutNum);
+impl_from_str!(ParserRule::aut_num => AutNum);
 
 impl fmt::Display for AutNum {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

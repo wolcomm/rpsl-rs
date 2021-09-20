@@ -75,12 +75,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_autnum() {
+    fn parse_aut_num() {
         parses_to! {
             parser: RpslParser,
             input: "AS65000",
-            rule: Rule::autnum,
-            tokens: [autnum(0, 7, [
+            rule: Rule::aut_num,
+            tokens: [aut_num(0, 7, [
                 num(2, 7)
             ])]
         }
@@ -105,7 +105,7 @@ mod tests {
             input: "AS65000:AS-FOO",
             rule: Rule::as_set,
             tokens: [as_set(0, 14, [
-                autnum(0, 7, [
+                aut_num(0, 7, [
                     num(2, 7)
                 ]),
                 as_set_name(8, 14)
@@ -120,7 +120,7 @@ mod tests {
             input: "AS65000:AS-FOO:PeerAS",
             rule: Rule::as_set,
             tokens: [as_set(0, 21, [
-                autnum(0, 7, [
+                aut_num(0, 7, [
                     num(2, 7)
                 ]),
                 as_set_name(8, 14),
@@ -173,7 +173,7 @@ mod tests {
             input: "AS65000:FLTR-FOO:PeerAS",
             rule: Rule::filter_set,
             tokens: [filter_set(0, 23, [
-                autnum(0, 7, [
+                aut_num(0, 7, [
                     num(2, 7)
                 ]),
                 filter_set_name(8, 16),
@@ -222,9 +222,9 @@ mod tests {
         parses_to! {
             parser: RpslParser,
             input: "2001:db8:f00::/48^+",
-            rule: Rule::ranged_prefix,
+            rule: Rule::mp_ranged_prefix,
             tokens: [
-                ranged_prefix(0, 19, [
+                mp_ranged_prefix(0, 19, [
                     ipv6_prefix(0, 17),
                     less_incl(17, 19)
                 ])
@@ -256,10 +256,10 @@ mod tests {
         parses_to! {
             parser: RpslParser,
             input: "{ 2001:db8::/32^48 }",
-            rule: Rule::literal_prefix_set,
+            rule: Rule::mp_literal_prefix_set,
             tokens: [
-                literal_prefix_set(0, 20, [
-                    ranged_prefix(2, 18, [
+                mp_literal_prefix_set(0, 20, [
+                    mp_ranged_prefix(2, 18, [
                         ipv6_prefix(2, 15),
                         exact(15, 18, [
                             num(16, 18)
@@ -295,17 +295,17 @@ mod tests {
         parses_to! {
             parser: RpslParser,
             input: "{ 2001:db8:baa::/48^56-64, 10.0.0.0/8^+, }",
-            rule: Rule::literal_prefix_set,
+            rule: Rule::mp_literal_prefix_set,
             tokens: [
-                literal_prefix_set(0, 42, [
-                    ranged_prefix(2, 25, [
+                mp_literal_prefix_set(0, 42, [
+                    mp_ranged_prefix(2, 25, [
                         ipv6_prefix(2, 19),
                         range(19, 25, [
                             num(20, 22),
                             num(23, 25)
                         ])
                     ]),
-                    ranged_prefix(27, 39, [
+                    mp_ranged_prefix(27, 39, [
                         ipv4_prefix(27, 37),
                         less_incl(37, 39)
                     ])
@@ -318,11 +318,11 @@ mod tests {
     fn parse_named_prefix_set_any() {
         parses_to! {
             parser: RpslParser,
-            input: "ANY",
+            input: "RS-ANY",
             rule: Rule::named_prefix_set,
             tokens: [
-                named_prefix_set(0, 3, [
-                    any_route(0, 3)
+                named_prefix_set(0, 6, [
+                    any_rs(0, 6)
                 ])
             ]
         }
@@ -343,14 +343,14 @@ mod tests {
     }
 
     #[test]
-    fn parse_named_prefix_set_autnum() {
+    fn parse_named_prefix_set_aut_num() {
         parses_to! {
             parser: RpslParser,
             input: "AS65512",
             rule: Rule::named_prefix_set,
             tokens: [
                 named_prefix_set(0, 7, [
-                    autnum(0, 7, [
+                    aut_num(0, 7, [
                         num(2, 7)
                     ])
                 ])
@@ -393,7 +393,7 @@ mod tests {
         }
     }
 
-    macro_rules! parse_filters {
+    macro_rules! parse_filter {
         ( $( $name:ident: $filter:expr => [ $( $names:ident $calls:tt ),* $(,)* ] ),* $(,)? ) => {
             paste! {
                 $(
@@ -402,7 +402,7 @@ mod tests {
                         parses_to! {
                             parser: RpslParser,
                             input: $filter,
-                            rule: Rule::filter,
+                            rule: Rule::just_filter,
                             tokens: [ $( $names $calls ),* ]
                         }
                     }
@@ -411,7 +411,7 @@ mod tests {
         }
     }
 
-    parse_filters! {
+    parse_filter! {
         empty_literal: "{}" => [
             filter_expr_unit(0, 2, [
                 literal_filter(0, 2, [
@@ -467,7 +467,7 @@ mod tests {
             filter_expr_not(0, 11, [
                 literal_filter(4, 11, [
                     named_prefix_set(4, 11, [
-                        autnum(4, 11, [
+                        aut_num(4, 11, [
                             num(6, 11)
                         ])
                     ])
@@ -521,7 +521,7 @@ mod tests {
                         literal_filter(14, 37, [
                             named_prefix_set(14, 35, [
                                 as_set(14, 35, [
-                                    autnum(14, 21, [
+                                    aut_num(14, 21, [
                                         num(16, 21)
                                     ]),
                                     as_set_name(22, 28),

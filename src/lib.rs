@@ -6,7 +6,7 @@
 //! ``` rust
 //! use std::error::Error;
 //! use rpsl::{
-//!     expr::FilterExpr,
+//!     expr::MpFilterExpr,
 //!     names::AutNum,
 //!     subst::Substitute,
 //! };
@@ -14,7 +14,7 @@
 //! fn main() -> Result<(), Box<dyn Error>> {
 //!     let peeras = "AS65000".parse::<AutNum>()?;
 //!     let filter = "PeerAS:AS-FOO AND {0.0.0.0/0^8-24, ::/0^16-48}"
-//!         .parse::<FilterExpr>()?
+//!         .parse::<MpFilterExpr>()?
 //!         .substitute(&peeras)?;
 //!
 //!     assert_eq!(filter.to_string(), "AS65000:AS-FOO AND {0.0.0.0/0^8-24, ::/0^16-48}");
