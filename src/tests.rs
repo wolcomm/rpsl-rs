@@ -22,3 +22,31 @@ macro_rules! display_fmt_parses {
         }
     }
 }
+
+macro_rules! compare_ast {
+    (
+        $( $root_ty:ty {
+            $( $name:ident: $input:literal => {
+                $ast:expr
+            } )*
+        } )*
+    ) => {
+        paste::paste! {
+            $(
+                mod [<compare_ast_for_ $root_ty:snake>] {
+                    use super::*;
+                    $(
+                        #[test]
+                        fn [<$name>]() {
+                            let input = $input;
+                            let expect = $ast;
+                            let ast = dbg!(input.parse::<$root_ty>().unwrap());
+                            assert_eq!(ast, expect);
+                        }
+                    )*
+                }
+            )*
+
+        }
+    }
+}

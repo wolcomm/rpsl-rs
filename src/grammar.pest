@@ -23,16 +23,16 @@ keyword         = { any_fltr | any_as | any_rs | peeras
     not         = _{ ^"NOT" }
     // policy keywords
     atomic      = @{ ^"ATOMIC" }
-    from        = @{ ^"FROM" }
-    to          = @{ ^"TO" }
-    at          = @{ ^"AT" }
-    action      = @{ ^"ACTION" }
-    accept      = @{ ^"ACCEPT" }
-    announce    = @{ ^"ANNOUNCE" }
-    except      = @{ ^"EXCEPT" }
-    refine      = @{ ^"REFINE" }
-    networks    = @{ ^"NETWORKS" }
-    into        = @{ ^"INTO" }
+    from        = _{ ^"FROM" }
+    to          = _{ ^"TO" }
+    at          = _{ ^"AT" }
+    action      = _{ ^"ACTION" }
+    accept      = _{ ^"ACCEPT" }
+    announce    = _{ ^"ANNOUNCE" }
+    except      = _{ ^"EXCEPT" }
+    refine      = _{ ^"REFINE" }
+    networks    = _{ ^"NETWORKS" }
+    into        = _{ ^"INTO" }
     inbound     = @{ ^"INBOUND" }
     outbound    = @{ ^"OUTBOUND" }
 
@@ -41,7 +41,7 @@ keyword         = { any_fltr | any_as | any_rs | peeras
 basic_name          = @{ !( keyword ~ WHITESPACE ) ~ ( char ~ extchar* ) }
 // special object names
 special_name        = _{ as_set_name | route_set_name | rtr_set_name
-                       | filter_set_name | peering_set_name | aut_num }
+                       | filter_set_name | peering_set_name }
     // aut-num name
     aut_num         = ${ ^"AS" ~ num }
     // set names
@@ -59,8 +59,10 @@ special_name        = _{ as_set_name | route_set_name | rtr_set_name
 // general object names
 general_object_name = @{ !special_name ~ basic_name }
 mntner_name         = @{ general_object_name }
+person              = @{ free_form }
+role                = @{ free_form }
 dictionary          = @{ general_object_name }
-inet_rtr            = @{ dns_name }
+inet_rtr            = @{ !( keyword ~ WHITESPACE) ~ dns_name }
 key_cert            = _{ key_cert_pgp | key_cert_x509 }
     key_cert_pgp    = @{ ^"PGPKEY-" ~ ASCII_HEX_DIGIT+ }
     key_cert_x509   = @{ ^"X509-" ~ num }
@@ -108,7 +110,8 @@ ipv4_prefix_range       = ${ ipv4_prefix ~ range_op? }
 ipv6_prefix_range       = ${ ipv6_prefix ~ range_op? }
 
 // ** RPSL miscellaneous syntax types **
-free_form               = @{ ANY }
+free_form               = @{ ( !attr_sep ~ ANY )* }
+    attr_sep            = @{ NEWLINE ~ ( !line_cont ~ ANY ) }
 date                    = ${ year ~ month ~ day }
     year                = @{ ASCII_DIGIT{4} }
     month               = @{ ( "0" ~ '1'..'9' )
@@ -116,13 +119,18 @@ date                    = ${ year ~ month ~ day }
     day                 = @{ ( "0"      ~ '1'..'9' )
                            | ( '1'..'2' ~ '0'..'9' )
                            | ( "3"      ~ '0'..'1' ) }
-dns_name                = @{ ASCII_ALPHA ~ ( ASCII_ALPHANUMERIC | "-" )* ~ ( "." ~ dns_name )? }
-email_addr              = @{ extchar+ ~ "@" ~ dns_name }
+dns_name                = @{ ASCII_ALPHA ~ ( ASCII_ALPHANUMERIC | "-" | "_")* ~ ( "." ~ dns_name )? }
+email_addr              = @{ dns_name ~ "@" ~ dns_name }
 nic_hdl                 = @{ char ~ extchar* }
 registry_name           = @{ char ~ extchar* }
 as_name                 = @{ general_object_name }
 netname                 = @{ general_object_name }
 tel_number              = @{ "+" ~ ASCII_DIGIT ~ ( ASCII_DIGIT | " " )* ~ ( ^"ext. " ~ ASCII_DIGIT+ )? }
+object_descr            = @{ free_form }
+remarks                 = @{ free_form }
+address                 = @{ free_form }
+trouble                 = @{ free_form }
+owner                   = @{ free_form }
 protocol_name           = _{ protocol_bgp4 | protocol_ospf | protocol_rip
                            | protocol_igrp | protocol_isis | protocol_static
                            | protocol_ripng | protocol_dvmrp| protocol_pim_dm
@@ -152,6 +160,7 @@ afi_safi                = ${ afi ~ ( "." ~ safi )? }
         safi_multicast  = @{ ^"multicast" }
 named_route_set_member  = ${ ( any_as | any_rs | route_set | as_set | aut_num ) ~ range_op? }
 email_addr_regexp   = @{ free_form }
+pgp_from_fingerpr   = @{ free_form }
 crypt_hash          = @{ free_form }
 key_fingerprint     = { ASCII_HEX_DIGIT+ }
 key_certif          = @{ free_form }
@@ -174,72 +183,69 @@ rtr_set_member_choice       = _{ inet_rtr | rtr_set | ipv4_addr }
 rtr_set_mp_member_choice    = _{ inet_rtr | rtr_set | ip_addr_choice }
 
 // lists
-mntner_name_list            = { mntner_name                 ~ ( "," ~ mntner_name )* }
-route_set_list              = { route_set                   ~ ( "," ~ route_set )* }
-ipv4_prefix_list            = { ipv4_prefix                 ~ ( "," ~ ipv4_prefix )* }
-ipv4_prefix_range_list      = { ipv4_prefix_range           ~ ( "," ~ ipv4_prefix_range )* }
-ipv6_prefix_list            = { ipv6_prefix                 ~ ( "," ~ ipv6_prefix )* }
-ipv6_prefix_range_list      = { ipv6_prefix_range           ~ ( "," ~ ipv6_prefix_range )* }
-as_set_members_list         = { as_set_member_choice        ~ ( "," ~ as_set_member_choice )* }
-route_set_members_list      = { route_set_member_choice     ~ ( "," ~ route_set_member_choice )* }
-route_set_mp_members_list   = { route_set_mp_member_choice  ~ ( "," ~ route_set_mp_member_choice )* }
-rtr_set_members_list        = { rtr_set_member_choice       ~ ( "," ~ rtr_set_member_choice )* }
-rtr_set_mp_members_list     = { rtr_set_mp_member_choice    ~ ( "," ~ rtr_set_mp_member_choice )* }
-as_set_list                 = { as_set                      ~ ( "," ~ as_set )* }
-rtr_set_list                = { rtr_set                     ~ ( "," ~ rtr_set )* }
-afi_safi_list               = { afi_safi                    ~ ( "," ~ afi_safi )* }
+mntner_name_list            = _{ mntner_name                 ~ ( "," ~ mntner_name )* }
+route_set_list              = _{ route_set                   ~ ( "," ~ route_set )* }
+ipv4_prefix_list            = _{ ipv4_prefix                 ~ ( "," ~ ipv4_prefix )* }
+ipv4_prefix_range_list      = _{ ipv4_prefix_range           ~ ( "," ~ ipv4_prefix_range )* }
+ipv6_prefix_list            = _{ ipv6_prefix                 ~ ( "," ~ ipv6_prefix )* }
+ipv6_prefix_range_list      = _{ ipv6_prefix_range           ~ ( "," ~ ipv6_prefix_range )* }
+as_set_members_list         = _{ as_set_member_choice        ~ ( "," ~ as_set_member_choice )* }
+route_set_members_list      = _{ route_set_member_choice     ~ ( "," ~ route_set_member_choice )* }
+route_set_mp_members_list   = _{ route_set_mp_member_choice  ~ ( "," ~ route_set_mp_member_choice )* }
+rtr_set_members_list        = _{ rtr_set_member_choice       ~ ( "," ~ rtr_set_member_choice )* }
+rtr_set_mp_members_list     = _{ rtr_set_mp_member_choice    ~ ( "," ~ rtr_set_mp_member_choice )* }
+as_set_list                 = _{ as_set                      ~ ( "," ~ as_set )* }
+rtr_set_list                = _{ rtr_set                     ~ ( "," ~ rtr_set )* }
+afi_safi_list               = _{ afi_safi                    ~ ( "," ~ afi_safi )* }
 
 // complex expressions
 changed_expr            = { email_addr ~ date }
 
-auth_expr               = _{ auth_expr_none | auth_expr_mail | auth_expr_pgp_from |  auth_expr_crypt | auth_expr_key_cert }
+auth_expr               = _{ auth_expr_none | auth_expr_mail | auth_expr_pgp_from
+                          |  auth_expr_crypt | auth_expr_key_cert }
     auth_expr_none      = { ^"NONE" }
     auth_expr_mail      = { ^"MAIL-FROM" ~ email_addr_regexp }
-    auth_expr_pgp_from  = { ^"PGP-FROM" ~ extchar+ }
+    auth_expr_pgp_from  = { ^"PGP-FROM" ~ pgp_from_fingerpr }
     auth_expr_crypt     = { ^"CRYPT-PW" ~ crypt_hash }
     auth_expr_key_cert  = { key_cert }
 
-action_expr             = { ( ( action_oper_stmt | action_meth_stmt ) ~ ";" )+ }
-    action_oper_stmt    = { action_prop ~ action_op ~ action_val }
-    action_meth_stmt    = ${ action_prop ~ ( "." ~ action_meth )? ~ "(" ~ action_val ~ ")" }
-        action_prop     = _{ rp_pref | rp_med | rp_dpa | rp_aspath
-                           | rp_community | rp_next_hop | rp_cost }
-            rp_pref         = @{ ^"pref" }
-            rp_med          = @{ ^"med" }
-            rp_dpa          = @{ ^"dpa" }
-            rp_aspath       = @{ ^"aspath" }
-            rp_community    = @{ ^"community" }
-            rp_next_hop     = @{ ^"next-hop" }
-            rp_cost         = @{ ^"cost" }
-            rp_unknown      = @{ extchar* }
-        action_op       = _{ action_op_assign | action_op_append
-                           | action_op_lsh_assign | action_op_rsh_assign
-                           | action_op_add_assign | action_op_sub_assign
-                           | action_op_mul_assign | action_op_div_assign
-                           | action_op_eq | action_op_ne
-                           | action_op_le | action_op_ge
-                           | action_op_lt | action_op_gt }
-            action_op_assign        = @{ "=" }
-            action_op_append        = @{ ".=" }
-            action_op_lsh_assign    = @{ "<<=" }
-            action_op_rsh_assign    = @{ ">>=" }
-            action_op_add_assign    = @{ "+=" }
-            action_op_sub_assign    = @{ "-=" }
-            action_op_mul_assign    = @{ "*=" }
-            action_op_div_assign    = @{ "/=" }
-            action_op_eq            = @{ "==" }
-            action_op_ne            = @{ "!=" }
-            action_op_le            = @{ "<=" }
-            action_op_ge            = @{ ">=" }
-            action_op_lt            = @{ "<" }
-            action_op_gt            = @{ ">" }
-        action_val      = _{ email_addr | aut_num
-                           | ipv4_addr | ipv4_prefix | ipv4_prefix_range
-                           | ipv6_addr | ipv6_prefix | ipv6_prefix_range
-                           | dns_name | filter_expr | as_set | route_set
-                           | rtr_set | filter_set | peering_set
-                           | num | extchar* }
-        action_meth     = @{ extchar+ }
+action_expr             = { ( action_stmt ~ ";" )+ }
+    action_stmt         = _{ action_stmt_oper | action_stmt_meth }
+        action_stmt_oper    = { action_prop ~ action_op ~ action_val }
+        action_stmt_meth    = ${ action_prop ~ ( "." ~ action_meth )? ~ "(" ~ action_val ~ ")" }
+            action_prop     = _{ rp_pref | rp_med | rp_dpa | rp_aspath
+                               | rp_community | rp_next_hop | rp_cost }
+                rp_pref         = @{ ^"pref" }
+                rp_med          = @{ ^"med" }
+                rp_dpa          = @{ ^"dpa" }
+                rp_aspath       = @{ ^"aspath" }
+                rp_community    = @{ ^"community" }
+                rp_next_hop     = @{ ^"next-hop" }
+                rp_cost         = @{ ^"cost" }
+                rp_unknown      = @{ extchar* }
+            action_op       = _{ action_op_assign | action_op_append
+                               | action_op_lsh_assign | action_op_rsh_assign
+                               | action_op_add_assign | action_op_sub_assign
+                               | action_op_mul_assign | action_op_div_assign
+                               | action_op_eq | action_op_ne
+                               | action_op_le | action_op_ge
+                               | action_op_lt | action_op_gt }
+                action_op_assign        = @{ "=" }
+                action_op_append        = @{ ".=" }
+                action_op_lsh_assign    = @{ "<<=" }
+                action_op_rsh_assign    = @{ ">>=" }
+                action_op_add_assign    = @{ "+=" }
+                action_op_sub_assign    = @{ "-=" }
+                action_op_mul_assign    = @{ "*=" }
+                action_op_div_assign    = @{ "/=" }
+                action_op_eq            = @{ "==" }
+                action_op_ne            = @{ "!=" }
+                action_op_le            = @{ "<=" }
+                action_op_ge            = @{ ">=" }
+                action_op_lt            = @{ "<" }
+                action_op_gt            = @{ ">" }
+            action_val      = @{ ( !( ")" | ";" ) ~ ANY )* }
+            action_meth     = @{ extchar+ }
 
 inject_expr             = { ( at ~ rtr_expr )? ~ ( action ~ action_expr )? ~ ( ^"upon" ~ inject_cond )? }
     inject_cond         = _{ inject_cond_and | inject_cond_or | inject_cond_unit }
@@ -261,6 +267,37 @@ components6_expr        = { ( atomic )? ~ ( ( mp_filter_expr )? ~ ( ^"protocol" 
 
 named_prefix_set        = { any_as | any_rs | route_set | as_set | aut_num | peeras }
 
+as_path_regexpr         = { "<" ~ as_path_regexpr_soi? ~ as_path_regexpr_elem* ~ as_path_regexpr_eoi? ~ ">" }
+    as_path_regexpr_soi     = @{ "^" }
+    as_path_regexpr_eoi     = @{ "$" }
+    as_path_regexpr_elem    = ${ as_path_regexpr_component ~ as_path_regexpr_op? }
+        as_path_regexpr_component   = _{ as_path_set | as_path_set_compl
+                                       | as_path_regexpr_alt
+                                       | as_set | aut_num | as_path_any }
+            as_path_any                 = @{ "." }
+            as_path_set                 = !{ "[" ~ ( as_set | as_path_set_range | aut_num )+ ~ "]" }
+            as_path_set_compl           = !{ "[" ~ "^" ~ ( as_set | as_path_set_range | aut_num )+ ~ "]" }
+                as_path_set_range           = ${ aut_num ~ "-" ~ aut_num }
+            as_path_regexpr_alt         = !{ "(" ~ as_path_regexpr_elem ~ "|" ~ as_path_regexpr_elem ~ ")" }
+        as_path_regexpr_op          = _{ as_path_regexpr_opt
+                                       | as_path_regexpr_any | as_path_regexpr_multi
+                                       | as_path_regexpr_atleast | as_path_regexpr_atmost
+                                       | as_path_regexpr_range
+                                       | as_path_regexpr_any_same | as_path_regexpr_multi_same
+                                       | as_path_regexpr_atleast_same | as_path_regexpr_atmost_same
+                                       | as_path_regexpr_range_same }
+            as_path_regexpr_opt             = @{ "?" }
+            as_path_regexpr_any             = @{ "*" }
+            as_path_regexpr_multi           = @{ "+" }
+            as_path_regexpr_atleast         = ${ "{" ~ num ~ "," ~ "}" }
+            as_path_regexpr_atmost          = ${ "{" ~ "," ~ num ~ "}" }
+            as_path_regexpr_range           = ${ "{" ~ num ~ "," ~ num ~ "}" }
+            as_path_regexpr_any_same        = @{ "~*" }
+            as_path_regexpr_multi_same      = @{ "~+" }
+            as_path_regexpr_atleast_same    = ${ "~{" ~ num ~ "," ~ "}" }
+            as_path_regexpr_atmost_same     = ${ "~{" ~ "," ~ num ~ "}" }
+            as_path_regexpr_range_same      = ${ "~{" ~ num ~ "," ~ num ~ "}" }
+
 filter_expr             = _{ filter_expr_and | filter_expr_or | filter_expr_not | filter_expr_unit }
     filter_expr_and     = { filter_term ~ and ~ filter_term }
     filter_expr_or      = { filter_term ~ or ~ filter_term }
@@ -268,10 +305,11 @@ filter_expr             = _{ filter_expr_and | filter_expr_or | filter_expr_not 
     filter_expr_unit    = { filter_term }
         filter_term     = _{ any_fltr | named_filter | literal_filter | "(" ~ filter_expr ~ ")" }
             named_filter        = { filter_set }
-            literal_filter      = ${ prefix_set ~ range_op? }
-                prefix_set      = _{ literal_prefix_set | named_prefix_set }
-                    literal_prefix_set  = !{ "{" ~ ranged_prefix? ~ ( "," ~ ranged_prefix )* ~ ","? ~ "}" }
-                        ranged_prefix   = ${ ipv4_prefix ~ range_op? }
+            literal_filter      = { ranged_prefix_set | as_path_regexpr | action_stmt }
+                ranged_prefix_set   = ${ prefix_set ~ range_op? }
+                    prefix_set      = _{ literal_prefix_set | named_prefix_set }
+                        literal_prefix_set  = !{ "{" ~ ranged_prefix? ~ ( "," ~ ranged_prefix )* ~ ","? ~ "}" }
+                            ranged_prefix   = ${ ipv4_prefix ~ range_op? }
 
 mp_filter_expr          = _{ mp_filter_expr_and | mp_filter_expr_or | mp_filter_expr_not | mp_filter_expr_unit }
     mp_filter_expr_and  = { mp_filter_term ~ and ~ mp_filter_term }
@@ -280,18 +318,23 @@ mp_filter_expr          = _{ mp_filter_expr_and | mp_filter_expr_or | mp_filter_
     mp_filter_expr_unit = { mp_filter_term }
         mp_filter_term  = _{ any_fltr | mp_named_filter | mp_literal_filter | "(" ~ mp_filter_expr ~ ")" }
             mp_named_filter     = { filter_set }
-            mp_literal_filter   = ${ mp_prefix_set ~ range_op? }
-                mp_prefix_set   = _{ mp_literal_prefix_set | named_prefix_set }
-                    mp_literal_prefix_set   = !{ "{" ~ mp_ranged_prefix? ~ ( "," ~ mp_ranged_prefix )* ~ ","? ~ "}" }
-                        mp_ranged_prefix    = ${ ( ipv4_prefix | ipv6_prefix ) ~ range_op? }
+            mp_literal_filter   = { mp_ranged_prefix_set | as_path_regexpr | action_stmt }
+                mp_ranged_prefix_set    = ${ mp_prefix_set ~ range_op? }
+                    mp_prefix_set       = _{ mp_literal_prefix_set | named_prefix_set }
+                        mp_literal_prefix_set   = !{ "{" ~ mp_ranged_prefix? ~ ( "," ~ mp_ranged_prefix )* ~ ","? ~ "}" }
+                            mp_ranged_prefix    = ${ ( ipv4_prefix | ipv6_prefix ) ~ range_op? }
 
-peering_expr            = { peering_set | as_expr ~ ( remote_rtr_expr )? ~ ( at ~ local_rtr_expr )? }
-    remote_rtr_expr     = { rtr_expr }
-    local_rtr_expr      = { rtr_expr }
+peering_expr            = _{ peering_expr_named | peering_expr_literal }
+    peering_expr_named      = { peering_set }
+    peering_expr_literal    = { as_expr ~ ( remote_rtr_expr )? ~ ( at ~ local_rtr_expr )? }
+        remote_rtr_expr     = { rtr_expr }
+        local_rtr_expr      = { rtr_expr }
 
-mp_peering_expr         = { peering_set | as_expr ~ ( remote_mp_rtr_expr )? ~ ( at ~ local_mp_rtr_expr )? }
-    remote_mp_rtr_expr  = { mp_rtr_expr }
-    local_mp_rtr_expr   = { mp_rtr_expr }
+mp_peering_expr         = _{ mp_peering_expr_named | mp_peering_expr_literal }
+    mp_peering_expr_named   = { peering_set }
+    mp_peering_expr_literal = { as_expr ~ ( remote_mp_rtr_expr )? ~ ( at ~ local_mp_rtr_expr )? }
+        remote_mp_rtr_expr  = { mp_rtr_expr }
+        local_mp_rtr_expr   = { mp_rtr_expr }
 
 as_expr                 = _{ as_expr_and | as_expr_or | as_expr_except | as_expr_unit }
     as_expr_and         = { as_expr_term ~ and ~ as_expr_term }
@@ -305,34 +348,40 @@ rtr_expr                = _{ rtr_expr_and | rtr_expr_or | rtr_expr_except | rtr_
     rtr_expr_or         = { rtr_expr_term ~ or ~ rtr_expr_term }
     rtr_expr_except     = { rtr_expr_term ~ except ~ rtr_expr_term }
     rtr_expr_unit       = { rtr_expr_term }
-        rtr_expr_term   = { rtr_set | inet_rtr | ipv4_addr | "(" ~ rtr_expr ~ ")" }
+        rtr_expr_term       = _{ rtr_set | inet_rtr | rtr_addr_literal | "(" ~ rtr_expr ~ ")" }
+            rtr_addr_literal    = @{ ipv4_addr }
 
 mp_rtr_expr             = _{ mp_rtr_expr_and | mp_rtr_expr_or | mp_rtr_expr_except | mp_rtr_expr_unit }
     mp_rtr_expr_and     = { mp_rtr_expr_term ~ and ~ mp_rtr_expr_term }
     mp_rtr_expr_or      = { mp_rtr_expr_term ~ or ~ mp_rtr_expr_term }
     mp_rtr_expr_except  = { mp_rtr_expr_term ~ except ~ mp_rtr_expr_term }
     mp_rtr_expr_unit    = { mp_rtr_expr_term }
-        mp_rtr_expr_term    = { rtr_set | inet_rtr | ipv4_addr | ipv6_addr | "(" ~ mp_rtr_expr ~ ")" }
+        mp_rtr_expr_term    = _{ rtr_set | inet_rtr | mp_rtr_addr_literal | "(" ~ mp_rtr_expr ~ ")" }
+            mp_rtr_addr_literal = @{ ipv4_addr | ipv6_addr }
 
-protocol_dist_expr      = _{ ( ^"protocol" ~ from_protocol )? ~ ( into ~ into_protocol )? }
+protocol_dist_expr      = { ( ^"protocol" ~ from_protocol )? ~ ( into ~ into_protocol )? }
     from_protocol       = { protocol_name }
     into_protocol       = { protocol_name }
 
-import_stmt             = _{ ( protocol_dist_expr )? ~ import_expr }
-    import_expr                 = _{ import_expr_except | import_expr_refine | import_expr_unit }
-        import_expr_except      = { import_term ~ except ~ import_expr }
-        import_expr_refine      = { import_term ~ refine ~ import_expr }
-        import_expr_unit        = { import_term }
-            import_term         = _{ import_factor | "{" ~ ( import_factor ~ ";" )+ ~ "}" }
-                import_factor   = { ( from ~ peering_expr ~ ( action ~ action_expr )? )+ ~ accept ~ filter_expr }
+import_stmt             = _{ import_stmt_simple | import_stmt_protocol }
+    import_stmt_simple          = { import_expr }
+    import_stmt_protocol        = { protocol_dist_expr ~ import_expr }
+        import_expr                 = _{ import_expr_except | import_expr_refine | import_expr_unit }
+            import_expr_except      = { import_term ~ except ~ import_expr }
+            import_expr_refine      = { import_term ~ refine ~ import_expr }
+            import_expr_unit        = { import_term }
+                import_term         = { import_factor ~ ";"? | "{" ~ ( import_factor ~ ";" )+ ~ "}" }
+                    import_factor   = { ( from ~ peering_expr ~ ( action ~ action_expr )? )+ ~ accept ~ filter_expr }
 
-mp_import_stmt          = _{ ( protocol_dist_expr )? ~ ( ^"afi" ~ afi_safi_list )? ~ mp_import_expr }
-    mp_import_expr              = _{ mp_import_expr_except | mp_import_expr_refine | mp_import_expr_unit }
-        mp_import_expr_except   = { mp_import_term ~ except ~ mp_import_expr }
-        mp_import_expr_refine   = { mp_import_term ~ refine ~ mp_import_expr }
-        mp_import_expr_unit     = { mp_import_term }
-            mp_import_term      = _{ mp_import_factor ~ ";"? | "{" ~ ( mp_import_factor ~ ";" )+ ~ "}" }
-                mp_import_factor    = { ( from ~ mp_peering_expr ~ ( action ~ action_expr )? )+ ~ accept ~ mp_filter_expr }
+mp_import_stmt          = _{ mp_import_stmt_simple | mp_import_stmt_protocol }
+    mp_import_stmt_simple       = { mp_import_expr }
+    mp_import_stmt_protocol     = { protocol_dist_expr ~ ( ^"afi" ~ afi_safi_list )? ~ mp_import_expr }
+        mp_import_expr              = _{ mp_import_expr_except | mp_import_expr_refine | mp_import_expr_unit }
+            mp_import_expr_except   = { mp_import_term ~ except ~ mp_import_expr }
+            mp_import_expr_refine   = { mp_import_term ~ refine ~ mp_import_expr }
+            mp_import_expr_unit     = { mp_import_term }
+                mp_import_term      = { mp_import_factor ~ ";"? | "{" ~ ( mp_import_factor ~ ";" )+ ~ "}" }
+                    mp_import_factor    = { ( from ~ mp_peering_expr ~ ( action ~ action_expr )? )+ ~ accept ~ mp_filter_expr }
 
 export_stmt             = _{ ( protocol_dist_expr )? ~ export_expr }
     export_expr                 = _{ export_expr_except | export_expr_refine | export_expr_unit }
@@ -382,10 +431,10 @@ mp_peer_expr            = { protocol_name ~ mp_peer_spec ~ ( peer_opts )? }
 // common attributes
 common_attrs                = _{ descr_attr | tech_c_attr | admin_c_attr | remarks_attr
                                | notify_attr | mnt_by_attr | changed_attr | source_attr }
-    descr_attr              = !{ ^"descr:"           ~ free_form }
+    descr_attr              = !{ ^"descr:"           ~ object_descr }
     tech_c_attr             = !{ ^"tech-c:"          ~ nic_hdl }
     admin_c_attr            = !{ ^"admin-c:"         ~ nic_hdl }
-    remarks_attr            = !{ ^"remarks:"         ~ free_form }
+    remarks_attr            = !{ ^"remarks:"         ~ remarks }
     notify_attr             = !{ ^"notify:"          ~ email_addr }
     mnt_by_attr             = !{ ^"mnt-by:"          ~ mntner_name_list }
     changed_attr            = !{ ^"changed:"         ~ changed_expr }
@@ -394,7 +443,7 @@ common_attrs                = _{ descr_attr | tech_c_attr | admin_c_attr | remar
 contact_attrs               = _{ nic_hdl_attr | address_attr | phone_attr
                                | fax_no_attr | e_mail_attr }
     nic_hdl_attr            = !{ ^"nic-hdl:"         ~ nic_hdl }
-    address_attr            = !{ ^"address:"         ~ free_form }
+    address_attr            = !{ ^"address:"         ~ address }
     phone_attr              = !{ ^"phone:"           ~ tel_number }
     fax_no_attr             = !{ ^"fax-no:"          ~ tel_number }
     e_mail_attr             = !{ ^"e-mail:"          ~ email_addr }
@@ -422,7 +471,7 @@ rpsl_object                     = _{ mntner_obj | person_obj | role_obj
                                    | inet_rtr_obj | key_cert_obj }
 // mntner
 mntner_obj                      =  { mntner_class_attr      ~ ( mntner_attr )+ }
-    mntner_class_attr           = !{ ^"mntner:"             ~ mntner_name }
+    mntner_class_attr           = _{ ^"mntner:"             ~ mntner_name }
     mntner_attr                 = ${ NEWLINE ~
                                    ( common_attrs | auth_attr
                                    | upd_to_attr | mnt_nfy_attr ) }
@@ -431,34 +480,34 @@ mntner_obj                      =  { mntner_class_attr      ~ ( mntner_attr )+ }
         mnt_nfy_attr            = !{ ^"mnt-nfy:"            ~ email_addr }
 // person
 person_obj                      =  { person_class_attr      ~ ( person_attr )+ }
-    person_class_attr           = !{ ^"person:"             ~ free_form }
+    person_class_attr           = _{ ^"person:"             ~ person }
     person_attr                 = ${ NEWLINE ~
                                    ( common_attrs | contact_attrs ) }
 // role object
 role_obj                        =  { role_class_attr        ~ ( role_attr )+ }
-    role_class_attr             = !{ ^"role:"               ~ free_form }
+    role_class_attr             = _{ ^"role:"               ~ role }
     role_attr                   = ${ NEWLINE ~
                                    ( common_attrs | contact_attrs
                                    | trouble_attr ) }
-        trouble_attr            = !{ ^"trouble:"            ~ free_form }
+        trouble_attr            = !{ ^"trouble:"            ~ trouble }
 // as-block object
 as_block_obj                    =  { as_block_class_attr    ~ ( as_block_attr )+ }
-    as_block_class_attr         = !{ ^"as-block:"           ~ as_block }
+    as_block_class_attr         = _{ ^"as-block:"           ~ as_block }
     as_block_attr               = ${ NEWLINE ~
                                    ( common_attrs )}
 // inetnum object
 inetnum_obj                     =  { inetnum_class_attr     ~ ( inetnum_attr )+ }
-    inetnum_class_attr          = !{ ^"inetnum:"            ~ inetnum }
+    inetnum_class_attr          = _{ ^"inetnum:"            ~ inetnum }
     inetnum_attr                = ${ NEWLINE ~
                                    ( common_attrs | inetnum_attrs )}
 // inet6num object
 inet6num_obj                    =  { inet6num_class_attr    ~ ( inet6num_attr )+ }
-    inet6num_class_attr         = !{ ^"inet6num:"           ~ inet6num }
+    inet6num_class_attr         = _{ ^"inet6num:"           ~ inet6num }
     inet6num_attr               = ${ NEWLINE ~
                                    ( common_attrs | inetnum_attrs )}
 // route object
 route_obj                       =  { route_class_attr       ~ ( route_attr )+ }
-    route_class_attr            = !{ ^"route:"              ~ ipv4_prefix }
+    route_class_attr            = _{ ^"route:"              ~ ipv4_prefix }
     route_attr                  = ${ NEWLINE ~
                                    ( common_attrs | mp_route_attrs
                                    | inject_attr | components_attr
@@ -469,7 +518,7 @@ route_obj                       =  { route_class_attr       ~ ( route_attr )+ }
         holes_attr              = !{ ^"holes:"              ~ ipv4_prefix_list }
 // route6 object
 route6_obj                      =  { route6_class_attr        ~ ( route6_attr )+ }
-    route6_class_attr           = !{ ^"route6:"              ~ ipv6_prefix }
+    route6_class_attr           = _{ ^"route6:"              ~ ipv6_prefix }
     route6_attr                 = ${ NEWLINE ~
                                    ( common_attrs | mp_route_attrs
                                    | inject6_attr | components6_attr
@@ -480,14 +529,14 @@ route6_obj                      =  { route6_class_attr        ~ ( route6_attr )+
         holes6_attr             = !{ ^"holes:"              ~ ipv6_prefix_list }
 // as-set object
 as_set_obj                      =  { as_set_class_attr      ~ ( as_set_attr )+ }
-    as_set_class_attr           = !{ ^"as-set:"             ~ as_set }
+    as_set_class_attr           = _{ ^"as-set:"             ~ as_set }
     as_set_attr                 = ${ NEWLINE ~
                                    ( common_attrs | set_attrs
                                    | as_set_members_attr ) }
         as_set_members_attr     = !{ ^"members:"            ~ as_set_members_list }
 // route-set object
 route_set_obj                   =  { route_set_class_attr   ~ ( route_set_attr )+ }
-    route_set_class_attr        = !{ ^"route-set:"          ~ route_set }
+    route_set_class_attr        = _{ ^"route-set:"          ~ route_set }
     route_set_attr              = ${ NEWLINE ~
                                    ( common_attrs | set_attrs
                                    | route_set_members_attr ) }
@@ -495,7 +544,7 @@ route_set_obj                   =  { route_set_class_attr   ~ ( route_set_attr )
         route_set_mp_members_attr   = !{ ^"mp-members:"     ~ route_set_mp_members_list }
 // filter-set object
 filter_set_obj                  =  { filter_set_class_attr  ~ ( filter_set_attr )+ }
-    filter_set_class_attr       = !{ ^"filter-set:"         ~ filter_set }
+    filter_set_class_attr       = _{ ^"filter-set:"         ~ filter_set }
     filter_set_attr             = ${ NEWLINE ~
                                    ( common_attrs | filter_attr
                                    | mp_filter_attr ) }
@@ -503,7 +552,7 @@ filter_set_obj                  =  { filter_set_class_attr  ~ ( filter_set_attr 
         mp_filter_attr          = !{ ^"mp-filter:"          ~ mp_filter_expr }
 // rtr-set object
 rtr_set_obj                     =  { rtr_set_class_attr     ~ ( rtr_set_attr )+ }
-    rtr_set_class_attr          = !{ ^"rtr-set:"            ~ rtr_set }
+    rtr_set_class_attr          = _{ ^"rtr-set:"            ~ rtr_set }
     rtr_set_attr                = ${ NEWLINE ~
                                    ( common_attrs | set_attrs
                                    | rtr_set_members_attr
@@ -512,7 +561,7 @@ rtr_set_obj                     =  { rtr_set_class_attr     ~ ( rtr_set_attr )+ 
         rtr_set_mp_members_attr = !{ ^"mp-members:"         ~ rtr_set_mp_members_list }
 // peering-set object
 peering_set_obj                 =  { peering_set_class_attr ~ ( peering_set_attr )+ }
-    peering_set_class_attr      = !{ ^"peering-set:"        ~ peering_set }
+    peering_set_class_attr      = _{ ^"peering-set:"        ~ peering_set }
     peering_set_attr            = ${ NEWLINE ~
                                    ( common_attrs | peering_attr
                                    | mp_peering_attr ) }
@@ -520,7 +569,7 @@ peering_set_obj                 =  { peering_set_class_attr ~ ( peering_set_attr
         mp_peering_attr         = !{ ^"mp-peering:"         ~ mp_peering_expr }
 // aut-num class
 aut_num_obj                     =  { aut_num_class_attr     ~ ( aut_num_attr )+ }
-    aut_num_class_attr          = !{ ^"aut-num:"            ~ aut_num }
+    aut_num_class_attr          = _{ ^"aut-num:"            ~ aut_num }
     aut_num_attr                = ${ NEWLINE ~
                                    ( common_attrs | as_name_attr
                                    | aut_num_member_of_attr | import_attr
@@ -535,7 +584,7 @@ aut_num_obj                     =  { aut_num_class_attr     ~ ( aut_num_attr )+ 
         mp_default_attr         = !{ ^"mp-default:"         ~ mp_default_expr }
 // dictionary object
 dictionary_obj                  =  { dictionary_class_attr  ~ ( dictionary_attr )+ }
-    dictionary_class_attr       = !{ ^"dictionary:"         ~ dictionary }
+    dictionary_class_attr       = _{ ^"dictionary:"         ~ dictionary }
     dictionary_attr             = ${ NEWLINE ~
                                    ( common_attrs | rp_attribute_attr
                                    | typedef_attr | protocol_attr ) }
@@ -544,7 +593,7 @@ dictionary_obj                  =  { dictionary_class_attr  ~ ( dictionary_attr 
         protocol_attr           = !{ ^"protocol:"           ~ protocol_expr }
 // inet-rtr object
 inet_rtr_obj                    =  { inet_rtr_class_attr    ~ ( inet_rtr_attr )+ }
-    inet_rtr_class_attr         = !{ ^"inet-rtr:"           ~ inet_rtr }
+    inet_rtr_class_attr         = _{ ^"inet-rtr:"           ~ inet_rtr }
     inet_rtr_attr               = ${ NEWLINE ~
                                    ( common_attrs | alias_attr
                                    | local_as_attr | ifaddr_attr
@@ -559,17 +608,26 @@ inet_rtr_obj                    =  { inet_rtr_class_attr    ~ ( inet_rtr_attr )+
         inet_rtr_member_of_attr = !{ ^"member-of:"          ~ rtr_set_list }
 // key-cert object
 key_cert_obj                    =  { key_cert_class_attr    ~ ( key_cert_attr )+ }
-    key_cert_class_attr         = !{ ^"key-cert:"           ~ key_cert }
+    key_cert_class_attr         = _{ ^"key-cert:"           ~ key_cert }
     key_cert_attr               = ${ NEWLINE ~
                                    ( common_attrs | method_attr | owner_attr
                                    | fingerpr_attr | certif_attr ) }
         method_attr             = !{ ^"method:"             ~ signing_method }
-        owner_attr              = !{ ^"owner:"              ~ free_form }
+        owner_attr              = !{ ^"owner:"              ~ owner }
         fingerpr_attr           = !{ ^"fingerpr:"           ~ key_fingerprint }
         certif_attr             = !{ ^"certif:"             ~ key_certif }
 
 // ** stadalone parsers **
 just_rpsl_object                = _{ SOI ~ rpsl_object ~ EOI }
 just_rpsl_object_key            = _{ SOI ~ rpsl_object_key ~ EOI }
-just_filter                     = _{ SOI ~ filter_expr ~ EOI }
-just_mp_filter                  = _{ SOI ~ mp_filter_expr ~ EOI }
+// expressions
+just_import_stmt                = _{ SOI ~ import_stmt ~ EOI }
+just_mp_import_stmt             = _{ SOI ~ mp_import_stmt ~ EOI }
+just_filter_expr                = _{ SOI ~ filter_expr ~ EOI }
+just_mp_filter_expr             = _{ SOI ~ mp_filter_expr ~ EOI }
+just_auth_expr                  = _{ SOI ~ auth_expr ~ EOI }
+just_changed_expr               = _{ SOI ~ changed_expr ~ EOI }
+just_peering_expr               = _{ SOI ~ peering_expr ~ EOI }
+just_mp_peering_expr            = _{ SOI ~ mp_peering_expr ~ EOI }
+just_action_expr                = _{ SOI ~ action_expr ~ EOI }
+just_as_expr                    = _{ SOI ~ as_expr ~ EOI }

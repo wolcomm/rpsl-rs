@@ -1,3 +1,6 @@
+use std::cmp::{Eq, PartialEq};
+use std::hash::Hash;
+
 use pest::iterators::Pair;
 
 /// Parser for RSPL filter expressions.
@@ -8,7 +11,6 @@ pub struct RpslParser;
 pub type ParserRule = Rule;
 pub type TokenPair<'a> = Pair<'a, ParserRule>;
 
-// TODO: de-duplicate cases
 macro_rules! impl_from_str {
     ( $rule:expr => $t:ty ) => {
         impl std::str::FromStr for $t {
@@ -24,31 +26,66 @@ macro_rules! impl_from_str {
             }
         }
     };
-    ( $rule:expr => inner => $t:ty ) => {
-        impl std::str::FromStr for $t {
-            type Err = ParseError;
+}
 
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                use pest::Parser;
-                log::info!(concat!("trying to parse ", stringify!($t), " expression"));
-                let root = $crate::parser::RpslParser::parse($rule, s)?
-                    .next()
-                    .ok_or_else(|| err!("failed to parse expression",))?;
-                Ok(next_into_or!(root.into_inner() => "failed to get prefix set name"))
+macro_rules! impl_str_primitive {
+    ( $( $rule:pat )|+ => $t:ty ) => {
+        impl TryFrom<TokenPair<'_>> for $t {
+            type Error = ParseError;
+            fn try_from(pair: TokenPair) -> ParseResult<Self> {
+                debug_construction!(pair => $t);
+                match pair.as_rule() {
+                    $( $rule )|+ => Ok(Self(pair.as_str().to_string())),
+                    _   => Err(err!(
+                            concat!("expected a '", stringify!($( $rule )|+), "' expression, got {:?}: {}"),
+                            pair.as_rule(),
+                            pair.as_str(),
+                    )),
+                }
             }
         }
-    };
+        impl fmt::Display for $t {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                self.0.fmt(f)
+            }
+        }
+        impl std::convert::From<&str> for $t {
+            fn from(s: &str) -> Self {
+                Self(s.to_string())
+            }
+        }
+    }
+}
+
+macro_rules! impl_case_insensitive_str_primitive {
+    ( $( $rule:pat )|+ => $t:ty ) => {
+        impl_str_primitive!($( $rule )|+ => $t);
+        impl std::cmp::PartialEq for $t {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.to_uppercase() == other.0.to_uppercase()
+            }
+        }
+        impl std::cmp::Eq for $t {}
+        impl std::hash::Hash for $t {
+            fn hash<H>(&self, state: &mut H)
+            where
+                H: std::hash::Hasher,
+            {
+                self.0.hash(state)
+            }
+        }
+    }
 }
 
 macro_rules! next_into_or {
     ( $pairs:expr => $err:literal ) => {
-        $pairs.next().ok_or_else(|| err!($err,))?.try_into()?
+        $pairs.next().ok_or_else(|| err!($err))?.try_into()
     };
 }
 
 macro_rules! next_parse_or {
     ( $pairs:expr => $err:literal ) => {
-        $pairs.next().ok_or_else(|| err!($err,))?.as_str().parse()?
+        $pairs.next().ok_or_else(|| err!($err))?.as_str().parse()
     };
 }
 
@@ -62,6 +99,16 @@ macro_rules! debug_construction {
             ),
             $pair.as_rule(),
             $pair.as_str()
+        )
+    };
+}
+
+macro_rules! rule_mismatch {
+    ( $pair:expr => $expected:literal ) => {
+        err!(
+            concat!("expected ", $expected, ", got {:?}: '{}'"),
+            $pair.as_rule(),
+            $pair.as_str(),
         )
     };
 }
@@ -382,12 +429,14 @@ mod tests {
             rule: Rule::literal_filter,
             tokens: [
                 literal_filter(0, 8, [
-                    named_prefix_set(0, 6, [
-                        as_set(0, 6, [
-                            as_set_name(0, 6)
-                        ])
-                    ]),
-                    less_incl(6, 8)
+                    ranged_prefix_set(0, 8, [
+                        named_prefix_set(0, 6, [
+                            as_set(0, 6, [
+                                as_set_name(0, 6)
+                            ])
+                        ]),
+                        less_incl(6, 8)
+                    ])
                 ])
             ]
         }
@@ -402,7 +451,7 @@ mod tests {
                         parses_to! {
                             parser: RpslParser,
                             input: $filter,
-                            rule: Rule::just_filter,
+                            rule: Rule::just_filter_expr,
                             tokens: [ $( $names $calls ),* ]
                         }
                     }
@@ -415,16 +464,20 @@ mod tests {
         empty_literal: "{}" => [
             filter_expr_unit(0, 2, [
                 literal_filter(0, 2, [
-                    literal_prefix_set(0, 2)
+                    ranged_prefix_set(0, 2, [
+                        literal_prefix_set(0, 2)
+                    ])
                 ])
             ])
         ],
         singleton_literal: "{ 10.0.0.0/0 }" => [
             filter_expr_unit(0, 14, [
                 literal_filter(0, 14, [
-                    literal_prefix_set(0, 14, [
-                        ranged_prefix(2, 12, [
-                            ipv4_prefix(2, 12)
+                    ranged_prefix_set(0, 14, [
+                        literal_prefix_set(0, 14, [
+                            ranged_prefix(2, 12, [
+                                ipv4_prefix(2, 12)
+                            ])
                         ])
                     ])
                 ])
@@ -442,9 +495,11 @@ mod tests {
         single_as_set: "AS-FOO" => [
             filter_expr_unit(0, 6, [
                 literal_filter(0, 6, [
-                    named_prefix_set(0, 6, [
-                        as_set(0, 6, [
-                            as_set_name(0, 6)
+                    ranged_prefix_set(0, 6, [
+                        named_prefix_set(0, 6, [
+                            as_set(0, 6, [
+                                as_set_name(0, 6)
+                            ])
                         ])
                     ])
                 ])
@@ -454,9 +509,11 @@ mod tests {
             filter_expr_unit(0, 8, [
                 filter_expr_unit(1, 7, [
                     literal_filter(1, 7, [
-                        named_prefix_set(1, 7, [
-                            as_set(1, 7, [
-                                as_set_name(1, 7)
+                        ranged_prefix_set(1, 7, [
+                            named_prefix_set(1, 7, [
+                                as_set(1, 7, [
+                                    as_set_name(1, 7)
+                                ])
                             ])
                         ])
                     ])
@@ -466,9 +523,11 @@ mod tests {
         not_expr: "NOT AS65000" => [
             filter_expr_not(0, 11, [
                 literal_filter(4, 11, [
-                    named_prefix_set(4, 11, [
-                        aut_num(4, 11, [
-                            num(6, 11)
+                    ranged_prefix_set(4, 11, [
+                        named_prefix_set(4, 11, [
+                            aut_num(4, 11, [
+                                num(6, 11)
+                            ])
                         ])
                     ])
                 ])
@@ -477,16 +536,20 @@ mod tests {
         and_expr: "{ 192.0.2.0/24 } AND AS-FOO" => [
             filter_expr_and(0, 27, [
                 literal_filter(0, 16, [
-                    literal_prefix_set(0, 16, [
-                        ranged_prefix(2, 14, [
-                            ipv4_prefix(2, 14)
+                    ranged_prefix_set(0, 16, [
+                        literal_prefix_set(0, 16, [
+                            ranged_prefix(2, 14, [
+                                ipv4_prefix(2, 14)
+                            ])
                         ])
                     ])
                 ]),
                 literal_filter(21, 27, [
-                    named_prefix_set(21, 27, [
-                        as_set(21, 27, [
-                            as_set_name(21, 27)
+                    ranged_prefix_set(21, 27, [
+                        named_prefix_set(21, 27, [
+                            as_set(21, 27, [
+                                as_set_name(21, 27)
+                            ])
                         ])
                     ])
                 ])
@@ -500,9 +563,11 @@ mod tests {
                     ])
                 ]),
                 literal_filter(12, 18, [
-                    named_prefix_set(12, 18, [
-                        route_set(12, 18, [
-                            route_set_name(12, 18)
+                    ranged_prefix_set(12, 18, [
+                        named_prefix_set(12, 18, [
+                            route_set(12, 18, [
+                                route_set_name(12, 18)
+                            ])
                         ])
                     ])
                 ])
@@ -513,31 +578,37 @@ mod tests {
                 filter_expr_and(1, 59, [
                     filter_expr_or(2, 37, [
                         literal_filter(2, 10, [
-                            named_prefix_set(2, 8, [
-                                peeras(2, 8)
-                            ]),
-                            less_incl(8, 10)
+                            ranged_prefix_set(2, 10, [
+                                named_prefix_set(2, 8, [
+                                    peeras(2, 8)
+                                ]),
+                                less_incl(8, 10)
+                            ])
                         ]),
                         literal_filter(14, 37, [
-                            named_prefix_set(14, 35, [
-                                as_set(14, 35, [
-                                    aut_num(14, 21, [
-                                        num(16, 21)
-                                    ]),
-                                    as_set_name(22, 28),
-                                    peeras(29, 35)
-                                ])
-                            ]),
-                            less_incl(35, 37)
+                            ranged_prefix_set(14, 37, [
+                                named_prefix_set(14, 35, [
+                                    as_set(14, 35, [
+                                        aut_num(14, 21, [
+                                            num(16, 21)
+                                        ]),
+                                        as_set_name(22, 28),
+                                        peeras(29, 35)
+                                    ])
+                                ]),
+                                less_incl(35, 37)
+                            ])
                         ])
                     ]),
                     literal_filter(43, 59, [
-                        literal_prefix_set(43, 59, [
-                            ranged_prefix(44, 58, [
-                                ipv4_prefix(44, 53),
-                                range(53, 58, [
-                                    num(54, 55),
-                                    num(56, 58)
+                        ranged_prefix_set(43, 59, [
+                            literal_prefix_set(43, 59, [
+                                ranged_prefix(44, 58, [
+                                    ipv4_prefix(44, 53),
+                                    range(53, 58, [
+                                        num(54, 55),
+                                        num(56, 58)
+                                    ])
                                 ])
                             ])
                         ])

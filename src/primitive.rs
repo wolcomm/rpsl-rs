@@ -2,59 +2,50 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::str::FromStr;
 
-#[cfg(any(test, feature = "arbitrary"))]
-use ipnet::{IpNet, Ipv4Net};
+use chrono::NaiveDate;
 
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
+    addr_family::Afi,
     error::{ParseError, ParseResult},
     names::AutNum,
     parser::{ParserRule, TokenPair},
 };
 
-/// IP prefix appearing in a literal prefix set.
+/// IP prefix range literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct LiteralPrefixSetEntry<T> {
-    prefix: T,
+pub struct PrefixRange<A: Afi> {
+    prefix: A::Net,
     op: RangeOperator,
 }
 
-impl<T> LiteralPrefixSetEntry<T> {
-    /// Construct a new [`LiteralPrefixSetEntry`].
-    pub fn new(prefix: T, op: RangeOperator) -> Self {
+impl<A: Afi> PrefixRange<A> {
+    /// Construct a new [`PrefixRange<T>`].
+    pub fn new(prefix: A::Net, op: RangeOperator) -> Self {
         Self { prefix, op }
     }
 
-    /// Get the IP prefix represented by this [`LiteralPrefixSetEntry`].
-    pub fn prefix(&self) -> &T {
+    /// Get the IP prefix represented by this [`PrefixRange<T>`].
+    pub fn prefix(&self) -> &A::Net {
         &self.prefix
     }
 
-    /// Get the [`RangeOperator`] for this [`LiteralPrefixSetEntry`].
+    /// Get the [`RangeOperator`] for this [`PrefixRange<T>`].
     pub fn operator(&self) -> &RangeOperator {
         &self.op
     }
 }
 
-impl<T> TryFrom<TokenPair<'_>> for LiteralPrefixSetEntry<T>
-where
-    T: FromStr,
-    T::Err: Into<ParseError>,
-{
+impl<A: Afi> TryFrom<TokenPair<'_>> for PrefixRange<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
-        debug_construction!(pair => LiteralPrefixSetEntry);
+        debug_construction!(pair => PrefixRange);
         let mut pairs = pair.into_inner();
-        // let prefix = next_parse_or!(pairs => "failed to get inner prefix");
-        let prefix = pairs
-            .next()
-            .ok_or_else(|| err!("failed to get inner prefix"))?
-            .as_str()
-            .parse()
-            .map_err(|err: T::Err| err.into())?;
+        let prefix = next_parse_or!(pairs => "failed to get inner prefix")?;
+        // .map_err(|err| err.into())?;
         let op = match pairs.next() {
             Some(inner) => inner.try_into()?,
             None => RangeOperator::None,
@@ -63,21 +54,26 @@ where
     }
 }
 
-impl<T: fmt::Display> fmt::Display for LiteralPrefixSetEntry<T> {
+impl<A: Afi> fmt::Display for PrefixRange<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.prefix, self.op)
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl Arbitrary for LiteralPrefixSetEntry<Ipv4Net> {
-    type Parameters = ParamsFor<std::net::Ipv4Addr>;
+impl<A: Afi> Arbitrary for PrefixRange<A>
+where
+    A: fmt::Debug,
+    A::Addr: Arbitrary + Clone,
+    <A::Addr as Arbitrary>::Strategy: 'static,
+    A::Net: fmt::Debug,
+{
+    type Parameters = ParamsFor<A::Addr>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        use std::net::Ipv4Addr;
-        any_with::<Ipv4Addr>(args)
+        any_with::<A::Addr>(args)
             .prop_flat_map(|addr| {
-                let max_len = 32u8;
+                let max_len = A::max_len(&addr);
                 (Just(addr), 0..=max_len, Just(max_len))
             })
             .prop_flat_map(|(addr, len, max_len)| {
@@ -88,39 +84,7 @@ impl Arbitrary for LiteralPrefixSetEntry<Ipv4Net> {
                 )
             })
             .prop_map(|(addr, len, op)| {
-                let prefix = Ipv4Net::new(addr, len).unwrap().trunc();
-                Self { prefix, op }
-            })
-            .boxed()
-    }
-}
-
-#[cfg(any(test, feature = "arbitrary"))]
-impl Arbitrary for LiteralPrefixSetEntry<IpNet> {
-    type Parameters = ParamsFor<std::net::IpAddr>;
-    type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        use std::net::IpAddr;
-        any_with::<IpAddr>(args)
-            .prop_flat_map(|addr| {
-                let max_len = match addr {
-                    IpAddr::V4(_) => 32u8,
-                    IpAddr::V6(_) => 128u8,
-                };
-                (Just(addr), 0..=max_len, Just(max_len))
-            })
-            .prop_flat_map(|(addr, len, max_len)| {
-                (
-                    Just(addr),
-                    Just(len),
-                    any_with::<RangeOperator>((len, max_len)),
-                )
-            })
-            .prop_map(|(addr, len, op)| {
-                let prefix = match addr {
-                    IpAddr::V4(addr) => ipnet::Ipv4Net::new(addr, len).unwrap().trunc().into(),
-                    IpAddr::V6(addr) => ipnet::Ipv6Net::new(addr, len).unwrap().trunc().into(),
-                };
+                let prefix = A::addr_to_net(addr, len);
                 Self { prefix, op }
             })
             .boxed()
@@ -153,13 +117,13 @@ impl TryFrom<TokenPair<'_>> for RangeOperator {
             ParserRule::less_excl => Ok(Self::LessExcl),
             ParserRule::less_incl => Ok(Self::LessIncl),
             ParserRule::exact => Ok(Self::Exact(
-                next_parse_or!(pair.into_inner() => "failed to get operand for range operation"),
+                next_parse_or!(pair.into_inner() => "failed to get operand for range operation")?,
             )),
             ParserRule::range => {
                 let mut pairs = pair.into_inner();
                 Ok(Self::Range(
-                    next_parse_or!(pairs => "failed to get lower operand for range operation"),
-                    next_parse_or!(pairs => "failed to get upper operand for range operation"),
+                    next_parse_or!(pairs => "failed to get lower operand for range operation")?,
+                    next_parse_or!(pairs => "failed to get upper operand for range operation")?,
                 ))
             }
             _ => Err(err!(
@@ -212,7 +176,7 @@ pub enum SetNameComp {
     /// Component containing the `PeerAS` token.
     PeerAs,
     /// Component containing a set name, according to the class of the set.
-    Name(String),
+    Name(SetNameCompName),
 }
 
 impl TryFrom<TokenPair<'_>> for SetNameComp {
@@ -227,7 +191,8 @@ impl TryFrom<TokenPair<'_>> for SetNameComp {
             | ParserRule::route_set_name
             | ParserRule::as_set_name
             | ParserRule::rtr_set_name
-            | ParserRule::peering_set_name => Ok(Self::Name(pair.as_str().to_string())),
+            | ParserRule::peering_set_name => Ok(Self::Name(pair.try_into()?)),
+            // TODO: use rule_mismatch!
             _ => Err(err!(
                 "expected a set name component, got {:?}: {}",
                 pair.as_rule(),
@@ -255,8 +220,224 @@ impl Arbitrary for SetNameComp {
         prop_oneof![
             any::<AutNum>().prop_map(Self::AutNum),
             Just(Self::PeerAs),
-            args.0.prop_map(Self::Name)
+            args.0.prop_map(|name| Self::Name(name.as_str().into()))
         ]
         .boxed()
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct SetNameCompName(String);
+impl_case_insensitive_str_primitive!(
+    ParserRule::filter_set_name
+     | ParserRule::route_set_name
+     | ParserRule::as_set_name
+     | ParserRule::rtr_set_name
+     | ParserRule::peering_set_name => SetNameCompName
+);
+
+#[derive(Clone, Debug)]
+pub struct ObjectDescr(String);
+impl_case_insensitive_str_primitive!(ParserRule::object_descr => ObjectDescr);
+
+#[derive(Clone, Debug)]
+pub struct NicHdl(String);
+impl_case_insensitive_str_primitive!(ParserRule::nic_hdl => NicHdl);
+
+#[derive(Clone, Debug)]
+pub struct Remarks(String);
+impl_case_insensitive_str_primitive!(ParserRule::remarks => Remarks);
+
+#[derive(Clone, Debug)]
+pub struct RegistryName(String);
+impl_case_insensitive_str_primitive!(ParserRule::registry_name => RegistryName);
+
+#[derive(Clone, Debug)]
+pub struct Address(String);
+impl_case_insensitive_str_primitive!(ParserRule::address => Address);
+
+#[derive(Clone, Debug)]
+pub struct EmailAddress(String);
+impl_case_insensitive_str_primitive!(ParserRule::email_addr => EmailAddress);
+
+#[derive(Clone, Debug)]
+pub struct TelNumber(String);
+impl_case_insensitive_str_primitive!(ParserRule::tel_number => TelNumber);
+
+#[derive(Clone, Debug)]
+pub struct EmailAddressRegex(String);
+impl_case_insensitive_str_primitive!(ParserRule::email_addr_regexp => EmailAddressRegex);
+
+#[derive(Clone, Debug)]
+pub struct PgpFromFingerprint(String);
+impl_case_insensitive_str_primitive!(ParserRule::pgp_from_fingerpr => PgpFromFingerprint);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct CryptHash(String);
+impl_str_primitive!(ParserRule::crypt_hash => CryptHash);
+
+#[derive(Clone, Debug)]
+pub struct Trouble(String);
+impl_case_insensitive_str_primitive!(ParserRule::trouble => Trouble);
+
+#[derive(Clone, Debug)]
+pub struct KeyOwner(String);
+impl_case_insensitive_str_primitive!(ParserRule::owner => KeyOwner);
+
+#[derive(Clone, Debug)]
+pub struct Fingerprint(String);
+impl_case_insensitive_str_primitive!(ParserRule::key_fingerprint => Fingerprint);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Certificate(String);
+impl_str_primitive!(ParserRule::key_certif => Certificate);
+
+#[derive(Clone, Debug)]
+pub struct AsName(String);
+impl_case_insensitive_str_primitive!(ParserRule::as_name => AsName);
+
+#[derive(Clone, Debug)]
+pub struct Netname(String);
+impl_case_insensitive_str_primitive!(ParserRule::netname => Netname);
+
+#[derive(Clone, Debug)]
+pub struct CountryCode(String);
+impl_case_insensitive_str_primitive!(ParserRule::country_code => CountryCode);
+
+#[derive(Clone, Debug)]
+pub struct DnsName(String);
+impl_case_insensitive_str_primitive!(ParserRule::dns_name => DnsName);
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct Date(NaiveDate);
+
+impl AsRef<NaiveDate> for Date {
+    fn as_ref(&self) -> &NaiveDate {
+        &self.0
+    }
+}
+
+impl FromStr for Date {
+    type Err = ParseError;
+    fn from_str(s: &str) -> ParseResult<Self> {
+        Ok(Self(NaiveDate::parse_from_str(s, "%Y%m%d")?))
+    }
+}
+
+impl TryFrom<TokenPair<'_>> for Date {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => Date);
+        match pair.as_rule() {
+            ParserRule::date => pair.as_str().parse(),
+            _ => Err(rule_mismatch!(pair => "date")),
+        }
+    }
+}
+
+impl fmt::Display for Date {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0.format("%Y%m%d"))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub enum SigningMethod {
+    Pgp,
+    X509,
+}
+
+impl TryFrom<TokenPair<'_>> for SigningMethod {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => SigningMethod);
+        match pair.as_rule() {
+            ParserRule::signing_method_pgp => Ok(Self::Pgp),
+            ParserRule::signing_method_x509 => Ok(Self::X509),
+            _ => Err(rule_mismatch!(pair => "signing method")),
+        }
+    }
+}
+
+impl fmt::Display for SigningMethod {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Pgp => write!(f, "PGP"),
+            Self::X509 => write!(f, "X509"),
+        }
+    }
+}
+
+// TODO: impl Arbitrary for SigningMethod
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum Protocol {
+    Bgp4,
+    MpBgp,
+    Ospf,
+    RipNg,
+    Rip,
+    Igrp,
+    IsIs,
+    Static,
+    Dvmrp,
+    PimDm,
+    PimSm,
+    Cbt,
+    Mospf,
+    Unknown(UnknownProtocol),
+}
+
+impl TryFrom<TokenPair<'_>> for Protocol {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => Protocol);
+        match pair.as_rule() {
+            ParserRule::protocol_bgp4 => Ok(Self::Bgp4),
+            ParserRule::protocol_mpbgp => Ok(Self::MpBgp),
+            ParserRule::protocol_ospf => Ok(Self::Ospf),
+            ParserRule::protocol_ripng => Ok(Self::RipNg),
+            ParserRule::protocol_rip => Ok(Self::Rip),
+            ParserRule::protocol_igrp => Ok(Self::Igrp),
+            ParserRule::protocol_isis => Ok(Self::IsIs),
+            ParserRule::protocol_static => Ok(Self::Static),
+            ParserRule::protocol_dvmrp => Ok(Self::Dvmrp),
+            ParserRule::protocol_pim_dm => Ok(Self::PimDm),
+            ParserRule::protocol_pim_sm => Ok(Self::PimSm),
+            ParserRule::protocol_cbt => Ok(Self::Cbt),
+            ParserRule::protocol_mospf => Ok(Self::Mospf),
+            ParserRule::protocol_unknown => Ok(Self::Unknown(pair.try_into()?)),
+            _ => Err(rule_mismatch!(pair => "protocol name")),
+        }
+    }
+}
+
+impl fmt::Display for Protocol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Bgp4 => write!(f, "BGP4"),
+            Self::MpBgp => write!(f, "MPBGP"),
+            Self::Ospf => write!(f, "OSPF"),
+            Self::RipNg => write!(f, "RIPng"),
+            Self::Rip => write!(f, "RIP"),
+            Self::Igrp => write!(f, "IGRP"),
+            Self::IsIs => write!(f, "IS-IS"),
+            Self::Static => write!(f, "STATIC"),
+            Self::Dvmrp => write!(f, "DVMRP"),
+            Self::PimDm => write!(f, "PIM-DM"),
+            Self::PimSm => write!(f, "PIM-SM"),
+            Self::Cbt => write!(f, "CBT"),
+            Self::Mospf => write!(f, "MOSPF"),
+            Self::Unknown(name) => write!(f, "{}", name),
+        }
+    }
+}
+
+// TODO: impl Arbitrary for Protocol
+
+#[derive(Clone, Debug)]
+pub struct UnknownProtocol(String);
+impl_case_insensitive_str_primitive!(ParserRule::protocol_unknown => UnknownProtocol);

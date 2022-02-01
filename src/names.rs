@@ -1,6 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::iter::FromIterator;
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, collection::size_range, prelude::*};
@@ -24,31 +25,8 @@ pub enum RpslObjectKey {
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Mntner(String);
-
-impl TryFrom<TokenPair<'_>> for Mntner {
-    type Error = ParseError;
-
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
-        debug_construction!(pair => Mntner);
-        match pair.as_rule() {
-            ParserRule::mntner_name => Ok(Self(pair.as_str().to_owned())),
-            // TODO: factor out into a macro
-            _ => Err(err!(
-                "expected a mntner name, got {:?}: {}",
-                pair.as_rule(),
-                pair.as_str()
-            )),
-        }
-    }
-}
-
+impl_str_primitive!(ParserRule::mntner_name => Mntner);
 impl_from_str!(ParserRule::mntner_name => Mntner);
-
-impl fmt::Display for Mntner {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for Mntner {
@@ -68,6 +46,43 @@ impl Arbitrary for Mntner {
     }
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Person(String);
+
+impl_str_primitive!(ParserRule::person => Person);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Role(String);
+
+impl_str_primitive!(ParserRule::role => Role);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum KeyCert {
+    Pgp(String),
+    X509(String),
+}
+
+impl TryFrom<TokenPair<'_>> for KeyCert {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => KeyCert);
+        match pair.as_rule() {
+            ParserRule::key_cert_pgp => Ok(Self::Pgp(pair.as_str().to_string())),
+            ParserRule::key_cert_x509 => Ok(Self::X509(pair.as_str().to_string())),
+            _ => Err(rule_mismatch!(pair => "key-cert name")),
+        }
+    }
+}
+
+impl fmt::Display for KeyCert {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Pgp(name) | Self::X509(name) => name.fmt(f),
+        }
+    }
+}
+
 /// RPSL `aut-num` name: a representation of an autonomous system number. See
 /// [RFC2622].
 ///
@@ -82,13 +97,9 @@ impl TryFrom<TokenPair<'_>> for AutNum {
         debug_construction!(pair => AutNum);
         match pair.as_rule() {
             ParserRule::aut_num => Ok(Self(
-                next_parse_or!(pair.into_inner() => "failed to parse aut-num"),
+                next_parse_or!(pair.into_inner() => "failed to parse aut-num")?,
             )),
-            _ => Err(err!(
-                "expected an aut-num expression, got {:?}: {}",
-                pair.as_rule(),
-                pair.as_str()
-            )),
+            _ => Err(rule_mismatch!(pair => "aut-num name")),
         }
     }
 }
@@ -110,6 +121,101 @@ impl Arbitrary for AutNum {
     }
 }
 
+/// RPSL `as-block` name. See [RFC2725].
+///
+/// [RFC2725]: https://datatracker.ietf.org/doc/html/rfc2725#section-10.1
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct AsBlock {
+    lower: AutNum,
+    upper: AutNum,
+}
+
+impl TryFrom<TokenPair<'_>> for AsBlock {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => AsBlock);
+        match pair.as_rule() {
+            ParserRule::as_block => {
+                let mut pairs = pair.into_inner();
+                let lower = next_into_or!(pairs => "failed to parse lower AS number")?;
+                let upper = next_into_or!(pairs => "failed to parse upper AS number")?;
+                Ok(Self { lower, upper })
+            }
+            _ => Err(rule_mismatch!(pair => "as-block name")),
+        }
+    }
+}
+
+impl fmt::Display for AsBlock {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} - {}", self.lower, self.upper)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct InetNum {
+    lower: Ipv4Addr,
+    upper: Ipv4Addr,
+}
+
+impl TryFrom<TokenPair<'_>> for InetNum {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => InetNum);
+        match pair.as_rule() {
+            ParserRule::inetnum => {
+                let mut pairs = pair.into_inner();
+                let lower = next_parse_or!(pairs => "failed to parse lower IPv4 address")?;
+                let upper = next_parse_or!(pairs => "failed to parse lower IPv4 address")?;
+                Ok(Self { lower, upper })
+            }
+            _ => Err(rule_mismatch!(pair => "inetnum name")),
+        }
+    }
+}
+
+impl fmt::Display for InetNum {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} - {}", self.lower, self.upper)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct Inet6Num {
+    lower: Ipv6Addr,
+    upper: Ipv6Addr,
+}
+
+impl TryFrom<TokenPair<'_>> for Inet6Num {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => Inet6Num);
+        match pair.as_rule() {
+            ParserRule::inet6num => {
+                let mut pairs = pair.into_inner();
+                let lower = next_parse_or!(pairs => "failed to parse lower IPv6 address")?;
+                let upper = next_parse_or!(pairs => "failed to parse lower IPv6 address")?;
+                Ok(Self { lower, upper })
+            }
+            _ => Err(rule_mismatch!(pair => "inet6num name")),
+        }
+    }
+}
+
+impl fmt::Display for Inet6Num {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} - {}", self.lower, self.upper)
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct InetRtr(String);
+
+impl_str_primitive!(ParserRule::inet_rtr => InetRtr);
+
 macro_rules! impl_set_try_from {
     ( $rule:pat => $t:ty ) => {
         impl TryFrom<TokenPair<'_>> for $t {
@@ -122,6 +228,7 @@ macro_rules! impl_set_try_from {
                             .map(|inner| inner.try_into())
                             .collect::<ParseResult<_>>()?,
                     )),
+                    // TODO: try to use `rule_mismatch!` here
                     _   => Err(err!(
                             concat!("expected a '", stringify!($rule), "' expression, got {:?}: {}"),
                             pair.as_rule(),
@@ -189,7 +296,7 @@ macro_rules! impl_set_arbitrary {
             fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
                 const SET_NAME: &str = $pattern;
                 (
-                    SET_NAME.prop_map(SetNameComp::Name),
+                    SET_NAME.prop_map(|name| SetNameComp::Name(name.as_str().into())),
                     any_with::<Vec<SetNameComp>>((size_range(0..5), (SET_NAME,))),
                 )
                     .prop_map(|(named, mut components)| {

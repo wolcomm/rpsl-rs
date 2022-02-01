@@ -39,10 +39,18 @@ mod parser;
 #[macro_use]
 mod tests;
 
+/// AFI definitions.
+pub mod addr_family;
+/// RPSL attributes.
+pub mod attr;
 /// RPSL policy and filter expressions.
 pub mod expr;
+/// RPSL list-like syntax types.
+pub mod list;
 /// RPSL object class names.
 pub mod names;
+/// RPSL objects.
+pub mod obj;
 /// Primitive RPSL syntax types.
 pub mod primitive;
 /// traits for performing value substitution on RPSL expressions.

@@ -2,8 +2,6 @@ use std::error::Error;
 use std::fmt;
 use std::num::ParseIntError;
 
-use ipnet::AddrParseError;
-
 pub type ParseResult<T> = Result<T, ParseError>;
 
 #[derive(Debug)]
@@ -78,15 +76,53 @@ impl From<ParseIntError> for ParseError {
     }
 }
 
-impl From<AddrParseError> for ParseError {
-    fn from(err: AddrParseError) -> Self {
+impl From<std::net::AddrParseError> for ParseError {
+    fn from(err: std::net::AddrParseError) -> Self {
+        Self::new("failed to parse IP address", Some(err))
+    }
+}
+
+impl From<ipnet::AddrParseError> for ParseError {
+    fn from(err: ipnet::AddrParseError) -> Self {
         Self::new("failed to parse IP prefix", Some(err))
     }
 }
 
+impl From<chrono::ParseError> for ParseError {
+    fn from(err: chrono::ParseError) -> Self {
+        Self::new("failed to parse date string", Some(err))
+    }
+}
+
+impl From<ValidationError> for ParseError {
+    fn from(err: ValidationError) -> Self {
+        Self::new("failed to validate object attributes", Some(err))
+    }
+}
+
+// TODO: do we still need this?
 impl From<nom::error::Error<String>> for ParseError {
     fn from(err: nom::error::Error<String>) -> Self {
         Self::new("nom parse error", Some(err))
+    }
+}
+
+pub type ValidationResult<T> = Result<T, ValidationError>;
+
+#[derive(Debug)]
+pub struct ValidationError(String);
+
+impl<S: AsRef<str>> From<S> for ValidationError {
+    fn from(s: S) -> Self {
+        Self(s.as_ref().to_string())
+    }
+}
+
+impl Error for ValidationError {}
+
+impl fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
