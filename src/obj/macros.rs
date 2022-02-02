@@ -1,3 +1,18 @@
+macro_rules! attribute_rule {
+    (? $attr:expr) => {
+        AttributeRule::new($attr, false, false)
+    };
+    (* $attr:expr) => {
+        AttributeRule::new($attr, false, true)
+    };
+    (! $attr:expr) => {
+        AttributeRule::new($attr, true, false)
+    };
+    (+ $attr:expr) => {
+        AttributeRule::new($attr, true, true)
+    };
+}
+
 macro_rules! rpsl_object_class {
     (
         $( #[$doc:meta] )?
@@ -5,11 +20,8 @@ macro_rules! rpsl_object_class {
             class: $class:literal,
             name: $name:ty,
             parser_rule: $rule:pat,
-            mandatory: [
-                $( $mandatory_attr_variant:expr ),* $(,)?
-            ],
-            optional: [
-                $( $optional_attr_variant:expr ),* $(,)?
+            attributes: [
+                $( $attr_rule:tt $attr_type:expr ),* $(,)?
             ],
         }
     ) => {
@@ -22,11 +34,8 @@ macro_rules! rpsl_object_class {
 
         impl RpslObjectClass for $obj {
             const CLASS: &'static str = $class;
-            const MANDATORY: &'static [AttributeType] = &[
-                $( $mandatory_attr_variant ),*
-            ];
-            const OPTIONAL: &'static [AttributeType] = &[
-                $( $optional_attr_variant ),*
+            const ATTRS: &'static [AttributeRule] = &[
+                $( attribute_rule!($attr_rule $attr_type) ),*
             ];
             type Name = $name;
 

@@ -18,52 +18,83 @@ use crate::{
 
 #[derive(Clone, Debug, EnumDiscriminants, Hash, PartialEq, Eq)]
 #[strum_discriminants(name(AttributeType))]
-#[strum_discriminants(derive(Hash))]
+#[strum_discriminants(derive(Hash, strum::Display))]
 pub enum RpslAttribute {
     // common attributes
+    #[strum_discriminants(strum(to_string = "descr"))]
     Descr(ObjectDescr),
+    #[strum_discriminants(strum(to_string = "tech-c"))]
     TechC(NicHdl),
+    #[strum_discriminants(strum(to_string = "admin-c"))]
     AdminC(NicHdl),
+    #[strum_discriminants(strum(to_string = "remarks"))]
     Remarks(Remarks),
+    #[strum_discriminants(strum(to_string = "notify"))]
     Notify(EmailAddress),
+    #[strum_discriminants(strum(to_string = "mnt-by"))]
     MntBy(ListOf<names::Mntner>),
+    #[strum_discriminants(strum(to_string = "changed"))]
     Changed(ChangedExpr),
+    #[strum_discriminants(strum(to_string = "source"))]
     Source(RegistryName),
     // contact attributes
+    #[strum_discriminants(strum(to_string = "nic-hdl"))]
     NicHdl(NicHdl),
+    #[strum_discriminants(strum(to_string = "address"))]
     Address(Address),
+    #[strum_discriminants(strum(to_string = "phone"))]
     Phone(TelNumber),
+    #[strum_discriminants(strum(to_string = "fax-no"))]
     FaxNo(TelNumber),
+    #[strum_discriminants(strum(to_string = "e-mail"))]
     EMail(EmailAddress),
     // common set attributes
+    #[strum_discriminants(strum(to_string = "mbrs-by-ref"))]
     MbrsByRef(ListOf<names::Mntner>),
     // mntner attributes
+    #[strum_discriminants(strum(to_string = "auth"))]
     Auth(AuthExpr),
+    #[strum_discriminants(strum(to_string = "upd-to"))]
     UpdTo(EmailAddress),
+    #[strum_discriminants(strum(to_string = "mnt-nfy"))]
     MntNfy(EmailAddress),
     // role attributes
+    #[strum_discriminants(strum(to_string = "trouble"))]
     Trouble(Trouble),
     // key-cert attributes
+    #[strum_discriminants(strum(to_string = "method"))]
     Method(SigningMethod),
+    #[strum_discriminants(strum(to_string = "owner"))]
     Owner(KeyOwner),
+    #[strum_discriminants(strum(to_string = "fingerpr"))]
     Fingerpr(Fingerprint),
+    #[strum_discriminants(strum(to_string = "certif"))]
     Certif(Certificate),
     // aut-num attributes
+    #[strum_discriminants(strum(to_string = "as-name"))]
     AsName(AsName),
+    #[strum_discriminants(strum(to_string = "member-of"))]
     AutNumMemberOf(ListOf<names::AsSet>),
+    #[strum_discriminants(strum(to_string = "import"))]
     Import(ImportExpr),
+    #[strum_discriminants(strum(to_string = "mp-import"))]
     MpImport(MpImportExpr),
     // TODO
+    // #[strum_discriminants(strum(to_string = "export"))]
     // Export(ExportExpr),
     // TODO
+    // #[strum_discriminants(strum(to_string = "mp-export"))]
     // MpExport(MpExportExpr),
     // TODO
+    // #[strum_discriminants(strum(to_string = "default"))]
     // Default(DefaultExpr),
     // TODO
+    // #[strum_discriminants(strum(to_string = "mp-default"))]
     // MpDefault(MpDefaultExpr),
-    // TODO
     // inet(6)num attributes
+    #[strum_discriminants(strum(to_string = "netname"))]
     Netname(Netname),
+    #[strum_discriminants(strum(to_string = "country"))]
     Country(CountryCode),
 }
 
@@ -174,43 +205,45 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
 
 impl fmt::Display for RpslAttribute {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let attr_type: AttributeType = self.into();
+        write!(f, "{}: ", attr_type);
         match self {
-            Self::Descr(inner) => write!(f, "descr: {}", inner),
-            Self::TechC(inner) => write!(f, "tech-c: {}", inner),
-            Self::AdminC(inner) => write!(f, "admin-c: {}", inner),
-            Self::Remarks(inner) => write!(f, "remarks: {}", inner),
-            Self::Notify(inner) => write!(f, "notify: {}", inner),
-            Self::MntBy(inner) => write!(f, "mnt-by: {}", inner),
-            Self::Changed(inner) => write!(f, "changed: {}", inner),
-            Self::Source(inner) => write!(f, "source: {}", inner),
-            Self::NicHdl(inner) => write!(f, "nic-hdl: {}", inner),
-            Self::Address(inner) => write!(f, "address: {}", inner),
-            Self::Phone(inner) => write!(f, "phone: {}", inner),
-            Self::FaxNo(inner) => write!(f, "fax-no: {}", inner),
-            Self::EMail(inner) => write!(f, "email: {}", inner),
-            Self::MbrsByRef(inner) => write!(f, "mbrs-by-ref: {}", inner),
-            Self::Auth(inner) => write!(f, "auth: {}", inner),
-            Self::UpdTo(inner) => write!(f, "upd-to: {}", inner),
-            Self::MntNfy(inner) => write!(f, "mnt-nfy: {}", inner),
-            Self::Trouble(inner) => write!(f, "trouble: {}", inner),
-            Self::Method(inner) => write!(f, "method: {}", inner),
-            Self::Owner(inner) => write!(f, "owner: {}", inner),
-            Self::Fingerpr(inner) => write!(f, "fingerpr: {}", inner),
-            Self::Certif(inner) => write!(f, "certif: {}", inner),
-            Self::AsName(inner) => write!(f, "as-name: {}", inner),
-            Self::AutNumMemberOf(inner) => write!(f, "member-of: {}", inner),
-            Self::Import(inner) => write!(f, "import: {}", inner),
-            Self::MpImport(inner) => write!(f, "mp-import: {}", inner),
+            Self::Descr(inner) => write!(f, "{}", inner),
+            Self::TechC(inner) => write!(f, "{}", inner),
+            Self::AdminC(inner) => write!(f, "{}", inner),
+            Self::Remarks(inner) => write!(f, "{}", inner),
+            Self::Notify(inner) => write!(f, "{}", inner),
+            Self::MntBy(inner) => write!(f, "{}", inner),
+            Self::Changed(inner) => write!(f, "{}", inner),
+            Self::Source(inner) => write!(f, "{}", inner),
+            Self::NicHdl(inner) => write!(f, "{}", inner),
+            Self::Address(inner) => write!(f, "{}", inner),
+            Self::Phone(inner) => write!(f, "{}", inner),
+            Self::FaxNo(inner) => write!(f, "{}", inner),
+            Self::EMail(inner) => write!(f, "{}", inner),
+            Self::MbrsByRef(inner) => write!(f, "{}", inner),
+            Self::Auth(inner) => write!(f, "{}", inner),
+            Self::UpdTo(inner) => write!(f, "{}", inner),
+            Self::MntNfy(inner) => write!(f, "{}", inner),
+            Self::Trouble(inner) => write!(f, "{}", inner),
+            Self::Method(inner) => write!(f, "{}", inner),
+            Self::Owner(inner) => write!(f, "{}", inner),
+            Self::Fingerpr(inner) => write!(f, "{}", inner),
+            Self::Certif(inner) => write!(f, "{}", inner),
+            Self::AsName(inner) => write!(f, "{}", inner),
+            Self::AutNumMemberOf(inner) => write!(f, "{}", inner),
+            Self::Import(inner) => write!(f, "{}", inner),
+            Self::MpImport(inner) => write!(f, "{}", inner),
             // TODO
-            // Self::Export(inner) => write!(f, "export: {}", inner),
+            // Self::Export(inner) => write!(f, "{}", inner),
             // TODO
-            // Self::MpExport(inner) => write!(f, "mp-export: {}", inner),
+            // Self::MpExport(inner) => write!(f, "{}", inner),
             // TODO
-            // Self::Default(inner) => write!(f, "default: {}", inner),
+            // Self::Default(inner) => write!(f, "{}", inner),
             // TODO
-            // Self::MpDefault(inner) => write!(f, "mp-default: {}", inner),
-            Self::Netname(inner) => write!(f, "netname: {}", inner),
-            Self::Country(inner) => write!(f, "country: {}", inner),
+            // Self::MpDefault(inner) => write!(f, "{}", inner),
+            Self::Netname(inner) => write!(f, "{}", inner),
+            Self::Country(inner) => write!(f, "{}", inner),
         }
     }
 }

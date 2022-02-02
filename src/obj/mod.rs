@@ -1,10 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use crate::{
     attr::{AttributeSeq, AttributeType, RpslAttribute},
-    error::{ParseError, ParseResult, ValidationResult},
+    error::{ParseError, ParseResult, ValidationError, ValidationResult},
     names,
     parser::{ParserRule, TokenPair},
 };
@@ -78,10 +78,19 @@ struct AttributeRule {
     multivalued: bool,
 }
 
+impl AttributeRule {
+    const fn new(attr: AttributeType, mandatory: bool, multivalued: bool) -> Self {
+        Self {
+            attr,
+            mandatory,
+            multivalued,
+        }
+    }
+}
+
 trait RpslObjectClass: Sized {
     const CLASS: &'static str;
-    const MANDATORY: &'static [AttributeType];
-    const OPTIONAL: &'static [AttributeType];
+    const ATTRS: &'static [AttributeRule];
     type Name;
 
     fn new<I>(name: Self::Name, iter: I) -> ValidationResult<Self>
@@ -96,17 +105,58 @@ trait RpslObjectClass: Sized {
     where
         I: IntoIterator<Item = RpslAttribute>,
     {
-        let mut unseen = Self::MANDATORY.iter().collect::<HashSet<_>>();
-        let allowed = Self::OPTIONAL.iter().collect::<HashSet<_>>();
+        let mut seen: HashMap<AttributeType, usize> = HashMap::new();
+        let allowed: HashMap<AttributeType, bool> = Self::ATTRS
+            .iter()
+            .map(|rule| (rule.attr, rule.multivalued))
+            .collect();
         let seq = attrs
             .into_iter()
-            .inspect(|attr| if !unseen.remove::<AttributeType>(&attr.into()) {})
+            .inspect(|attr| {
+                let count = seen.entry(attr.into()).or_insert(0);
+                *count += 1;
+            })
             .collect();
-        if unseen.is_empty() {
-            Ok(seq)
-        } else {
-            Err(format!("missing mandatory attributes: {:?}", unseen).into())
-        }
+        seen.iter().try_for_each(|(attr, count)| {
+            allowed
+                .get(attr)
+                .ok_or_else::<ValidationError, _>(|| {
+                    format!(
+                        "attribute '{}' not allowed in '{}' object",
+                        attr,
+                        Self::CLASS
+                    )
+                    .into()
+                })
+                .and_then(|multivalued| {
+                    if !multivalued && count > &1 {
+                        Err(format!(
+                            "multiple '{}' attributes not allowed in '{}' object",
+                            attr,
+                            Self::CLASS
+                        )
+                        .into())
+                    } else {
+                        Ok(())
+                    }
+                })
+        })?;
+        Self::ATTRS
+            .iter()
+            .filter(|rule| rule.mandatory)
+            .try_for_each(|rule| {
+                seen.contains_key(&rule.attr)
+                    .then(|| ())
+                    .ok_or_else::<ValidationError, _>(|| {
+                        format!(
+                            "missing mandatory attribute {} in '{}' object",
+                            rule.attr,
+                            Self::CLASS
+                        )
+                        .into()
+                    })
+            })?;
+        Ok(seq)
     }
 }
 
@@ -115,16 +165,14 @@ rpsl_object_class! {
         class: "mntner",
         name: names::Mntner,
         parser_rule: ParserRule::mntner_obj,
-        mandatory: [
-            AttributeType::Descr,
-            AttributeType::TechC,
-            AttributeType::MntBy,
-            AttributeType::Changed,
-            AttributeType::Source,
-            AttributeType::Auth,
-            AttributeType::UpdTo,
-        ],
-        optional: [
+        attributes: [
+            ! AttributeType::Descr,
+            + AttributeType::TechC,
+            + AttributeType::MntBy,
+            + AttributeType::Changed,
+            ! AttributeType::Source,
+            + AttributeType::Auth,
+            + AttributeType::UpdTo,
         ],
     }
 }
@@ -134,16 +182,14 @@ rpsl_object_class! {
         class: "person",
         name: names::Person,
         parser_rule: ParserRule::person_obj,
-        mandatory: [
-            AttributeType::MntBy,
-            AttributeType::Changed,
-            AttributeType::Source,
-            AttributeType::NicHdl,
-            AttributeType::Address,
-            AttributeType::Phone,
-            AttributeType::EMail,
-        ],
-        optional: [
+        attributes: [
+            + AttributeType::MntBy,
+            + AttributeType::Changed,
+            ! AttributeType::Source,
+            ! AttributeType::NicHdl,
+            + AttributeType::Address,
+            + AttributeType::Phone,
+            + AttributeType::EMail,
         ],
     }
 }
@@ -153,16 +199,14 @@ rpsl_object_class! {
         class: "role",
         name: names::Role,
         parser_rule: ParserRule::role_obj,
-        mandatory: [
-            AttributeType::MntBy,
-            AttributeType::Changed,
-            AttributeType::Source,
-            AttributeType::NicHdl,
-            AttributeType::Address,
-            AttributeType::Phone,
-            AttributeType::EMail,
-        ],
-        optional: [
+        attributes: [
+            + AttributeType::MntBy,
+            + AttributeType::Changed,
+            ! AttributeType::Source,
+            ! AttributeType::NicHdl,
+            + AttributeType::Address,
+            + AttributeType::Phone,
+            + AttributeType::EMail,
         ],
     }
 }
@@ -172,13 +216,11 @@ rpsl_object_class! {
         class: "key-cert",
         name: names::KeyCert,
         parser_rule: ParserRule::key_cert_obj,
-        mandatory: [
-            AttributeType::MntBy,
-            AttributeType::Changed,
-            AttributeType::Source,
-            AttributeType::Certif,
-        ],
-        optional: [
+        attributes: [
+            + AttributeType::MntBy,
+            + AttributeType::Changed,
+            ! AttributeType::Source,
+            ! AttributeType::Certif,
         ],
     }
 }
@@ -188,14 +230,12 @@ rpsl_object_class! {
         class: "as-block",
         name: names::AsBlock,
         parser_rule: ParserRule::as_block_obj,
-        mandatory: [
-            AttributeType::AdminC,
-            AttributeType::TechC,
-            AttributeType::MntBy,
-            AttributeType::Changed,
-            AttributeType::Source,
-        ],
-        optional: [
+        attributes: [
+            + AttributeType::AdminC,
+            + AttributeType::TechC,
+            + AttributeType::MntBy,
+            + AttributeType::Changed,
+            ! AttributeType::Source,
         ],
     }
 }
@@ -205,16 +245,14 @@ rpsl_object_class! {
         class: "aut-num",
         name: names::AutNum,
         parser_rule: ParserRule::aut_num_obj,
-        mandatory: [
-            AttributeType::AsName,
-            AttributeType::Descr,
-            AttributeType::AdminC,
-            AttributeType::TechC,
-            AttributeType::MntBy,
-            AttributeType::Changed,
-            AttributeType::Source,
-        ],
-        optional: [
+        attributes: [
+            ! AttributeType::AsName,
+            ! AttributeType::Descr,
+            + AttributeType::AdminC,
+            + AttributeType::TechC,
+            + AttributeType::MntBy,
+            + AttributeType::Changed,
+            ! AttributeType::Source,
         ],
     }
 }
@@ -224,19 +262,17 @@ rpsl_object_class! {
         class: "inet-num",
         name: names::InetNum,
         parser_rule: ParserRule::inetnum_obj,
-        mandatory: [
-            AttributeType::Netname,
-            AttributeType::Descr,
-            AttributeType::Country,
-            AttributeType::AdminC,
-            AttributeType::TechC,
+        attributes: [
+            ! AttributeType::Netname,
+            * AttributeType::Descr,
+            + AttributeType::Country,
+            + AttributeType::AdminC,
+            + AttributeType::TechC,
             // TODO
             // AttributeType::Status,
-            AttributeType::MntBy,
-            AttributeType::Changed,
-            AttributeType::Source,
-        ],
-        optional: [
+            + AttributeType::MntBy,
+            + AttributeType::Changed,
+            ! AttributeType::Source,
         ],
     }
 }
@@ -246,19 +282,17 @@ rpsl_object_class! {
         class: "inet6-num",
         name: names::Inet6Num,
         parser_rule: ParserRule::inet6num_obj,
-        mandatory: [
-            AttributeType::Netname,
-            AttributeType::Descr,
-            AttributeType::Country,
-            AttributeType::AdminC,
-            AttributeType::TechC,
+        attributes: [
+            ! AttributeType::Netname,
+            * AttributeType::Descr,
+            + AttributeType::Country,
+            + AttributeType::AdminC,
+            + AttributeType::TechC,
             // TODO
             // AttributeType::Status,
-            AttributeType::MntBy,
-            AttributeType::Changed,
-            AttributeType::Source,
-        ],
-        optional: [
+            + AttributeType::MntBy,
+            + AttributeType::Changed,
+            ! AttributeType::Source,
         ],
     }
 }
