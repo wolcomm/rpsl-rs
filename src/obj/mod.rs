@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
@@ -166,13 +166,13 @@ rpsl_object_class! {
         name: names::Mntner,
         parser_rule: ParserRule::mntner_obj,
         attributes: [
-            ! AttributeType::Descr,
-            + AttributeType::TechC,
-            + AttributeType::MntBy,
-            + AttributeType::Changed,
-            ! AttributeType::Source,
-            + AttributeType::Auth,
-            + AttributeType::UpdTo,
+            Descr,
+            TechC (+),
+            MntBy (+),
+            Changed (+),
+            Source,
+            Auth (+),
+            UpdTo (+),
         ],
     }
 }
@@ -183,13 +183,13 @@ rpsl_object_class! {
         name: names::Person,
         parser_rule: ParserRule::person_obj,
         attributes: [
-            + AttributeType::MntBy,
-            + AttributeType::Changed,
-            ! AttributeType::Source,
-            ! AttributeType::NicHdl,
-            + AttributeType::Address,
-            + AttributeType::Phone,
-            + AttributeType::EMail,
+            MntBy (+),
+            Changed (+),
+            Source,
+            NicHdl,
+            Address (+),
+            Phone (+),
+            EMail (+),
         ],
     }
 }
@@ -200,13 +200,13 @@ rpsl_object_class! {
         name: names::Role,
         parser_rule: ParserRule::role_obj,
         attributes: [
-            + AttributeType::MntBy,
-            + AttributeType::Changed,
-            ! AttributeType::Source,
-            ! AttributeType::NicHdl,
-            + AttributeType::Address,
-            + AttributeType::Phone,
-            + AttributeType::EMail,
+            MntBy (+),
+            Changed (+),
+            Source,
+            NicHdl,
+            Address (+),
+            Phone (+),
+            EMail (+),
         ],
     }
 }
@@ -217,10 +217,10 @@ rpsl_object_class! {
         name: names::KeyCert,
         parser_rule: ParserRule::key_cert_obj,
         attributes: [
-            + AttributeType::MntBy,
-            + AttributeType::Changed,
-            ! AttributeType::Source,
-            ! AttributeType::Certif,
+            MntBy (+),
+            Changed (+),
+            Source,
+            Certif,
         ],
     }
 }
@@ -231,11 +231,11 @@ rpsl_object_class! {
         name: names::AsBlock,
         parser_rule: ParserRule::as_block_obj,
         attributes: [
-            + AttributeType::AdminC,
-            + AttributeType::TechC,
-            + AttributeType::MntBy,
-            + AttributeType::Changed,
-            ! AttributeType::Source,
+            AdminC (+),
+            TechC (+),
+            MntBy (+),
+            Changed (+),
+            Source,
         ],
     }
 }
@@ -246,13 +246,13 @@ rpsl_object_class! {
         name: names::AutNum,
         parser_rule: ParserRule::aut_num_obj,
         attributes: [
-            ! AttributeType::AsName,
-            ! AttributeType::Descr,
-            + AttributeType::AdminC,
-            + AttributeType::TechC,
-            + AttributeType::MntBy,
-            + AttributeType::Changed,
-            ! AttributeType::Source,
+            AsName,
+            Descr,
+            AdminC (+),
+            TechC (+),
+            MntBy (+),
+            Changed (+),
+            Source,
         ],
     }
 }
@@ -263,16 +263,16 @@ rpsl_object_class! {
         name: names::InetNum,
         parser_rule: ParserRule::inetnum_obj,
         attributes: [
-            ! AttributeType::Netname,
-            * AttributeType::Descr,
-            + AttributeType::Country,
-            + AttributeType::AdminC,
-            + AttributeType::TechC,
+            Netname,
+            Descr (*),
+            Country (+),
+            AdminC (+),
+            TechC (+),
             // TODO
-            // AttributeType::Status,
-            + AttributeType::MntBy,
-            + AttributeType::Changed,
-            ! AttributeType::Source,
+            // Status,
+            MntBy (+),
+            Changed (+),
+            Source,
         ],
     }
 }
@@ -283,16 +283,16 @@ rpsl_object_class! {
         name: names::Inet6Num,
         parser_rule: ParserRule::inet6num_obj,
         attributes: [
-            ! AttributeType::Netname,
-            * AttributeType::Descr,
-            + AttributeType::Country,
-            + AttributeType::AdminC,
-            + AttributeType::TechC,
+            Netname,
+            Descr (*),
+            Country (+),
+            AdminC (+),
+            TechC (+),
             // TODO
-            // AttributeType::Status,
-            + AttributeType::MntBy,
-            + AttributeType::Changed,
-            ! AttributeType::Source,
+            // Status,
+            MntBy (+),
+            Changed (+),
+            Source,
         ],
     }
 }
