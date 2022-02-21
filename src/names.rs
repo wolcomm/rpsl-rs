@@ -3,6 +3,8 @@ use std::fmt;
 use std::iter::FromIterator;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
+use ipnet::{Ipv4Net, Ipv6Net};
+
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, collection::size_range, prelude::*};
 #[cfg(any(test, feature = "arbitrary"))]
@@ -14,6 +16,7 @@ use crate::{
     primitive::SetNameComp,
 };
 
+/// TODO: maybe remove?
 /// Enumerated RPSL object namees.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum RpslObjectKey {
@@ -211,10 +214,61 @@ impl fmt::Display for Inet6Num {
     }
 }
 
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct Route(Ipv4Net);
+
+impl TryFrom<TokenPair<'_>> for Route {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => Route);
+        match pair.as_rule() {
+            ParserRule::ipv4_prefix => Ok(Self(pair.as_str().parse()?)),
+            _ => Err(rule_mismatch!(pair => "route name")),
+        }
+    }
+}
+
+impl_from_str!(ParserRule::ipv4_prefix => Route);
+
+impl fmt::Display for Route {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct Route6(Ipv6Net);
+
+impl TryFrom<TokenPair<'_>> for Route6 {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => Route);
+        match pair.as_rule() {
+            ParserRule::ipv6_prefix => Ok(Self(pair.as_str().parse()?)),
+            _ => Err(rule_mismatch!(pair => "route name")),
+        }
+    }
+}
+
+impl_from_str!(ParserRule::ipv6_prefix => Route6);
+
+impl fmt::Display for Route6 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct InetRtr(String);
 
 impl_str_primitive!(ParserRule::inet_rtr => InetRtr);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Dictionary(String);
+
+impl_str_primitive!(ParserRule::dictionary => Dictionary);
 
 macro_rules! impl_set_try_from {
     ( $rule:pat => $t:ty ) => {

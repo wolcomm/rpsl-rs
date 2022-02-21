@@ -158,7 +158,7 @@ afi_safi                = ${ afi ~ ( "." ~ safi )? }
     safi                = _{ safi_unicast | safi_multicast }
         safi_unicast    = @{ ^"unicast" }
         safi_multicast  = @{ ^"multicast" }
-named_route_set_member  = ${ ( any_as | any_rs | route_set | as_set | aut_num ) ~ range_op? }
+named_route_set_member  = _{ any_as | any_rs | route_set | as_set | aut_num }
 email_addr_regexp   = @{ free_form }
 pgp_from_fingerpr   = @{ free_form }
 crypt_hash          = @{ free_form }
@@ -177,10 +177,10 @@ country_code        = @{ ASCII_ALPHA{2} }
 ip_addr_choice              = _{ ipv4_addr | ipv6_addr }
 ip_prefix_choice            = _{ ipv4_prefix | ipv6_prefix }
 as_set_member_choice        = _{ aut_num | as_set }
-route_set_member_choice     = _{ ipv4_prefix_range | named_route_set_member }
-route_set_mp_member_choice  = _{ ip_prefix_choice | named_route_set_member }
-rtr_set_member_choice       = _{ inet_rtr | rtr_set | ipv4_addr }
-rtr_set_mp_member_choice    = _{ inet_rtr | rtr_set | ip_addr_choice }
+route_set_member_choice     = ${ ( ipv4_prefix | named_route_set_member ) ~ range_op? }
+route_set_mp_member_choice  = ${ ( ip_prefix_choice | named_route_set_member ) ~ range_op? }
+rtr_set_member_choice       = _{ rtr_set | inet_rtr | ipv4_addr }
+rtr_set_mp_member_choice    = _{ rtr_set | inet_rtr | ip_addr_choice }
 
 // lists
 mntner_name_list            = _{ mntner_name                 ~ ( "," ~ mntner_name )* }
@@ -300,7 +300,7 @@ as_path_regexpr         = { "<" ~ as_path_regexpr_soi? ~ as_path_regexpr_elem* ~
 
 filter_expr             = _{ filter_expr_and | filter_expr_or | filter_expr_not | filter_expr_unit }
     filter_expr_and     = { filter_term ~ and ~ filter_term }
-    filter_expr_or      = { filter_term ~ or ~ filter_term }
+    filter_expr_or      = { filter_term ~ or? ~ filter_term }
     filter_expr_not     = { not ~ filter_term }
     filter_expr_unit    = { filter_term }
         filter_term     = _{ any_fltr | named_filter | literal_filter | "(" ~ filter_expr ~ ")" }
@@ -364,44 +364,48 @@ protocol_dist_expr      = { ( ^"protocol" ~ from_protocol )? ~ ( into ~ into_pro
     into_protocol       = { protocol_name }
 
 import_stmt             = _{ import_stmt_simple | import_stmt_protocol }
-    import_stmt_simple          = { import_expr }
-    import_stmt_protocol        = { protocol_dist_expr ~ import_expr }
-        import_expr                 = _{ import_expr_except | import_expr_refine | import_expr_unit }
+    import_stmt_simple      = { import_expr }
+    import_stmt_protocol    = { protocol_dist_expr ~ import_expr }
+        import_expr             = _{ import_expr_except | import_expr_refine | import_expr_unit }
             import_expr_except      = { import_term ~ except ~ import_expr }
             import_expr_refine      = { import_term ~ refine ~ import_expr }
             import_expr_unit        = { import_term }
-                import_term         = { import_factor ~ ";"? | "{" ~ ( import_factor ~ ";" )+ ~ "}" }
-                    import_factor   = { ( from ~ peering_expr ~ ( action ~ action_expr )? )+ ~ accept ~ filter_expr }
+                import_term             = { import_factor ~ ";"? | "{" ~ ( import_factor ~ ";" )+ ~ "}" }
+                    import_factor           = { ( from ~ peering_expr ~ ( action ~ action_expr )? )+ ~ accept ~ filter_expr }
 
 mp_import_stmt          = _{ mp_import_stmt_simple | mp_import_stmt_protocol }
-    mp_import_stmt_simple       = { mp_import_expr }
-    mp_import_stmt_protocol     = { protocol_dist_expr ~ ( ^"afi" ~ afi_safi_list )? ~ mp_import_expr }
-        mp_import_expr              = _{ mp_import_expr_except | mp_import_expr_refine | mp_import_expr_unit }
+    mp_import_stmt_simple   = { mp_import_expr }
+    mp_import_stmt_protocol = { protocol_dist_expr ~ ( ^"afi" ~ afi_safi_list )? ~ mp_import_expr }
+        mp_import_expr          = _{ mp_import_expr_except | mp_import_expr_refine | mp_import_expr_unit }
             mp_import_expr_except   = { mp_import_term ~ except ~ mp_import_expr }
             mp_import_expr_refine   = { mp_import_term ~ refine ~ mp_import_expr }
             mp_import_expr_unit     = { mp_import_term }
-                mp_import_term      = { mp_import_factor ~ ";"? | "{" ~ ( mp_import_factor ~ ";" )+ ~ "}" }
-                    mp_import_factor    = { ( from ~ mp_peering_expr ~ ( action ~ action_expr )? )+ ~ accept ~ mp_filter_expr }
+                mp_import_term          = { mp_import_factor ~ ";"? | "{" ~ ( mp_import_factor ~ ";" )+ ~ "}" }
+                    mp_import_factor        = { ( from ~ mp_peering_expr ~ ( action ~ action_expr )? )+ ~ accept ~ mp_filter_expr }
 
-export_stmt             = _{ ( protocol_dist_expr )? ~ export_expr }
-    export_expr                 = _{ export_expr_except | export_expr_refine | export_expr_unit }
-        export_expr_except      = { export_term ~ except ~ export_expr }
-        export_expr_refine      = { export_term ~ refine ~ export_expr }
-        export_expr_unit        = { export_term }
-            export_term         = _{ export_factor | "{" ~ ( export_factor ~ ";" )+ ~ "}" }
-                export_factor   = { ( to ~ peering_expr ~ ( action ~ action_expr )? )+ ~ announce ~ filter_expr }
+export_stmt             = _{ export_stmt_simple | export_stmt_protocol }
+    export_stmt_simple      = { export_expr }
+    export_stmt_protocol    = { protocol_dist_expr ~ export_expr }
+        export_expr             = _{ export_expr_except | export_expr_refine | export_expr_unit }
+            export_expr_except      = { export_term ~ except ~ export_expr }
+            export_expr_refine      = { export_term ~ refine ~ export_expr }
+            export_expr_unit        = { export_term }
+                export_term             = { export_factor ~ ";"? | "{" ~ ( export_factor ~ ";" )+ ~ "}" }
+                    export_factor           = { ( to ~ peering_expr ~ ( action ~ action_expr )? )+ ~ announce ~ filter_expr }
 
-mp_export_stmt          = _{ ( protocol_dist_expr )? ~ ( ^"afi" ~ afi_safi_list )? ~ mp_export_expr }
-    mp_export_expr              = _{ mp_export_expr_except | mp_export_expr_refine | mp_export_expr_unit }
-        mp_export_expr_except   = { mp_export_term ~ except ~ mp_export_expr }
-        mp_export_expr_refine   = { mp_export_term ~ refine ~ mp_export_expr }
-        mp_export_expr_unit     = { mp_export_term }
-            mp_export_term      = _{ mp_export_factor ~ ";"? | "{" ~ ( mp_export_factor ~ ";" )+ ~ "}" }
-                mp_export_factor    = { ( to ~ mp_peering_expr ~ ( action ~ action_expr )? )+ ~ announce ~ mp_filter_expr }
+mp_export_stmt          = _{ mp_export_stmt_simple | mp_export_stmt_protocol }
+    mp_export_stmt_simple   = { mp_export_expr }
+    mp_export_stmt_protocol = { protocol_dist_expr ~ ( ^"afi" ~ afi_safi_list )? ~ mp_export_expr }
+        mp_export_expr          = _{ mp_export_expr_except | mp_export_expr_refine | mp_export_expr_unit }
+            mp_export_expr_except   = { mp_export_term ~ except ~ mp_export_expr }
+            mp_export_expr_refine   = { mp_export_term ~ refine ~ mp_export_expr }
+            mp_export_expr_unit     = { mp_export_term }
+                mp_export_term          = { mp_export_factor ~ ";"? | "{" ~ ( mp_export_factor ~ ";" )+ ~ "}" }
+                    mp_export_factor        = { ( to ~ mp_peering_expr ~ ( action ~ action_expr )? )+ ~ announce ~ mp_filter_expr }
 
-default_expr            = _{ to ~ peering_expr ~ ( action ~ action_expr )? ~ ( networks ~ filter_expr )? }
+default_expr            = { to ~ peering_expr ~ ( action ~ action_expr )? ~ ( networks ~ filter_expr )? }
 
-mp_default_expr            = _{ ( ^"afi" ~ afi_safi_list )? ~ to ~ mp_peering_expr ~ ( action ~ action_expr )? ~ ( networks ~ mp_filter_expr )? }
+mp_default_expr         = { ( ^"afi" ~ afi_safi_list )? ~ to ~ mp_peering_expr ~ ( action ~ action_expr )? ~ ( networks ~ mp_filter_expr )? }
 
 aggr_mtd_expr           = { inbound | outbound ~ as_expr }
 
@@ -416,16 +420,17 @@ protocol_expr           = @{ free_form }
 
 ifaddr_expr             = { ipv4_addr ~ ^"masklen" ~ num ~ ( action ~ action_expr )? }
 
-interface_expr          = { ip_addr_choice ~ ^"masklen" ~ num ~ ( action ~ action_expr )? ~ ( ^"tunnel" ~ ip_addr_choice ~ "," ~ encapsulation )? }
+interface_expr          = { ip_addr_choice ~ ^"masklen" ~ num ~ ( action ~ action_expr )? ~ tunnel_spec? }
+    tunnel_spec             = { ^"tunnel" ~ ip_addr_choice ~ "," ~ encapsulation }
 
 peer_expr               = { protocol_name ~ peer_spec ~ ( peer_opts )? }
-    peer_spec           = _{ ipv4_addr | inet_rtr | rtr_set | peering_set }
+    peer_spec           = _{ ipv4_addr | rtr_set | peering_set | inet_rtr }
     peer_opts           = { peer_opt ~ ( "," ~ peer_opt )* }
         peer_opt        = ${ peer_opt_key ~ "(" ~ peer_opt_val ~ ")" }
             peer_opt_key    = @{ extchar+ }
             peer_opt_val    = @{ extchar+ }
 mp_peer_expr            = { protocol_name ~ mp_peer_spec ~ ( peer_opts )? }
-    mp_peer_spec        = _{ ip_addr_choice | inet_rtr | rtr_set | peering_set }
+    mp_peer_spec        = _{ ip_addr_choice | rtr_set | peering_set | inet_rtr }
 
 // ** common RPSL attributes **
 // common attributes
@@ -617,12 +622,16 @@ key_cert_obj                    =  { key_cert_class_attr    ~ ( key_cert_attr )+
         fingerpr_attr           = !{ ^"fingerpr:"           ~ key_fingerprint }
         certif_attr             = !{ ^"certif:"             ~ key_certif }
 
-// ** stadalone parsers **
+// ** standalone parsers **
 just_rpsl_object                = _{ SOI ~ rpsl_object ~ EOI }
 just_rpsl_object_key            = _{ SOI ~ rpsl_object_key ~ EOI }
 // expressions
 just_import_stmt                = _{ SOI ~ import_stmt ~ EOI }
 just_mp_import_stmt             = _{ SOI ~ mp_import_stmt ~ EOI }
+just_export_stmt                = _{ SOI ~ export_stmt ~ EOI }
+just_mp_export_stmt             = _{ SOI ~ mp_export_stmt ~ EOI }
+just_default_expr               = _{ SOI ~ default_expr ~ EOI }
+just_mp_default_expr            = _{ SOI ~ mp_default_expr ~ EOI }
 just_filter_expr                = _{ SOI ~ filter_expr ~ EOI }
 just_mp_filter_expr             = _{ SOI ~ mp_filter_expr ~ EOI }
 just_auth_expr                  = _{ SOI ~ auth_expr ~ EOI }
@@ -631,3 +640,8 @@ just_peering_expr               = _{ SOI ~ peering_expr ~ EOI }
 just_mp_peering_expr            = _{ SOI ~ mp_peering_expr ~ EOI }
 just_action_expr                = _{ SOI ~ action_expr ~ EOI }
 just_as_expr                    = _{ SOI ~ as_expr ~ EOI }
+just_protocol_dist_expr         = _{ SOI ~ protocol_dist_expr ~ EOI }
+just_ifaddr_expr                = _{ SOI ~ ifaddr_expr ~ EOI }
+just_interface_expr             = _{ SOI ~ interface_expr ~ EOI }
+just_rtr_expr                   = _{ SOI ~ rtr_expr ~ EOI }
+just_mp_rtr_expr                = _{ SOI ~ mp_rtr_expr ~ EOI }

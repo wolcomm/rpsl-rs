@@ -441,3 +441,11 @@ impl fmt::Display for Protocol {
 #[derive(Clone, Debug)]
 pub struct UnknownProtocol(String);
 impl_case_insensitive_str_primitive!(ParserRule::protocol_unknown => UnknownProtocol);
+
+#[derive(Clone, Debug)]
+pub struct PeerOptKey(String);
+impl_case_insensitive_str_primitive!(ParserRule::peer_opt_key => PeerOptKey);
+
+#[derive(Clone, Debug)]
+pub struct PeerOptVal(String);
+impl_case_insensitive_str_primitive!(ParserRule::peer_opt_val => PeerOptVal);

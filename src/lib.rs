@@ -47,6 +47,8 @@ pub mod attr;
 pub mod expr;
 /// RPSL list-like syntax types.
 pub mod list;
+/// RPSL set member elements.
+pub mod members;
 /// RPSL object class names.
 pub mod names;
 /// RPSL objects.

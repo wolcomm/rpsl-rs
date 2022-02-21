@@ -88,6 +88,12 @@ impl From<ipnet::AddrParseError> for ParseError {
     }
 }
 
+impl From<ipnet::PrefixLenError> for ParseError {
+    fn from(err: ipnet::PrefixLenError) -> Self {
+        Self::new("Invalid IP prefix length", Some(err))
+    }
+}
+
 impl From<chrono::ParseError> for ParseError {
     fn from(err: chrono::ParseError) -> Self {
         Self::new("failed to parse date string", Some(err))

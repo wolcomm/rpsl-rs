@@ -5,14 +5,20 @@ use std::iter::FromIterator;
 use strum::EnumDiscriminants;
 
 use crate::{
+    addr_family::afi,
     error::{ParseError, ParseResult},
-    expr::{AuthExpr, ChangedExpr, ImportExpr, MpImportExpr},
+    expr::{
+        AuthExpr, ChangedExpr, DefaultExpr, ExportExpr, FilterExpr, IfaddrExpr, ImportExpr,
+        InterfaceExpr, MpDefaultExpr, MpExportExpr, MpImportExpr, MpPeerExpr, PeerExpr,
+        PeeringExpr,
+    },
     list::ListOf,
+    members::{AsSetMember, RouteSetMember, RtrSetMember},
     names,
     parser::{ParserRule, TokenPair},
     primitive::{
-        Address, AsName, Certificate, CountryCode, EmailAddress, Fingerprint, KeyOwner, Netname,
-        NicHdl, ObjectDescr, RegistryName, Remarks, SigningMethod, TelNumber, Trouble,
+        Address, AsName, Certificate, CountryCode, DnsName, EmailAddress, Fingerprint, KeyOwner,
+        Netname, NicHdl, ObjectDescr, RegistryName, Remarks, SigningMethod, TelNumber, Trouble,
     },
 };
 
@@ -79,23 +85,56 @@ pub enum RpslAttribute {
     Import(ImportExpr),
     #[strum_discriminants(strum(to_string = "mp-import"))]
     MpImport(MpImportExpr),
-    // TODO
-    // #[strum_discriminants(strum(to_string = "export"))]
-    // Export(ExportExpr),
-    // TODO
-    // #[strum_discriminants(strum(to_string = "mp-export"))]
-    // MpExport(MpExportExpr),
-    // TODO
-    // #[strum_discriminants(strum(to_string = "default"))]
-    // Default(DefaultExpr),
-    // TODO
-    // #[strum_discriminants(strum(to_string = "mp-default"))]
-    // MpDefault(MpDefaultExpr),
+    #[strum_discriminants(strum(to_string = "export"))]
+    Export(ExportExpr),
+    #[strum_discriminants(strum(to_string = "mp-export"))]
+    MpExport(MpExportExpr),
+    #[strum_discriminants(strum(to_string = "default"))]
+    Default(DefaultExpr),
+    #[strum_discriminants(strum(to_string = "mp-default"))]
+    MpDefault(MpDefaultExpr),
     // inet(6)num attributes
     #[strum_discriminants(strum(to_string = "netname"))]
     Netname(Netname),
     #[strum_discriminants(strum(to_string = "country"))]
     Country(CountryCode),
+    // route(6) attributes
+    #[strum_discriminants(strum(to_string = "origin"))]
+    Origin(names::AutNum),
+    #[strum_discriminants(strum(to_string = "member-of"))]
+    RouteMemberOf(ListOf<names::RouteSet>),
+    // as-set attributes
+    #[strum_discriminants(strum(to_string = "members"))]
+    AsSetMembers(ListOf<AsSetMember>),
+    // route-set attributes
+    #[strum_discriminants(strum(to_string = "members"))]
+    RouteSetMembers(ListOf<RouteSetMember<afi::Ipv4>>),
+    #[strum_discriminants(strum(to_string = "mp-members"))]
+    RouteSetMpMembers(ListOf<RouteSetMember<afi::Any>>),
+    // filter-set attributes
+    #[strum_discriminants(strum(to_string = "filter"))]
+    Filter(FilterExpr),
+    // rtr-set attributes
+    #[strum_discriminants(strum(to_string = "members"))]
+    RtrSetMembers(ListOf<RtrSetMember<afi::Ipv4>>),
+    // peering-set attributes
+    #[strum_discriminants(strum(to_string = "peering"))]
+    Peering(PeeringExpr),
+    // inet-rtr attributes
+    #[strum_discriminants(strum(to_string = "alias"))]
+    Alias(DnsName),
+    #[strum_discriminants(strum(to_string = "local-as"))]
+    LocalAs(names::AutNum),
+    #[strum_discriminants(strum(to_string = "ifaddr"))]
+    Ifaddr(IfaddrExpr),
+    #[strum_discriminants(strum(to_string = "interface"))]
+    Interface(InterfaceExpr),
+    #[strum_discriminants(strum(to_string = "peer"))]
+    Peer(PeerExpr),
+    #[strum_discriminants(strum(to_string = "mp-peer"))]
+    MpPeer(MpPeerExpr),
+    #[strum_discriminants(strum(to_string = "member-of"))]
+    InetRtrMemberOf(ListOf<names::RtrSet>),
 }
 
 impl TryFrom<TokenPair<'_>> for RpslAttribute {
@@ -176,28 +215,57 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
             ParserRule::mp_import_attr => Ok(Self::MpImport(
                 next_into_or!(pair.into_inner() => "failed to get mp-import expression")?,
             )),
-            // TODO
-            // ParserRule::export_attr => Ok(Self::Export(
-            //     next_into_or!(pair.into_inner() => "failed to get export expression")?,
-            // )),
-            // TODO
-            // ParserRule::mp_export_attr => Ok(Self::MpExport(
-            //     next_into_or!(pair.into_inner() => "failed to get mp-export expression")?,
-            // )),
-            // TODO
-            // ParserRule::default_attr => Ok(Self::Default(
-            //     next_into_or!(pair.into_inner() => "failed to get default expression")?,
-            // )),
-            // TODO
-            // ParserRule::mp_default_attr => Ok(Self::MpDefault(
-            //     next_into_or!(pair.into_inner() => "failed to get mp-default expression")?,
-            // )),
+            ParserRule::export_attr => Ok(Self::Export(
+                next_into_or!(pair.into_inner() => "failed to get export expression")?,
+            )),
+            ParserRule::mp_export_attr => Ok(Self::MpExport(
+                next_into_or!(pair.into_inner() => "failed to get mp-export expression")?,
+            )),
+            ParserRule::default_attr => Ok(Self::Default(
+                next_into_or!(pair.into_inner() => "failed to get default expression")?,
+            )),
+            ParserRule::mp_default_attr => Ok(Self::MpDefault(
+                next_into_or!(pair.into_inner() => "failed to get mp-default expression")?,
+            )),
             ParserRule::netname_attr => Ok(Self::Netname(
                 next_into_or!(pair.into_inner() => "failed to get network name")?,
             )),
             ParserRule::country_attr => Ok(Self::Country(
                 next_into_or!(pair.into_inner() => "failed to get country code")?,
             )),
+            ParserRule::origin_attr => Ok(Self::Origin(
+                next_into_or!(pair.into_inner() => "failed to get origin")?,
+            )),
+            ParserRule::route_member_of_attr => Ok(Self::RouteMemberOf(pair.try_into()?)),
+            ParserRule::as_set_members_attr => Ok(Self::AsSetMembers(pair.try_into()?)),
+            ParserRule::route_set_members_attr => Ok(Self::RouteSetMembers(pair.try_into()?)),
+            ParserRule::route_set_mp_members_attr => Ok(Self::RouteSetMpMembers(pair.try_into()?)),
+            ParserRule::filter_attr => Ok(Self::Filter(
+                next_into_or!(pair.into_inner() => "failed to get filter expression")?,
+            )),
+            ParserRule::rtr_set_members_attr => Ok(Self::RtrSetMembers(pair.try_into()?)),
+            ParserRule::peering_attr => Ok(Self::Peering(
+                next_into_or!(pair.into_inner() => "failed to get peering expression")?,
+            )),
+            ParserRule::alias_attr => Ok(Self::Alias(
+                next_into_or!(pair.into_inner() => "failed to get alias name")?,
+            )),
+            ParserRule::local_as_attr => Ok(Self::LocalAs(
+                next_into_or!(pair.into_inner() => "failed to get local-as")?,
+            )),
+            ParserRule::ifaddr_attr => Ok(Self::Ifaddr(
+                next_into_or!(pair.into_inner() => "failed to get ifaddr expression")?,
+            )),
+            ParserRule::interface_attr => Ok(Self::Interface(
+                next_into_or!(pair.into_inner() => "failed to get interface expression")?,
+            )),
+            ParserRule::peer_attr => Ok(Self::Peer(
+                next_into_or!(pair.into_inner() => "failed to get peer expression")?,
+            )),
+            ParserRule::mp_peer_attr => Ok(Self::MpPeer(
+                next_into_or!(pair.into_inner() => "failed to get mp-peer expression")?,
+            )),
+            ParserRule::inet_rtr_member_of_attr => Ok(Self::InetRtrMemberOf(pair.try_into()?)),
             _ => Err(rule_mismatch!(pair => "attribute")),
         }
     }
@@ -234,16 +302,27 @@ impl fmt::Display for RpslAttribute {
             Self::AutNumMemberOf(inner) => write!(f, "{}", inner),
             Self::Import(inner) => write!(f, "{}", inner),
             Self::MpImport(inner) => write!(f, "{}", inner),
-            // TODO
-            // Self::Export(inner) => write!(f, "{}", inner),
-            // TODO
-            // Self::MpExport(inner) => write!(f, "{}", inner),
-            // TODO
-            // Self::Default(inner) => write!(f, "{}", inner),
-            // TODO
-            // Self::MpDefault(inner) => write!(f, "{}", inner),
+            Self::Export(inner) => write!(f, "{}", inner),
+            Self::MpExport(inner) => write!(f, "{}", inner),
+            Self::Default(inner) => write!(f, "{}", inner),
+            Self::MpDefault(inner) => write!(f, "{}", inner),
             Self::Netname(inner) => write!(f, "{}", inner),
             Self::Country(inner) => write!(f, "{}", inner),
+            Self::Origin(inner) => write!(f, "{}", inner),
+            Self::RouteMemberOf(inner) => write!(f, "{}", inner),
+            Self::AsSetMembers(inner) => write!(f, "{}", inner),
+            Self::RouteSetMembers(inner) => write!(f, "{}", inner),
+            Self::RouteSetMpMembers(inner) => write!(f, "{}", inner),
+            Self::Filter(inner) => write!(f, "{}", inner),
+            Self::RtrSetMembers(inner) => write!(f, "{}", inner),
+            Self::Peering(inner) => write!(f, "{}", inner),
+            Self::Alias(inner) => write!(f, "{}", inner),
+            Self::LocalAs(inner) => write!(f, "{}", inner),
+            Self::Ifaddr(inner) => write!(f, "{}", inner),
+            Self::Interface(inner) => write!(f, "{}", inner),
+            Self::Peer(inner) => write!(f, "{}", inner),
+            Self::MpPeer(inner) => write!(f, "{}", inner),
+            Self::InetRtrMemberOf(inner) => write!(f, "{}", inner),
         }
     }
 }

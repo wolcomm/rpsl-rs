@@ -5,10 +5,9 @@ use crate::{
     addr_family::{afi, LiteralPrefixSetAfi},
     error::{ParseError, ParseResult},
     parser::{ParserRule, TokenPair},
-    primitive::Protocol,
 };
 
-use super::{filter, peering, ActionExpr};
+use super::{filter, peering, ActionExpr, ProtocolDistribution};
 
 pub type ImportExpr = Statement<afi::Ipv4>;
 pub type MpImportExpr = Statement<afi::Any>;
@@ -54,55 +53,6 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Statement<A> {
             write!(f, "{} ", protocol_dist_expr)?;
         }
         write!(f, "{}", self.expr)
-    }
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct ProtocolDistribution {
-    from: Option<Protocol>,
-    into: Option<Protocol>,
-}
-
-impl TryFrom<TokenPair<'_>> for ProtocolDistribution {
-    type Error = ParseError;
-
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
-        debug_construction!(pair => ProtocolDistribution);
-        match pair.as_rule() {
-            ParserRule::protocol_dist_expr => {
-                let mut pairs = pair.into_inner();
-                let (mut from, mut into) = (None, None);
-                while let Some(inner_pair) = pairs.next() {
-                    match inner_pair.as_rule() {
-                        ParserRule::from_protocol => {
-                            from = Some(
-                                next_into_or!(inner_pair.into_inner() => "failed to get source protocol")?,
-                            );
-                        }
-                        ParserRule::into_protocol => {
-                            into = Some(
-                                next_into_or!(inner_pair.into_inner() => "failed to get destination protocol")?,
-                            );
-                        }
-                        _ => Err(rule_mismatch!(inner_pair => "protocol name"))?,
-                    }
-                }
-                Ok(Self { from, into })
-            }
-            _ => Err(rule_mismatch!(pair => "protocol redistribution expression")),
-        }
-    }
-}
-
-impl fmt::Display for ProtocolDistribution {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(from) = &self.from {
-            write!(f, "protocol {} ", from)?;
-        }
-        if let Some(into) = &self.into {
-            write!(f, "into {}", into)?;
-        }
-        Ok(())
     }
 }
 
@@ -242,6 +192,82 @@ mod tests {
 
     compare_ast! {
         ImportExpr {
+            rfc2622_sect5_6_autnum_example1: "from AS2 7.7.7.2 at 7.7.7.1 accept { 128.9.0.0/16 }" => {
+                ImportExpr {
+                    protocol_dist: None,
+                    expr: Expr::Unit(Term(vec![Factor {
+                        peerings: vec![("AS2 7.7.7.2 at 7.7.7.1".parse().unwrap(), None)],
+                        filter: "{ 128.9.0.0/16 }".parse().unwrap(),
+                    }]))
+                }
+            }
+            rfc2622_sect5_6_autnum_example2: "from AS2 at 7.7.7.1 accept { 128.9.0.0/16 }" => {
+                ImportExpr {
+                    protocol_dist: None,
+                    expr: Expr::Unit(Term(vec![Factor {
+                        peerings: vec![("AS2 at 7.7.7.1".parse().unwrap(), None)],
+                        filter: "{ 128.9.0.0/16 }".parse().unwrap(),
+                    }]))
+                }
+            }
+            rfc2622_sect5_6_autnum_example3: "from AS2 accept { 128.9.0.0/16 }" => {
+                ImportExpr {
+                    protocol_dist: None,
+                    expr: Expr::Unit(Term(vec![Factor {
+                        peerings: vec![("AS2".parse().unwrap(), None)],
+                        filter: "{ 128.9.0.0/16 }".parse().unwrap(),
+                    }]))
+                }
+            }
+            rfc2622_sect5_6_autnum_example4: "from AS-FOO at 9.9.9.1 accept { 128.9.0.0/16 }" => {
+                ImportExpr {
+                    protocol_dist: None,
+                    expr: Expr::Unit(Term(vec![Factor {
+                        peerings: vec![("AS-FOO at 9.9.9.1".parse().unwrap(), None)],
+                        filter: "{ 128.9.0.0/16 }".parse().unwrap(),
+                    }]))
+                }
+            }
+            rfc2622_sect5_6_autnum_example5: "from AS-FOO accept { 128.9.0.0/16 }" => {
+                ImportExpr {
+                    protocol_dist: None,
+                    expr: Expr::Unit(Term(vec![Factor {
+                        peerings: vec![("AS-FOO".parse().unwrap(), None)],
+                        filter: "{ 128.9.0.0/16 }".parse().unwrap(),
+                    }]))
+                }
+            }
+            // the 'NOT' operator is invalid for rtr expressions.
+            // accordingly, the following example taken from rfc2622
+            // section 5.6 is invalid:
+            //
+            // rfc2622_sect5_6_autnum_example6: "from AS-FOO and not AS2 at not 7.7.7.1 accept { 128.9.0.0/16 }" => {
+            //     ImportExpr {
+            //         protocol_dist: None,
+            //         expr: Expr::Unit(Term(vec![Factor {
+            //             peerings: vec![("AS-FOO and not AS2 at not 7.7.7.1".parse().unwrap(), None)],
+            //             filter: "{ 128.9.0.0/16 }".parse().unwrap(),
+            //         }]))
+            //     }
+            // }
+            rfc2622_sect5_6_autnum_example7: "from prng-foo accept { 128.9.0.0/16 }" => {
+                ImportExpr {
+                    protocol_dist: None,
+                    expr: Expr::Unit(Term(vec![Factor {
+                        peerings: vec![("prng-foo".parse().unwrap(), None)],
+                        filter: "{ 128.9.0.0/16 }".parse().unwrap(),
+                    }]))
+                }
+            }
+            rfc2622_sect6_autnum_example0: "from AS2 accept AS2" => {
+                ImportExpr {
+                    protocol_dist: None,
+                    expr: Expr::Unit(Term(vec![Factor {
+                        peerings: vec![("AS2".parse().unwrap(), None)],
+                        filter: "AS2".parse().unwrap(),
+                    }]))
+                }
+            }
             rfc2622_sect6_autnum_example1: "from AS2 action pref = 1; accept { 128.9.0.0/16 }" => {
                 ImportExpr {
                     protocol_dist: None,

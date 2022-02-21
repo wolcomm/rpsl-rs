@@ -11,6 +11,9 @@ use crate::{
 pub type RtrExpr = Expr<afi::Ipv4>;
 pub type MpRtrExpr = Expr<afi::Any>;
 
+impl_from_str!(ParserRule::just_rtr_expr => RtrExpr);
+impl_from_str!(ParserRule::just_mp_rtr_expr => MpRtrExpr);
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr<A: LiteralPrefixSetAfi> {
     Unit(Term<A>),
@@ -95,6 +98,29 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Term<A> {
             Self::InetRtr(inet_rtr) => inet_rtr.fmt(f),
             Self::Literal(addr) => addr.fmt(f),
             Self::Expr(expr) => write!(f, "({})", expr),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    compare_ast! {
+        RtrExpr {
+            rfc2622_sect5_6_autnum_example1: "7.7.7.2" => {
+                RtrExpr::Unit(Term::Literal("7.7.7.2".parse().unwrap()))
+            }
+            rfc2622_sect5_6_autnum_example2: "7.7.7.1" => {
+                RtrExpr::Unit(Term::Literal("7.7.7.1".parse().unwrap()))
+            }
+            // the 'NOT' operator is invalid for rtr expressions.
+            // accordingly, the following example taken from rfc2622
+            // section 5.6 is invalid:
+            //
+            // rfc2622_sect5_6_autnum_example6: "not 7.7.7.1" => {
+            //     RtrExpr::Unit(Term::Expr)
+            // }
         }
     }
 }

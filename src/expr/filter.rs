@@ -161,7 +161,7 @@ where
             any::<FilterSet>().prop_map(Self::Named),
             Just(Self::Any),
         ];
-        leaf.prop_recursive(8, 16, 2, |inner| {
+        leaf.prop_recursive(4, 8, 8, |inner| {
             prop_oneof![
                 inner.clone().prop_map(Expr::Unit),
                 inner.clone().prop_map(Expr::Not),

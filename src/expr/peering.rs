@@ -108,6 +108,67 @@ mod tests {
 
     compare_ast! {
         PeeringExpr {
+            rfc2622_sect5_6_autnum_example1: "AS2 7.7.7.2 at 7.7.7.1" => {
+                PeeringExpr::Literal(LiteralPeering {
+                    as_expr: "AS2".parse().unwrap(),
+                    remote_rtr: Some("7.7.7.2".parse().unwrap()),
+                    local_rtr: Some("7.7.7.1".parse().unwrap()),
+                })
+            }
+            rfc2622_sect5_6_autnum_example2: "AS2 at 7.7.7.1" => {
+                PeeringExpr::Literal(LiteralPeering {
+                    as_expr: "AS2".parse().unwrap(),
+                    remote_rtr: None,
+                    local_rtr: Some("7.7.7.1".parse().unwrap()),
+                })
+            }
+            rfc2622_sect5_6_autnum_example3: "AS2" => {
+                PeeringExpr::Literal(LiteralPeering {
+                    as_expr: "AS2".parse().unwrap(),
+                    remote_rtr: None,
+                    local_rtr: None,
+                })
+            }
+            rfc2622_sect5_6_autnum_example4: "AS-FOO at 9.9.9.1" => {
+                PeeringExpr::Literal(LiteralPeering {
+                    as_expr: "AS-FOO".parse().unwrap(),
+                    remote_rtr: None,
+                    local_rtr: Some("9.9.9.1".parse().unwrap()),
+                })
+            }
+            rfc2622_sect5_6_autnum_example5: "AS-FOO" => {
+                PeeringExpr::Literal(LiteralPeering {
+                    as_expr: "AS-FOO".parse().unwrap(),
+                    remote_rtr: None,
+                    local_rtr: None,
+                })
+            }
+            // the 'NOT' operator is invalid for rtr expressions.
+            // accordingly, the following example taken from rfc2622
+            // section 5.6 is invalid:
+            //
+            // rfc2622_sect5_6_autnum_example6: "AS-FOO and not AS2 at not 7.7.7.1" => {
+            //     PeeringExpr::Literal(LiteralPeering {
+            //         as_expr: "AS-FOO and not AS2".parse().unwrap(),
+            //         remote_rtr: None,
+            //         local_rtr: None,
+            //     })
+            // }
+            rfc2622_sect5_6_autnum_example7: "prng-foo" => {
+                PeeringExpr::Named("prng-foo".parse().unwrap())
+            }
+            rfc2622_sect5_6_peering_set_example7_1: "AS1 at 9.9.9.1" => {
+                PeeringExpr::Literal(LiteralPeering {
+                    as_expr: "AS1".parse().unwrap(),
+                    remote_rtr: None,
+                    local_rtr: Some(rtr::Expr::Unit(rtr::Term::Literal(
+                        "9.9.9.1".parse().unwrap(),
+                    ))),
+                })
+            }
+            rfc2622_sect5_6_peering_set_example7_2: "prng-bar" => {
+                PeeringExpr::Named("prng-bar".parse().unwrap())
+            }
             rfc2622_sect6_autnum_example1: "AS2" => {
                 PeeringExpr::Literal(LiteralPeering {
                     as_expr: "AS2".parse().unwrap(),
