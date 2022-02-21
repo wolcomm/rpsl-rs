@@ -299,9 +299,9 @@ as_path_regexpr         = { "<" ~ as_path_regexpr_soi? ~ as_path_regexpr_elem* ~
             as_path_regexpr_range_same      = ${ "~{" ~ num ~ "," ~ num ~ "}" }
 
 filter_expr             = _{ filter_expr_and | filter_expr_or | filter_expr_not | filter_expr_unit }
-    filter_expr_and     = { filter_term ~ and ~ filter_term }
-    filter_expr_or      = { filter_term ~ or? ~ filter_term }
-    filter_expr_not     = { not ~ filter_term }
+    filter_expr_and     = { filter_term ~ and ~ filter_expr }
+    filter_expr_or      = { filter_term ~ or? ~ filter_expr }
+    filter_expr_not     = { not ~ filter_expr }
     filter_expr_unit    = { filter_term }
         filter_term     = _{ any_fltr | named_filter | literal_filter | "(" ~ filter_expr ~ ")" }
             named_filter        = { filter_set }
@@ -312,9 +312,9 @@ filter_expr             = _{ filter_expr_and | filter_expr_or | filter_expr_not 
                             ranged_prefix   = ${ ipv4_prefix ~ range_op? }
 
 mp_filter_expr          = _{ mp_filter_expr_and | mp_filter_expr_or | mp_filter_expr_not | mp_filter_expr_unit }
-    mp_filter_expr_and  = { mp_filter_term ~ and ~ mp_filter_term }
-    mp_filter_expr_or   = { mp_filter_term ~ or ~ mp_filter_term }
-    mp_filter_expr_not  = { not ~ mp_filter_term }
+    mp_filter_expr_and  = { mp_filter_term ~ and ~ mp_filter_expr }
+    mp_filter_expr_or   = { mp_filter_term ~ or? ~ mp_filter_expr }
+    mp_filter_expr_not  = { not ~ mp_filter_expr }
     mp_filter_expr_unit = { mp_filter_term }
         mp_filter_term  = _{ any_fltr | mp_named_filter | mp_literal_filter | "(" ~ mp_filter_expr ~ ")" }
             mp_named_filter     = { filter_set }

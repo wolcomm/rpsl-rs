@@ -522,11 +522,13 @@ mod tests {
         ],
         not_expr: "NOT AS65000" => [
             filter_expr_not(0, 11, [
-                literal_filter(4, 11, [
-                    ranged_prefix_set(4, 11, [
-                        named_prefix_set(4, 11, [
-                            aut_num(4, 11, [
-                                num(6, 11)
+                filter_expr_unit(4, 11, [
+                    literal_filter(4, 11, [
+                        ranged_prefix_set(4, 11, [
+                            named_prefix_set(4, 11, [
+                                aut_num(4, 11, [
+                                    num(6, 11)
+                                ])
                             ])
                         ])
                     ])
@@ -544,11 +546,13 @@ mod tests {
                         ])
                     ])
                 ]),
-                literal_filter(21, 27, [
-                    ranged_prefix_set(21, 27, [
-                        named_prefix_set(21, 27, [
-                            as_set(21, 27, [
-                                as_set_name(21, 27)
+                filter_expr_unit(21, 27, [
+                    literal_filter(21, 27, [
+                        ranged_prefix_set(21, 27, [
+                            named_prefix_set(21, 27, [
+                                as_set(21, 27, [
+                                    as_set_name(21, 27)
+                                ])
                             ])
                         ])
                     ])
@@ -562,11 +566,13 @@ mod tests {
                         filter_set_name(0, 8)
                     ])
                 ]),
-                literal_filter(12, 18, [
-                    ranged_prefix_set(12, 18, [
-                        named_prefix_set(12, 18, [
-                            route_set(12, 18, [
-                                route_set_name(12, 18)
+                filter_expr_unit(12, 18, [
+                    literal_filter(12, 18, [
+                        ranged_prefix_set(12, 18, [
+                            named_prefix_set(12, 18, [
+                                route_set(12, 18, [
+                                    route_set_name(12, 18)
+                                ])
                             ])
                         ])
                     ])
@@ -585,29 +591,33 @@ mod tests {
                                 less_incl(8, 10)
                             ])
                         ]),
-                        literal_filter(14, 37, [
-                            ranged_prefix_set(14, 37, [
-                                named_prefix_set(14, 35, [
-                                    as_set(14, 35, [
-                                        aut_num(14, 21, [
-                                            num(16, 21)
-                                        ]),
-                                        as_set_name(22, 28),
-                                        peeras(29, 35)
-                                    ])
-                                ]),
-                                less_incl(35, 37)
+                        filter_expr_unit(14, 37, [
+                            literal_filter(14, 37, [
+                                ranged_prefix_set(14, 37, [
+                                    named_prefix_set(14, 35, [
+                                        as_set(14, 35, [
+                                            aut_num(14, 21, [
+                                                num(16, 21)
+                                            ]),
+                                            as_set_name(22, 28),
+                                            peeras(29, 35)
+                                        ])
+                                    ]),
+                                    less_incl(35, 37)
+                                ])
                             ])
                         ])
                     ]),
-                    literal_filter(43, 59, [
-                        ranged_prefix_set(43, 59, [
-                            literal_prefix_set(43, 59, [
-                                ranged_prefix(44, 58, [
-                                    ipv4_prefix(44, 53),
-                                    range(53, 58, [
-                                        num(54, 55),
-                                        num(56, 58)
+                    filter_expr_unit(43, 59, [
+                        literal_filter(43, 59, [
+                            ranged_prefix_set(43, 59, [
+                                literal_prefix_set(43, 59, [
+                                    ranged_prefix(44, 58, [
+                                        ipv4_prefix(44, 53),
+                                        range(53, 58, [
+                                            num(54, 55),
+                                            num(56, 58)
+                                        ])
                                     ])
                                 ])
                             ])

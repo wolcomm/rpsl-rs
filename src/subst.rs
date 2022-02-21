@@ -56,9 +56,9 @@ where
         debug_substitution!(Expr: self);
         match self {
             Self::Unit(term) => Ok(Self::Unit(term.substitute(p)?)),
-            Self::Not(term) => Ok(Self::Not(term.substitute(p)?)),
-            Self::And(lhs, rhs) => Ok(Self::And(lhs.substitute(p)?, rhs.substitute(p)?)),
-            Self::Or(lhs, rhs) => Ok(Self::Or(lhs.substitute(p)?, rhs.substitute(p)?)),
+            Self::Not(expr) => Ok(Self::Not(Box::new(expr.substitute(p)?))),
+            Self::And(lhs, rhs) => Ok(Self::And(lhs.substitute(p)?, Box::new(rhs.substitute(p)?))),
+            Self::Or(lhs, rhs) => Ok(Self::Or(lhs.substitute(p)?, Box::new(rhs.substitute(p)?))),
         }
     }
 }

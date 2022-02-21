@@ -18,7 +18,9 @@ use super::action;
 pub type FilterExpr = Expr<afi::Ipv4>;
 pub type MpFilterExpr = Expr<afi::Any>;
 
-// TODO: seperate filter and mp-filter expressions.
+impl_from_str!(ParserRule::just_filter_expr => Expr<afi::Ipv4>);
+impl_from_str!(ParserRule::just_mp_filter_expr => Expr<afi::Any>);
+
 /// RSPL `mp-filter` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5.2
@@ -27,13 +29,13 @@ pub enum Expr<A: LiteralPrefixSetAfi> {
     /// An expression containing a single [`Term`].
     Unit(Term<A>),
     /// An expression containing the negation (`NOT ...`) of a [`Term`].
-    Not(Term<A>),
+    Not(Box<Expr<A>>),
     /// An expression containing the logical intersection (`... AND ...`) of a
     /// pair of [`Term`]s.
-    And(Term<A>, Term<A>),
+    And(Term<A>, Box<Expr<A>>),
     /// An expression containing the logical union (`... OR ...`) of a
     /// pair of [`Term`]s.
-    Or(Term<A>, Term<A>),
+    Or(Term<A>, Box<Expr<A>>),
 }
 
 impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
@@ -45,38 +47,35 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
             rule if rule == A::FILTER_EXPR_UNIT_RULE => Ok(Self::Unit(
                 next_into_or!(pair.into_inner() => "failed to get inner filter term")?,
             )),
-            rule if rule == A::FILTER_EXPR_NOT_RULE => Ok(Self::Not(
+            rule if rule == A::FILTER_EXPR_NOT_RULE => Ok(Self::Not(Box::new(
                 next_into_or!(pair.into_inner() => "failed to get inner filter term")?,
-            )),
+            ))),
             rule if rule == A::FILTER_EXPR_AND_RULE => {
                 let mut pairs = pair.into_inner();
-                let (left_term, right_term) = (
+                let (left_term, right_expr) = (
                     next_into_or!(pairs => "failed to get left inner filter term")?,
-                    next_into_or!(pairs => "failed to get right inner filter term")?,
+                    Box::new(next_into_or!(pairs => "failed to get right inner filter term")?),
                 );
-                Ok(Self::And(left_term, right_term))
+                Ok(Self::And(left_term, right_expr))
             }
             rule if rule == A::FILTER_EXPR_OR_RULE => {
                 let mut pairs = pair.into_inner();
-                let (left_term, right_term) = (
+                let (left_term, right_expr) = (
                     next_into_or!(pairs => "failed to get left inner filter term")?,
-                    next_into_or!(pairs => "failed to get right inner filter term")?,
+                    Box::new(next_into_or!(pairs => "failed to get right inner filter term")?),
                 );
-                Ok(Self::Or(left_term, right_term))
+                Ok(Self::Or(left_term, right_expr))
             }
             _ => Err(rule_mismatch!(pair => "filter expression")),
         }
     }
 }
 
-impl_from_str!(ParserRule::just_filter_expr => Expr<afi::Ipv4>);
-impl_from_str!(ParserRule::just_mp_filter_expr => Expr<afi::Any>);
-
 impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Unit(term) => term.fmt(f),
-            Self::Not(term) => write!(f, "NOT {}", term),
+            Self::Not(expr) => write!(f, "NOT {}", expr),
             Self::And(lhs, rhs) => write!(f, "{} AND {}", lhs, rhs),
             Self::Or(lhs, rhs) => write!(f, "{} OR {}", lhs, rhs),
         }
@@ -90,16 +89,22 @@ where
     Term<A>: Arbitrary,
     <Term<A> as Arbitrary>::Parameters: Clone,
 {
-    type Parameters = (ParamsFor<Term<A>>, ParamsFor<Term<A>>);
+    type Parameters = ParamsFor<Term<A>>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        prop_oneof![
-            any_with::<Term<A>>(args.0.clone()).prop_map(Self::Unit),
-            any_with::<Term<A>>(args.0.clone()).prop_map(Self::Not),
-            any_with::<(Term<A>, Term<A>)>(args.clone()).prop_map(|(lhs, rhs)| Self::And(lhs, rhs)),
-            any_with::<(Term<A>, Term<A>)>(args.clone()).prop_map(|(lhs, rhs)| Self::Or(lhs, rhs)),
-        ]
-        .boxed()
+        let term = any_with::<Term<A>>(args.clone()).boxed();
+        any_with::<Term<A>>(args.clone())
+            .prop_map(Self::Unit)
+            .prop_recursive(4, 8, 8, move |unit| {
+                prop_oneof![
+                    unit.clone().prop_map(|unit| Self::Not(Box::new(unit))),
+                    (term.clone(), unit.clone())
+                        .prop_map(|(term, unit)| Self::And(term, Box::new(unit))),
+                    (term.clone(), unit.clone())
+                        .prop_map(|(term, unit)| Self::Or(term, Box::new(unit))),
+                ]
+            })
+            .boxed()
     }
 }
 
@@ -164,9 +169,13 @@ where
         leaf.prop_recursive(4, 8, 8, |inner| {
             prop_oneof![
                 inner.clone().prop_map(Expr::Unit),
-                inner.clone().prop_map(Expr::Not),
-                (inner.clone(), inner.clone()).prop_map(|(lhs, rhs)| Expr::And(lhs, rhs)),
-                (inner.clone(), inner.clone()).prop_map(|(lhs, rhs)| Expr::Or(lhs, rhs)),
+                inner
+                    .clone()
+                    .prop_map(|inner| Expr::Not(Box::new(Expr::Unit(inner)))),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(lhs, rhs)| Expr::And(lhs, Box::new(Expr::Unit(rhs)))),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(lhs, rhs)| Expr::Or(lhs, Box::new(Expr::Unit(rhs)))),
             ]
             .prop_map(|expr| Self::Expr(Box::new(expr)))
         })
@@ -1111,9 +1120,9 @@ mod tests {
                             PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS1".parse().unwrap())),
                             RangeOperator::None,
                         )),
-                        Term::Named("fltr-foo".parse().unwrap()),
+                        Box::new(Expr::Unit(Term::Named("fltr-foo".parse().unwrap()))),
                     ))),
-                    Term::Literal(Literal::AsPath(AsPathRegexp::new(
+                    Box::new(Expr::Unit(Term::Literal(Literal::AsPath(AsPathRegexp::new(
                         false,
                         vec![
                             AsPathRegexpElem::new(
@@ -1122,7 +1131,7 @@ mod tests {
                             ),
                         ],
                         false,
-                    ))),
+                    ))))),
                 )
             }
             rfc2622_sect5_example3: "{ 0.0.0.0/0 }" => {
@@ -1238,7 +1247,7 @@ mod tests {
                 ))))
             }
             rfc2622_sect5_example12: "NOT {128.9.0.0/16, 128.8.0.0/16}" => {
-                FilterExpr::Not(Term::Literal(Literal::PrefixSet(
+                FilterExpr::Not(Box::new(Expr::Unit(Term::Literal(Literal::PrefixSet(
                     PrefixSetExpr::Literal(
                         vec![
                             PrefixRange::new(
@@ -1252,7 +1261,7 @@ mod tests {
                         ],
                     ),
                     RangeOperator::None,
-                )))
+                )))))
             }
             rfc2622_sect5_example13: "AS226 AS227 OR AS228" => {
                 FilterExpr::Or(
@@ -1260,16 +1269,16 @@ mod tests {
                         PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS226".parse().unwrap())),
                         RangeOperator::None,
                     )),
-                    Term::Expr(Box::new(FilterExpr::Or(
+                    Box::new(Expr::Or(
                         Term::Literal(Literal::PrefixSet(
                             PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS227".parse().unwrap())),
                             RangeOperator::None,
                         )),
-                        Term::Literal(Literal::PrefixSet(
+                        Box::new(Expr::Unit(Term::Literal(Literal::PrefixSet(
                             PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS228".parse().unwrap())),
                             RangeOperator::None,
-                        ))
-                    )))
+                        ))))
+                    ))
                 )
             }
             rfc2622_sect5_example14: "AS226 AND NOT {128.9.0.0/16}" => {
@@ -1278,7 +1287,7 @@ mod tests {
                         PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS226".parse().unwrap())),
                         RangeOperator::None,
                     )),
-                    Term::Expr(Box::new(FilterExpr::Not(
+                    Box::new(Expr::Not(Box::new(Expr::Unit(
                         Term::Literal(Literal::PrefixSet(
                             PrefixSetExpr::Literal(
                                 vec![
@@ -1290,7 +1299,7 @@ mod tests {
                             ),
                             RangeOperator::None,
                         ))
-                    )))
+                    ))))
                 )
             }
             rfc2622_sect5_example15: "AS226 AND {0.0.0.0/0^0-18}" => {
@@ -1299,7 +1308,7 @@ mod tests {
                         PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS226".parse().unwrap())),
                         RangeOperator::None,
                     )),
-                    Term::Literal(Literal::PrefixSet(
+                    Box::new(Expr::Unit(Term::Literal(Literal::PrefixSet(
                         PrefixSetExpr::Literal(
                             vec![
                                 PrefixRange::new(
@@ -1309,7 +1318,7 @@ mod tests {
                             ]
                         ),
                         RangeOperator::None,
-                    ))
+                    ))))
                 )
             }
         }
