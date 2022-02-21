@@ -274,7 +274,7 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
 impl fmt::Display for RpslAttribute {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let attr_type: AttributeType = self.into();
-        write!(f, "{}: ", attr_type);
+        write!(f, "{}: ", attr_type)?;
         match self {
             Self::Descr(inner) => write!(f, "{}", inner),
             Self::TechC(inner) => write!(f, "{}", inner),
