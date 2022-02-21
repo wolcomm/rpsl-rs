@@ -226,6 +226,10 @@ impl Arbitrary for SetNameComp {
     }
 }
 
+/// RPSL set class name component.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5
 #[derive(Clone, Debug)]
 pub struct SetNameCompName(String);
 impl_case_insensitive_str_primitive!(
@@ -236,78 +240,154 @@ impl_case_insensitive_str_primitive!(
      | ParserRule::peering_set_name => SetNameCompName
 );
 
+/// RPSL `descr` attribute string.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
 #[derive(Clone, Debug)]
 pub struct ObjectDescr(String);
 impl_case_insensitive_str_primitive!(ParserRule::object_descr => ObjectDescr);
 
+/// RPSL `nic-hanndle`.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-2
 #[derive(Clone, Debug)]
 pub struct NicHdl(String);
 impl_case_insensitive_str_primitive!(ParserRule::nic_hdl => NicHdl);
 
+/// RPSL `remarks` attribute string.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
 #[derive(Clone, Debug)]
 pub struct Remarks(String);
 impl_case_insensitive_str_primitive!(ParserRule::remarks => Remarks);
 
+/// RPSL `registry-name`.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-2
 #[derive(Clone, Debug)]
 pub struct RegistryName(String);
 impl_case_insensitive_str_primitive!(ParserRule::registry_name => RegistryName);
 
+/// RPSL `address` attribute string.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.2
 #[derive(Clone, Debug)]
 pub struct Address(String);
 impl_case_insensitive_str_primitive!(ParserRule::address => Address);
 
+/// RPSL `email-address`.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-2
 #[derive(Clone, Debug)]
 pub struct EmailAddress(String);
 impl_case_insensitive_str_primitive!(ParserRule::email_addr => EmailAddress);
 
+/// RPSL `phone` or `fax-no` attribute string.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.2
 #[derive(Clone, Debug)]
 pub struct TelNumber(String);
 impl_case_insensitive_str_primitive!(ParserRule::tel_number => TelNumber);
 
+/// Email address regular expression used in the `MAIL-FROM` authentication
+/// scheme.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
 #[derive(Clone, Debug)]
 pub struct EmailAddressRegex(String);
 impl_case_insensitive_str_primitive!(ParserRule::email_addr_regexp => EmailAddressRegex);
 
+/// PGP key fingerprint used in the `PGP-FROM` authentication scheme.
+/// See [RFC2725].
+///
+/// [RFC2725]: https://datatracker.ietf.org/doc/html/rfc2725#section-8
 #[derive(Clone, Debug)]
 pub struct PgpFromFingerprint(String);
 impl_case_insensitive_str_primitive!(ParserRule::pgp_from_fingerpr => PgpFromFingerprint);
 
+/// UNIX crypt hash value used in the `CRYPT-PW` authentication scheme.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CryptHash(String);
 impl_str_primitive!(ParserRule::crypt_hash => CryptHash);
 
+/// RPSL `trouble` attribute string.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.3
 #[derive(Clone, Debug)]
 pub struct Trouble(String);
 impl_case_insensitive_str_primitive!(ParserRule::trouble => Trouble);
 
+/// RPSL `key-cert` object owner.
+/// See [RFC2726].
+///
+/// [RFC2726]: https://datatracker.ietf.org/doc/html/rfc2726#section-2.1
 #[derive(Clone, Debug)]
 pub struct KeyOwner(String);
 impl_case_insensitive_str_primitive!(ParserRule::owner => KeyOwner);
 
+/// Key fingerprint appearing in an RPSL `key-cert` object.
+/// See [RFC2726].
+///
+/// [RFC2726]: https://datatracker.ietf.org/doc/html/rfc2726#section-2.1
 #[derive(Clone, Debug)]
 pub struct Fingerprint(String);
 impl_case_insensitive_str_primitive!(ParserRule::key_fingerprint => Fingerprint);
 
+/// ASCII armoured certificate appearing in an RPSL `key-cert` object.
+/// See [RFC2726].
+///
+/// [RFC2726]: https://datatracker.ietf.org/doc/html/rfc2726#section-2.1
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Certificate(String);
 impl_str_primitive!(ParserRule::key_certif => Certificate);
 
+/// Autonomous system name, contained in the `as-name` RPSL attribute.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6
 #[derive(Clone, Debug)]
 pub struct AsName(String);
 impl_case_insensitive_str_primitive!(ParserRule::as_name => AsName);
 
+/// IP network name, contained in the `netname` RIPE-81 attribute.
+/// See [RFC1786].
+///
+/// [RFC1786]: https://datatracker.ietf.org/doc/html/rfc1786
 #[derive(Clone, Debug)]
 pub struct Netname(String);
 impl_case_insensitive_str_primitive!(ParserRule::netname => Netname);
 
+/// [ISO-3166] two letter country code.
+///
+/// [ISO-3166]: https://www.iso.org/obp/ui/#search
 #[derive(Clone, Debug)]
 pub struct CountryCode(String);
 impl_case_insensitive_str_primitive!(ParserRule::country_code => CountryCode);
 
+/// RPSL `dns-name`.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-2
 #[derive(Clone, Debug)]
 pub struct DnsName(String);
 impl_case_insensitive_str_primitive!(ParserRule::dns_name => DnsName);
 
+/// RPSL `date`.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-2
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Date(NaiveDate);
 
@@ -342,9 +422,15 @@ impl fmt::Display for Date {
     }
 }
 
+/// RPSL `key-cert` object signing method.
+/// See [RFC2726].
+///
+/// [RFC2726]: https://datatracker.ietf.org/doc/html/rfc2726#section-2.1
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum SigningMethod {
+    /// `PGP` signing method.
     Pgp,
+    /// `X509` signing method.
     X509,
 }
 
@@ -372,21 +458,39 @@ impl fmt::Display for SigningMethod {
 
 // TODO: impl Arbitrary for SigningMethod
 
+/// RPSL `protocol` name.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-7
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Protocol {
+    /// Border Gateway Protocol version 4.
     Bgp4,
+    /// BGP version 4 with Multi-Protocol extensions.
     MpBgp,
+    /// Open Shortest Path First.
     Ospf,
+    /// Routing Information Protocol "next-gen".
     RipNg,
+    /// Routing Information Protocol.
     Rip,
+    /// Interior Gateway Routing Protocol.
     Igrp,
+    /// ISO Intermediate System to Intermediate System protocol.
     IsIs,
+    /// Static routing information.
     Static,
+    /// Dynamic Vector Multicast Routing Protocol.
     Dvmrp,
+    /// Protocol Independent Multicast - Dense Mode.
     PimDm,
+    /// Protocol Independent Multicast - Sparse Mode.
     PimSm,
+    /// Core Based Trees.
     Cbt,
+    /// Multicast Open Shortest Path First.
     Mospf,
+    /// Unknown routing protocol variant.
     Unknown(UnknownProtocol),
 }
 
@@ -438,14 +542,23 @@ impl fmt::Display for Protocol {
 
 // TODO: impl Arbitrary for Protocol
 
+/// An unknown `protocol` name.
 #[derive(Clone, Debug)]
 pub struct UnknownProtocol(String);
 impl_case_insensitive_str_primitive!(ParserRule::protocol_unknown => UnknownProtocol);
 
+/// RPSL `protocol` option name.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-9
 #[derive(Clone, Debug)]
 pub struct PeerOptKey(String);
 impl_case_insensitive_str_primitive!(ParserRule::peer_opt_key => PeerOptKey);
 
+/// RPSL `protocol` option value.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-9
 #[derive(Clone, Debug)]
 pub struct PeerOptVal(String);
 impl_case_insensitive_str_primitive!(ParserRule::peer_opt_val => PeerOptVal);
