@@ -22,6 +22,7 @@ macro_rules! display_fmt_parses {
         }
     }
 }
+pub(crate) use display_fmt_parses;
 
 macro_rules! compare_ast {
     (
@@ -50,3 +51,4 @@ macro_rules! compare_ast {
         }
     }
 }
+pub(crate) use compare_ast;

@@ -3,8 +3,11 @@ use std::fmt;
 
 use crate::{
     addr_family::{afi, Afi},
-    error::{ParseError, ParseResult},
-    parser::{ParserRule, TokenPair},
+    error::{err, ParseError, ParseResult},
+    parser::{
+        debug_construction, impl_from_str, next_into_or, next_parse_or, rule_mismatch, ParserRule,
+        TokenPair,
+    },
 };
 
 use super::ActionExpr;
@@ -13,13 +16,12 @@ use super::ActionExpr;
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-9
 pub type IfaddrExpr = Expr<afi::Ipv4>;
+impl_from_str!(ParserRule::just_ifaddr_expr => IfaddrExpr);
 
 /// RPSL `interface` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.5
 pub type InterfaceExpr = Expr<afi::Any>;
-
-impl_from_str!(ParserRule::just_ifaddr_expr => IfaddrExpr);
 impl_from_str!(ParserRule::just_interface_expr => InterfaceExpr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -178,6 +180,7 @@ impl TunnelEndpointAfi for afi::Any {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::compare_ast;
 
     compare_ast! {
         IfaddrExpr {

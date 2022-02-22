@@ -26,25 +26,17 @@
 #![doc(html_root_url = "https://docs.rs/rpsl/0.1.0-alpha.1")]
 #![warn(missing_docs)]
 
-// TODO: pub(crate) use macros...
-
 #[macro_use]
 extern crate pest_derive;
 
-#[macro_use]
-mod error;
-
-#[macro_use]
 mod parser;
-
-#[cfg(test)]
-#[macro_use]
-mod tests;
 
 /// AFI definitions.
 pub mod addr_family;
 /// RPSL attributes.
 pub mod attr;
+/// Error types
+pub mod error;
 /// RPSL policy and filter expressions.
 pub mod expr;
 /// RPSL list-like syntax types.
@@ -59,3 +51,6 @@ pub mod obj;
 pub mod primitive;
 /// traits for performing value substitution on RPSL expressions.
 pub mod subst;
+
+#[cfg(test)]
+mod tests;

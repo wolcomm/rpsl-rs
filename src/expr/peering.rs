@@ -5,7 +5,9 @@ use crate::{
     addr_family::{afi, LiteralPrefixSetAfi},
     error::{ParseError, ParseResult},
     names::PeeringSet,
-    parser::{ParserRule, TokenPair},
+    parser::{
+        debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
+    },
 };
 
 use super::{rtr, AsExpr};
@@ -111,6 +113,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for LiteralPeering<A> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::compare_ast;
 
     compare_ast! {
         PeeringExpr {

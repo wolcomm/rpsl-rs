@@ -9,7 +9,10 @@ use crate::{
     addr_family::{afi, LiteralPrefixSetAfi},
     error::{ParseError, ParseResult, SubstitutionError, SubstitutionResult},
     names::{AsSet, AutNum, FilterSet, RouteSet},
-    parser::{ParserRule, TokenPair},
+    parser::{
+        debug_construction, impl_from_str, next_into_or, next_parse_or, rule_mismatch, ParserRule,
+        TokenPair,
+    },
     primitive::{PrefixRange, RangeOperator},
     subst::{debug_substitution, PeerAs, Substitute},
 };
@@ -883,7 +886,10 @@ mod tests {
     use ipnet::IpNet;
     use paste::paste;
 
-    use crate::primitive::SetNameComp;
+    use crate::{
+        primitive::SetNameComp,
+        tests::{compare_ast, display_fmt_parses},
+    };
 
     use super::*;
 

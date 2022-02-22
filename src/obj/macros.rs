@@ -12,6 +12,7 @@ macro_rules! attribute_rule {
         AttributeRule::new(AttributeType::$attr, true, false)
     };
 }
+pub(crate) use attribute_rule;
 
 macro_rules! rpsl_object_class {
     (
@@ -35,7 +36,7 @@ macro_rules! rpsl_object_class {
         impl RpslObjectClass for $obj {
             const CLASS: &'static str = $class;
             const ATTRS: &'static [AttributeRule] = &[
-                $( attribute_rule!( $( $attr_rule )? $attr_type) ),*
+                $( $crate::obj::macros::attribute_rule!( $( $attr_rule )? $attr_type) ),*
             ];
             type Name = $name;
 
@@ -59,21 +60,21 @@ macro_rules! rpsl_object_class {
         impl TryFrom<TokenPair<'_>> for $obj {
             type Error = ParseError;
             fn try_from(pair: TokenPair) -> ParseResult<Self> {
-                debug_construction!(pair => $obj);
+                $crate::parser::debug_construction!(pair => $obj);
                 match pair.as_rule() {
                     $rule => {
                         let mut pairs = pair.into_inner();
                         // TODO: class-specific error msg
-                        let name = next_into_or!(pairs => "failed to get object name")?;
+                        let name = $crate::parser::next_into_or!(pairs => "failed to get object name")?;
                         let attrs = pairs
                             .map(|inner_pair| {
-                                next_into_or!(inner_pair.into_inner() => "failed to get attribute")
+                                $crate::parser::next_into_or!(inner_pair.into_inner() => "failed to get attribute")
                             })
                             .collect::<ParseResult<Vec<_>>>()?;
                         Ok(Self::new(name, attrs)?)
                     }
                     // TODO: class-specific error msg
-                    _ => Err(rule_mismatch!(pair => "object")),
+                    _ => Err($crate::parser::rule_mismatch!(pair => "object")),
                 }
             }
         }
@@ -86,3 +87,4 @@ macro_rules! rpsl_object_class {
         }
     }
 }
+pub(crate) use rpsl_object_class;

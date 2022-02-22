@@ -4,7 +4,9 @@ use std::fmt;
 use crate::{
     error::{ParseError, ParseResult},
     names::KeyCert,
-    parser::{ParserRule, TokenPair},
+    parser::{
+        debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
+    },
     primitive::{CryptHash, EmailAddressRegex, PgpFromFingerprint},
 };
 
@@ -66,6 +68,7 @@ impl fmt::Display for AuthExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::compare_ast;
 
     compare_ast! {
         AuthExpr {

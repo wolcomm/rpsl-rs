@@ -4,7 +4,9 @@ use std::fmt;
 use crate::{
     error::{ParseError, ParseResult},
     names::{AsSet, AutNum},
-    parser::{ParserRule, TokenPair},
+    parser::{
+        debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
+    },
 };
 
 /// RPSL `as-expression`. See [RFC2622].
@@ -19,6 +21,8 @@ pub enum Expr {
     Or(Term, Term),
     Except(Term, Term),
 }
+
+impl_from_str!(ParserRule::just_as_expr => Expr);
 
 impl TryFrom<TokenPair<'_>> for Expr {
     type Error = ParseError;
@@ -54,8 +58,6 @@ impl TryFrom<TokenPair<'_>> for Expr {
         }
     }
 }
-
-impl_from_str!(ParserRule::just_as_expr => Expr);
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -108,6 +110,7 @@ impl fmt::Display for Term {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::compare_ast;
 
     compare_ast! {
         AsExpr {

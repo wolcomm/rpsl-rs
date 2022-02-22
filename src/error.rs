@@ -2,8 +2,10 @@ use std::error::Error;
 use std::fmt;
 use std::num::ParseIntError;
 
+/// Custom [`Result<T, E>`] containing a possible [`ParseError`].
 pub type ParseResult<T> = Result<T, ParseError>;
 
+/// Error returned during RPSL text to AST parsing failures.
 #[derive(Debug)]
 pub struct ParseError {
     msg: String,
@@ -11,7 +13,7 @@ pub struct ParseError {
 }
 
 impl ParseError {
-    pub fn new<S, E>(msg: S, err: Option<E>) -> Self
+    pub(crate) fn new<S, E>(msg: S, err: Option<E>) -> Self
     where
         S: AsRef<str>,
         E: Error + Send + Sync + 'static,
@@ -23,7 +25,7 @@ impl ParseError {
         }
     }
 
-    pub fn from_msg<S>(msg: S) -> Self
+    pub(crate) fn from_msg<S>(msg: S) -> Self
     where
         S: AsRef<str>,
     {
@@ -42,6 +44,7 @@ macro_rules! err {
         $crate::error::ParseError::from_msg(format!($fmt, $($arg)*))
     };
 }
+pub(crate) use err;
 
 impl Error for ParseError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
@@ -106,8 +109,10 @@ impl From<ValidationError> for ParseError {
     }
 }
 
+/// Custom [`Result<T, E>`] containing a possible [`ValidationError`].
 pub type ValidationResult<T> = Result<T, ValidationError>;
 
+/// Error returned during RPSL object attribute validation failure.
 #[derive(Debug)]
 pub struct ValidationError(String);
 
@@ -125,10 +130,13 @@ impl fmt::Display for ValidationError {
     }
 }
 
+/// Custom [`Result<T, E>`] containing a possible [`SubstitutionError`].
 pub type SubstitutionResult<T> = Result<T, SubstitutionError>;
 
+/// Error returned during RPSL token substitution failure.
 #[derive(Debug)]
 pub enum SubstitutionError {
+    /// Error occurred during substitution of a `PeerAS` token.
     PeerAs,
 }
 

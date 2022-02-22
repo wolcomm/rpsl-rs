@@ -3,7 +3,9 @@ use std::fmt;
 
 use crate::{
     error::{ParseError, ParseResult},
-    parser::{ParserRule, TokenPair},
+    parser::{
+        debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
+    },
     primitive::Protocol,
 };
 
@@ -15,6 +17,8 @@ pub struct ProtocolDistribution {
     from: Option<Protocol>,
     into: Option<Protocol>,
 }
+
+impl_from_str!(ParserRule::just_protocol_dist_expr => ProtocolDistribution);
 
 impl TryFrom<TokenPair<'_>> for ProtocolDistribution {
     type Error = ParseError;
@@ -46,8 +50,6 @@ impl TryFrom<TokenPair<'_>> for ProtocolDistribution {
     }
 }
 
-impl_from_str!(ParserRule::just_protocol_dist_expr => ProtocolDistribution);
-
 impl fmt::Display for ProtocolDistribution {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(from) = &self.from {
@@ -63,6 +65,7 @@ impl fmt::Display for ProtocolDistribution {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::compare_ast;
 
     compare_ast! {
         ProtocolDistribution {

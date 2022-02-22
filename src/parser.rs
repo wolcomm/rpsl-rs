@@ -21,22 +21,23 @@ macro_rules! impl_from_str {
                 log::info!(concat!("trying to parse ", stringify!($t), " expression"));
                 let root = $crate::parser::RpslParser::parse($rule, s)?
                     .next()
-                    .ok_or_else(|| err!("failed to parse expression",))?;
+                    .ok_or_else(|| $crate::error::err!("failed to parse expression",))?;
                 root.try_into()
             }
         }
     };
 }
+pub(crate) use impl_from_str;
 
 macro_rules! impl_str_primitive {
     ( $( $rule:pat )|+ => $t:ty ) => {
         impl TryFrom<TokenPair<'_>> for $t {
             type Error = ParseError;
             fn try_from(pair: TokenPair) -> ParseResult<Self> {
-                debug_construction!(pair => $t);
+                $crate::parser::debug_construction!(pair => $t);
                 match pair.as_rule() {
                     $( $rule )|+ => Ok(Self(pair.as_str().to_string())),
-                    _   => Err(err!(
+                    _   => Err($crate::error::err!(
                             concat!("expected a '", stringify!($( $rule )|+), "' expression, got {:?}: {}"),
                             pair.as_rule(),
                             pair.as_str(),
@@ -56,10 +57,11 @@ macro_rules! impl_str_primitive {
         }
     }
 }
+pub(crate) use impl_str_primitive;
 
 macro_rules! impl_case_insensitive_str_primitive {
     ( $( $rule:pat )|+ => $t:ty ) => {
-        impl_str_primitive!($( $rule )|+ => $t);
+        $crate::parser::impl_str_primitive!($( $rule )|+ => $t);
         impl std::cmp::PartialEq for $t {
             fn eq(&self, other: &Self) -> bool {
                 self.0.to_uppercase() == other.0.to_uppercase()
@@ -76,18 +78,28 @@ macro_rules! impl_case_insensitive_str_primitive {
         }
     }
 }
+pub(crate) use impl_case_insensitive_str_primitive;
 
 macro_rules! next_into_or {
     ( $pairs:expr => $err:literal ) => {
-        $pairs.next().ok_or_else(|| err!($err))?.try_into()
+        $pairs
+            .next()
+            .ok_or_else(|| $crate::error::err!($err))?
+            .try_into()
     };
 }
+pub(crate) use next_into_or;
 
 macro_rules! next_parse_or {
     ( $pairs:expr => $err:literal ) => {
-        $pairs.next().ok_or_else(|| err!($err))?.as_str().parse()
+        $pairs
+            .next()
+            .ok_or_else(|| $crate::error::err!($err))?
+            .as_str()
+            .parse()
     };
 }
+pub(crate) use next_parse_or;
 
 macro_rules! debug_construction {
     ( $pair:ident => $node:ty ) => {
@@ -102,16 +114,18 @@ macro_rules! debug_construction {
         )
     };
 }
+pub(crate) use debug_construction;
 
 macro_rules! rule_mismatch {
     ( $pair:expr => $expected:literal ) => {
-        err!(
+        $crate::error::err!(
             concat!("expected ", $expected, ", got {:?}: '{}'"),
             $pair.as_rule(),
             $pair.as_str(),
         )
     };
 }
+pub(crate) use rule_mismatch;
 
 #[cfg(test)]
 #[allow(non_fmt_panic)]

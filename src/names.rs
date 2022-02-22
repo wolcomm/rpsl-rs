@@ -12,7 +12,10 @@ use regex::Regex;
 
 use crate::{
     error::{ParseError, ParseResult},
-    parser::{ParserRule, TokenPair},
+    parser::{
+        debug_construction, impl_from_str, impl_str_primitive, next_into_or, next_parse_or,
+        rule_mismatch, ParserRule, TokenPair,
+    },
     primitive::SetNameComp,
 };
 
@@ -291,7 +294,7 @@ macro_rules! impl_set_try_from {
         impl TryFrom<TokenPair<'_>> for $t {
             type Error = ParseError;
             fn try_from(pair: TokenPair) -> ParseResult<Self> {
-                debug_construction!(pair => $t);
+                $crate::parser::debug_construction!(pair => $t);
                 match pair.as_rule() {
                     $rule => Ok(Self(
                         pair.into_inner()
@@ -299,7 +302,7 @@ macro_rules! impl_set_try_from {
                             .collect::<ParseResult<_>>()?,
                     )),
                     // TODO: try to use `rule_mismatch!` here
-                    _   => Err(err!(
+                    _   => Err($crate::error::err!(
                             concat!("expected a '", stringify!($rule), "' expression, got {:?}: {}"),
                             pair.as_rule(),
                             pair.as_str(),
@@ -454,6 +457,7 @@ impl_set_arbitrary!("[Pp][Rr][Nn][Gg]-[A-Za-z0-9_-]+" => PeeringSet);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::display_fmt_parses;
     use paste::paste;
 
     display_fmt_parses! {

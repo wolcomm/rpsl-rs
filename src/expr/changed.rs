@@ -3,7 +3,9 @@ use std::fmt;
 
 use crate::{
     error::{ParseError, ParseResult},
-    parser::{ParserRule, TokenPair},
+    parser::{
+        debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
+    },
     primitive::{Date, EmailAddress},
 };
 
@@ -15,6 +17,8 @@ pub struct ChangedExpr {
     by: EmailAddress,
     on: Date,
 }
+
+impl_from_str!(ParserRule::just_changed_expr => ChangedExpr);
 
 impl ChangedExpr {
     /// Create a new [`ChangedExpr`].
@@ -41,8 +45,6 @@ impl TryFrom<TokenPair<'_>> for ChangedExpr {
     }
 }
 
-impl_from_str!(ParserRule::just_changed_expr => ChangedExpr);
-
 impl fmt::Display for ChangedExpr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self.by, self.on)
@@ -52,6 +54,7 @@ impl fmt::Display for ChangedExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::compare_ast;
 
     compare_ast! {
         ChangedExpr {

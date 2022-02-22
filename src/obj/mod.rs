@@ -6,11 +6,12 @@ use crate::{
     attr::{AttributeSeq, AttributeType, RpslAttribute},
     error::{ParseError, ParseResult, ValidationError, ValidationResult},
     names,
-    parser::{ParserRule, TokenPair},
+    parser::{debug_construction, impl_from_str, rule_mismatch, ParserRule, TokenPair},
 };
 
-#[macro_use]
 mod macros;
+
+use self::macros::rpsl_object_class;
 
 /// Enumeration of RPSL object class types.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -658,14 +659,15 @@ rpsl_object_class! {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     use crate::{
         attr::RpslAttribute,
         expr::{AuthExpr, ChangedExpr},
         members::{AsSetMember, RouteSetMember, RouteSetMemberElem, RtrSetMember},
         primitive::{RangeOperator, SigningMethod},
+        tests::compare_ast,
     };
-
-    use super::*;
 
     compare_ast! {
             RpslObject {

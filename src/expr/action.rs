@@ -3,7 +3,10 @@ use std::fmt;
 
 use crate::{
     error::{ParseError, ParseResult},
-    parser::{ParserRule, TokenPair},
+    parser::{
+        debug_construction, impl_case_insensitive_str_primitive, impl_from_str, next_into_or,
+        rule_mismatch, ParserRule, TokenPair,
+    },
 };
 
 /// RPSL `action` expression. See [RFC2622].
@@ -344,6 +347,7 @@ impl_case_insensitive_str_primitive!(ParserRule::action_val => Value);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests::compare_ast;
 
     compare_ast! {
         ActionExpr {
