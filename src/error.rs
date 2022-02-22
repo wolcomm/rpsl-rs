@@ -106,13 +106,6 @@ impl From<ValidationError> for ParseError {
     }
 }
 
-// TODO: do we still need this?
-impl From<nom::error::Error<String>> for ParseError {
-    fn from(err: nom::error::Error<String>) -> Self {
-        Self::new("nom parse error", Some(err))
-    }
-}
-
 pub type ValidationResult<T> = Result<T, ValidationError>;
 
 #[derive(Debug)]
