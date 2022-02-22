@@ -1025,8 +1025,8 @@ aut-num:     AS1
 as-name:     Example-AS
 descr:       Example aut-num from RFC2622
 import:      from AS2
-         action pref = 10; med = 0; community.append(10250, 3561:10);
-         accept { 128.9.0.0/16 }
+             action pref = 10; med = 0; community.append(10250, 3561:10);
+             accept { 128.9.0.0/16 }
 admin-c:     CO19-RIPE
 tech-c:      RW488-RIPE
 mnt-by:      RIPE-NCC-MNT
@@ -1059,8 +1059,8 @@ aut-num:     AS1
 as-name:     Example-AS
 descr:       Example aut-num from RFC2622
 import:      from AS2 7.7.7.2 at 7.7.7.1 action pref = 1;
-         from AS2                    action pref = 2;
-         accept AS4
+             from AS2                    action pref = 2;
+             accept AS4
 admin-c:     CO19-RIPE
 tech-c:      RW488-RIPE
 mnt-by:      RIPE-NCC-MNT
@@ -1091,7 +1091,7 @@ aut-num:     AS1
 as-name:     Example-AS
 descr:       Example aut-num from RFC2622
 export:      to AS2 action med = 5; community .= { 70 };
-         announce AS4
+             announce AS4
 admin-c:     CO19-RIPE
 tech-c:      RW488-RIPE
 mnt-by:      RIPE-NCC-MNT
@@ -1123,7 +1123,7 @@ as-name:     Example-AS
 descr:       Example aut-num from RFC2622
 import:      from AS2 accept AS2^+
 export:      protocol BGP4 into OSPF
-         to AS1 announce AS2
+             to AS1 announce AS2
 admin-c:     CO19-RIPE
 tech-c:      RW488-RIPE
 mnt-by:      RIPE-NCC-MNT
