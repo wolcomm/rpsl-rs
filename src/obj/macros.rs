@@ -15,7 +15,7 @@ macro_rules! attribute_rule {
 
 macro_rules! rpsl_object_class {
     (
-        $( #[$doc:meta] )?
+        $( #[$doc:meta] )*
         $obj:ident {
             class: $class:literal,
             name: $name:ty,
@@ -25,7 +25,7 @@ macro_rules! rpsl_object_class {
             ],
         }
     ) => {
-        $(#[$doc])?
+        $(#[$doc])*
         #[derive(Clone, Debug, Hash, PartialEq, Eq)]
         pub struct $obj {
             name: $name,

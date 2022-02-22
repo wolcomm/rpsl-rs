@@ -9,8 +9,17 @@ use crate::{
 
 use super::{filter, peering, ActionExpr, ProtocolDistribution};
 
+/// RPSL `import` expression. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6.1
 pub type ImportExpr = Statement<afi::Ipv4>;
+impl_from_str!(ParserRule::just_import_stmt => Statement<afi::Ipv4>);
+
+/// RPSL `mp-import` expression. See [RFC4012].
+///
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5
 pub type MpImportExpr = Statement<afi::Any>;
+impl_from_str!(ParserRule::just_mp_import_stmt => Statement<afi::Any>);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Statement<A: LiteralPrefixSetAfi> {
@@ -43,9 +52,6 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Statement<A> {
         }
     }
 }
-
-impl_from_str!(ParserRule::just_import_stmt => Statement<afi::Ipv4>);
-impl_from_str!(ParserRule::just_mp_import_stmt => Statement<afi::Any>);
 
 impl<A: LiteralPrefixSetAfi> fmt::Display for Statement<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

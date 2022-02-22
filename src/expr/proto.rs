@@ -7,6 +7,9 @@ use crate::{
     primitive::Protocol,
 };
 
+/// RPSL `protocol` redistribution expression. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6.3
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ProtocolDistribution {
     from: Option<Protocol>,
@@ -20,9 +23,8 @@ impl TryFrom<TokenPair<'_>> for ProtocolDistribution {
         debug_construction!(pair => ProtocolDistribution);
         match pair.as_rule() {
             ParserRule::protocol_dist_expr => {
-                let mut pairs = pair.into_inner();
                 let (mut from, mut into) = (None, None);
-                while let Some(inner_pair) = pairs.next() {
+                for inner_pair in pair.into_inner() {
                     match inner_pair.as_rule() {
                         ParserRule::from_protocol => {
                             from = Some(
@@ -34,7 +36,7 @@ impl TryFrom<TokenPair<'_>> for ProtocolDistribution {
                                 next_into_or!(inner_pair.into_inner() => "failed to get destination protocol")?,
                             );
                         }
-                        _ => Err(rule_mismatch!(inner_pair => "protocol name"))?,
+                        _ => return Err(rule_mismatch!(inner_pair => "protocol name")),
                     }
                 }
                 Ok(Self { from, into })

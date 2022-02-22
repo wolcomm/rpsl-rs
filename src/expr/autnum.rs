@@ -7,6 +7,9 @@ use crate::{
     parser::{ParserRule, TokenPair},
 };
 
+/// RPSL `as-expression`. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.6
 pub type AsExpr = Expr;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

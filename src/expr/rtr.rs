@@ -8,10 +8,16 @@ use crate::{
     parser::{ParserRule, TokenPair},
 };
 
+/// RPSL `router-expression`. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.6
 pub type RtrExpr = Expr<afi::Ipv4>;
-pub type MpRtrExpr = Expr<afi::Any>;
-
 impl_from_str!(ParserRule::just_rtr_expr => RtrExpr);
+
+/// RPSL `mp-router-expression`. See [RFC4012].
+///
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5.1
+pub type MpRtrExpr = Expr<afi::Any>;
 impl_from_str!(ParserRule::just_mp_rtr_expr => MpRtrExpr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

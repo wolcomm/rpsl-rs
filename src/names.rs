@@ -16,13 +16,6 @@ use crate::{
     primitive::SetNameComp,
 };
 
-/// TODO: maybe remove?
-/// Enumerated RPSL object namees.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum RpslObjectKey {
-    Mntner(Mntner),
-}
-
 /// RPSL `mntner` name. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
@@ -49,19 +42,28 @@ impl Arbitrary for Mntner {
     }
 }
 
+/// RPSL `person` name. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.2
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Person(String);
-
 impl_str_primitive!(ParserRule::person => Person);
 
+/// RPSL `role` name. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.3
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Role(String);
-
 impl_str_primitive!(ParserRule::role => Role);
 
+/// RPSL `key-cert` name. See [RFC2726].
+///
+/// [RFC2726]: https://datatracker.ietf.org/doc/html/rfc2726
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum KeyCert {
+    /// A `PGP` `key-cert` name.
     Pgp(String),
+    /// A `X509` `key-cert` name.
     X509(String),
 }
 
@@ -156,6 +158,7 @@ impl fmt::Display for AsBlock {
     }
 }
 
+/// RPSL `inetnum` name.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct InetNum {
     lower: Ipv4Addr,
@@ -185,6 +188,9 @@ impl fmt::Display for InetNum {
     }
 }
 
+/// RPSL `inet6num` name. See [RFC4012].
+///
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-5
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Inet6Num {
     lower: Ipv6Addr,
@@ -214,6 +220,9 @@ impl fmt::Display for Inet6Num {
     }
 }
 
+/// RPSL `route` name. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Route(Ipv4Net);
 
@@ -237,6 +246,9 @@ impl fmt::Display for Route {
     }
 }
 
+/// RPSL `route6` name. See [RFC4012].
+///
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-3
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Route6(Ipv6Net);
 
@@ -260,14 +272,18 @@ impl fmt::Display for Route6 {
     }
 }
 
+/// RPSL `inet-rtr` name. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-9
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct InetRtr(String);
-
 impl_str_primitive!(ParserRule::inet_rtr => InetRtr);
 
+/// RPSL `dictionary` name. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-10
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Dictionary(String);
-
 impl_str_primitive!(ParserRule::dictionary => Dictionary);
 
 macro_rules! impl_set_try_from {

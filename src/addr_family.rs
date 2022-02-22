@@ -7,6 +7,7 @@ use ipnet::{IpNet, Ipv4Net, Ipv6Net, PrefixLenError};
 
 use crate::parser::ParserRule;
 
+/// IP address family trait.
 pub trait Afi
 where
     Self: fmt::Display,
@@ -27,96 +28,149 @@ where
         + PartialEq
         + Eq,
 {
+    /// Address family IP address type.
     type Addr;
+    /// Address family IP prefix type.
     type Net;
-
+    /// Get the maximum prefix length for IP address `addr`.
     fn max_len(addr: &Self::Addr) -> u8;
+    /// Construct a [`Self::Net`] from `addr` and `len`.
     fn addr_to_net(addr: Self::Addr, len: u8) -> Self::Net;
+    /// Check that `len` is a valid prefix length for address `addr`.
     fn check_addr_len(addr: Self::Addr, len: u8) -> Result<(), PrefixLenError>;
 }
 
+/// Trait describing parser variations per RPSL `afi`.
 pub trait LiteralPrefixSetAfi: Afi {
+    /// Address family specific [`ParserRule`] for IP address literals.
     const LITERAL_ADDR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for IP prefix literals.
     const LITERAL_PREFIX_RULE: ParserRule;
 
+    /// Address family specific [`ParserRule`] for IP prefix set literals.
     const LITERAL_PREFIX_SET_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for ranged IP prefix set literals.
     const LITERAL_RANGED_PREFIX_SET_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for literal filter terms.
     const LITERAL_FILTER_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for named filter terms.
     const NAMED_FILTER_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for unit filter expressions.
     const FILTER_EXPR_UNIT_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for negated filter expressions.
     const FILTER_EXPR_NOT_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for conjunctive filter expressions.
     const FILTER_EXPR_AND_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for disjunctive filter expressions.
     const FILTER_EXPR_OR_RULE: ParserRule;
+    /// Array of address family specific [`ParserRule`] for filter expressions.
     const FILTER_EXPR_RULES: [ParserRule; 4] = [
         Self::FILTER_EXPR_UNIT_RULE,
         Self::FILTER_EXPR_NOT_RULE,
         Self::FILTER_EXPR_AND_RULE,
         Self::FILTER_EXPR_OR_RULE,
     ];
+    /// Check whether a [`ParserRule`] variant is a `filter` expression for
+    /// this address family.
     fn match_filter_expr_rule(rule: ParserRule) -> bool {
         Self::FILTER_EXPR_RULES
             .iter()
             .any(|filter_expr_rule| &rule == filter_expr_rule)
     }
 
+    /// Address family specific [`ParserRule`] for router IP address literals.
     const RTR_ADDR_LITERAL_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for unit router expressions.
     const RTR_EXPR_UNIT_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for unit router expressions.
     const RTR_EXPR_AND_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for conjunctive router expressions.
     const RTR_EXPR_OR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for exclusive router expressions.
     const RTR_EXPR_EXCEPT_RULE: ParserRule;
+    /// Array of address family specific [`ParserRule`] for router expressions.
     const RTR_EXPR_RULES: [ParserRule; 4] = [
         Self::RTR_EXPR_UNIT_RULE,
         Self::RTR_EXPR_AND_RULE,
         Self::RTR_EXPR_OR_RULE,
         Self::RTR_EXPR_EXCEPT_RULE,
     ];
+    /// Check whether a [`ParserRule`] variant is a `router` expression for
+    /// this address family.
     fn match_rtr_expr_rule(rule: ParserRule) -> bool {
         Self::RTR_EXPR_RULES
             .iter()
             .any(|rtr_expr_rule| &rule == rtr_expr_rule)
     }
 
+    /// Address family specific [`ParserRule`] for remote router expressions.
     const REMOTE_RTR_EXPR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for local router expressions.
     const LOCAL_RTR_EXPR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for literal peering expressions.
     const PEERING_EXPR_LITERAL_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for named peering expressions.
     const PEERING_EXPR_NAMED_RULE: ParserRule;
+    /// Array of address family specific [`ParserRule`] for peering expressions.
     const PEERING_EXPR_RULES: [ParserRule; 2] = [
         Self::PEERING_EXPR_NAMED_RULE,
         Self::PEERING_EXPR_LITERAL_RULE,
     ];
+    /// Check whether a [`ParserRule`] variant is a `peering` expression for
+    /// this address family.
     fn match_peering_expr_rule(rule: ParserRule) -> bool {
         Self::PEERING_EXPR_RULES
             .iter()
             .any(|peering_expr_rule| &rule == peering_expr_rule)
     }
 
+    /// Address family specific [`ParserRule`] for peer expressions.
     const PEER_EXPR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for peer specifications.
     const PEER_SPEC_RULE: ParserRule;
 
+    /// Address family specific [`ParserRule`] for `default` expressions.
     const DEFAULT_EXPR_RULE: ParserRule;
 
+    /// Address family specific [`ParserRule`] for `import` factors.
     const IMPORT_FACTOR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for `import` terms.
     const IMPORT_TERM_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for unit `import` expressions.
     const IMPORT_EXPR_UNIT_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for `EXCEPT` `import` expressions.
     const IMPORT_EXPR_EXCEPT_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for `REFINE` `import` expressions.
     const IMPORT_EXPR_REFINE_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for "simple" `import` expressions.
     const IMPORT_STMT_SIMPLE_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for `import` statements.
     const IMPORT_STMT_PROTOCOL_RULE: ParserRule;
 
+    /// Address family specific [`ParserRule`] for `export` factors.
     const EXPORT_FACTOR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for `export` terms.
     const EXPORT_TERM_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for unit `export` expressions.
     const EXPORT_EXPR_UNIT_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for `EXCEPT` `export` expressions.
     const EXPORT_EXPR_EXCEPT_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for `REFINE` `export` expressions.
     const EXPORT_EXPR_REFINE_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for "simple" `export` expressions.
     const EXPORT_STMT_SIMPLE_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for `export` statements.
     const EXPORT_STMT_PROTOCOL_RULE: ParserRule;
 
+    /// Address family specific [`ParserRule`] for `route-set` member items.
     const ROUTE_SET_MEMBER_RULE: ParserRule;
 }
 
+/// Concrete address family definitions.
 pub mod afi {
     use super::*;
 
+    /// RPSL `ipv4` address family.
     #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
     pub struct Ipv4;
 
@@ -192,6 +246,7 @@ pub mod afi {
         }
     }
 
+    /// RPSL `ipv6` address family.
     #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
     pub struct Ipv6;
 
@@ -219,6 +274,7 @@ pub mod afi {
         }
     }
 
+    /// RPSL `any` pseudo address family.
     #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
     pub struct Any;
 

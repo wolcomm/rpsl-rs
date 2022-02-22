@@ -12,24 +12,42 @@ use crate::{
 #[macro_use]
 mod macros;
 
+/// Enumeration of RPSL object class types.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum RpslObject {
+    /// RPSL `mntner` object. See [`Mntner`].
     Mntner(Mntner),
+    /// RPSL `person` object. See [`Person`].
     Person(Person),
+    /// RPSL `role` object. See [`Role`].
     Role(Role),
+    /// RPSL `key-cert` object. See [`KeyCert`].
     KeyCert(KeyCert),
+    /// RPSL `as-block` object. See [`AsBlock`].
     AsBlock(AsBlock),
+    /// RPSL `aut-num` object. See [`AutNum`].
     AutNum(AutNum),
+    /// RPSL `inetnum` object. See [`InetNum`].
     InetNum(InetNum),
+    /// RPSL `inet6num` object. See [`Inet6Num`].
     Inet6Num(Inet6Num),
+    /// RPSL `route` object. See [`Route`].
     Route(Route),
+    /// RPSL `route6` object. See [`Route6`].
     Route6(Route6),
+    /// RPSL `as-set` object. See [`AsSet`].
     AsSet(AsSet),
+    /// RPSL `route-set` object. See [`RouteSet`].
     RouteSet(RouteSet),
+    /// RPSL `filter-set` object. See [`FilterSet`].
     FilterSet(FilterSet),
+    /// RPSL `rtr-set` object. See [`RtrSet`].
     RtrSet(RtrSet),
+    /// RPSL `peering-set` object. See [`PeeringSet`].
     PeeringSet(PeeringSet),
+    /// RPSL `inet-rtr` object. See [`InetRtr`].
     InetRtr(InetRtr),
+    /// RPSL `dictionary` object. See [`Dictionary`].
     Dictionary(Dictionary),
 }
 
@@ -157,9 +175,16 @@ trait RpslObjectClass: Sized {
 // similarly, tech-c is mandatory for all objects in terms of rfc2622, but is
 // optional in terms of both ripe and radb object templates.
 //
-// we use the less restrictive version here.
+// we use the less restrictive versions here.
 
 rpsl_object_class! {
+    /// RPSL `mntner` object.
+    ///
+    /// Defined in [RFC2622], updated by [RFC2725] and [RFC2726].
+    ///
+    /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
+    /// [RFC2725]: https://datatracker.ietf.org/doc/html/rfc2725#section-8
+    /// [RFC2726]: https://datatracker.ietf.org/doc/html/rfc2726#section-2.2
     Mntner {
         class: "mntner",
         name: names::Mntner,
@@ -183,6 +208,11 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `person` object.
+    ///
+    /// Defined in [RFC2622].
+    ///
+    /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.2
     Person {
         class: "person",
         name: names::Person,
@@ -208,6 +238,11 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `role` object.
+    ///
+    /// Defined in [RFC2622].
+    ///
+    /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.3
     Role {
         class: "role",
         name: names::Role,
@@ -234,6 +269,11 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `key-cert` object.
+    ///
+    /// Defined in [RFC2726].
+    ///
+    /// [RFC2726]: https://datatracker.ietf.org/doc/html/rfc2726
     KeyCert {
         class: "key-cert",
         name: names::KeyCert,
@@ -258,6 +298,11 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `as-block` object.
+    ///
+    /// Defined in [RFC2725].
+    ///
+    /// [RFC2725]: https://datatracker.ietf.org/doc/html/rfc2725#section-10
     AsBlock {
         class: "as-block",
         name: names::AsBlock,
@@ -276,6 +321,13 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `aut-num` object.
+    ///
+    /// Defined in [RFC2622]. Updated by [RFC2725], and [RFC4012].
+    ///
+    /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6
+    /// [RFC2725]: https://datatracker.ietf.org/doc/html/rfc2725#section-10
+    /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5
     AutNum {
         class: "aut-num",
         name: names::AutNum,
@@ -302,6 +354,10 @@ rpsl_object_class! {
 
 // TODO: check whois.ripe.net template
 rpsl_object_class! {
+    /// RPSL `inetnum` object.
+    ///
+    /// The `inetnum` object is not defined in the RPSL RFCs.
+    /// See [RIPE-81] and [RIPE-181] for details.
     InetNum {
         class: "inet-num",
         name: names::InetNum,
@@ -321,8 +377,13 @@ rpsl_object_class! {
     }
 }
 
-// TODO: check whois.ripe.net template
+// TODO: check rfc4012
 rpsl_object_class! {
+    /// RPSL `inet6num` object.
+    ///
+    /// Defined in [RFC4012].
+    ///
+    /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-5
     Inet6Num {
         class: "inet6-num",
         name: names::Inet6Num,
@@ -343,6 +404,12 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `route` object.
+    ///
+    /// Defined in [RFC2622]. Updated by [RFC2725]
+    ///
+    /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-4
+    /// [RFC2725]: https://datatracker.ietf.org/doc/html/rfc2725#section-10.1
     Route {
         class: "route",
         name: names::Route,
@@ -366,6 +433,11 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `route` object.
+    ///
+    /// Defined in [RFC4012].
+    ///
+    /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-3
     Route6 {
         class: "route6",
         name: names::Route6,
@@ -387,6 +459,12 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `as-set` object.
+    ///
+    /// Defined in [RFC2622]. Updated by [RFC4012].
+    ///
+    /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.1
+    /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.1
     AsSet {
         class: "as-set",
         name: names::AsSet,
@@ -409,6 +487,12 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `route-set` object.
+    ///
+    /// Defined in [RFC2622]. Updated by [RFC4012].
+    ///
+    /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.2
+    /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.2
     RouteSet {
         class: "route-set",
         name: names::RouteSet,
@@ -432,6 +516,12 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `filter-set` object.
+    ///
+    /// Defined in [RFC2622]. Updated by [RFC4012].
+    ///
+    /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.4
+    /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.3
     FilterSet {
         class: "filter-set",
         name: names::FilterSet,
@@ -453,6 +543,12 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `rtr-set` object.
+    ///
+    /// Defined in [RFC2622]. Updated by [RFC4012].
+    ///
+    /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.5
+    /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.6
     RtrSet {
         class: "rtr-set",
         name: names::RtrSet,
@@ -475,6 +571,12 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `peering-set` object.
+    ///
+    /// Defined in [RFC2622]. Updated by [RFC4012].
+    ///
+    /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.6
+    /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.4
     PeeringSet {
         class: "peering-set",
         name: names::PeeringSet,
@@ -496,6 +598,12 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `inet-rtr` object.
+    ///
+    /// Defined in [RFC2622]. Updated by [RFC4012].
+    ///
+    /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-9
+    /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.5
     InetRtr {
         class: "inet-rtr",
         name: names::InetRtr,
@@ -523,6 +631,11 @@ rpsl_object_class! {
 }
 
 rpsl_object_class! {
+    /// RPSL `dictionary` object.
+    ///
+    /// Defined in [RFC2622].
+    ///
+    /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-10
     Dictionary {
         class: "dictionary",
         name: names::Dictionary,

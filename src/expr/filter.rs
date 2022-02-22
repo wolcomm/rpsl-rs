@@ -7,23 +7,27 @@ use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
     addr_family::{afi, LiteralPrefixSetAfi},
-    error::{ParseError, ParseResult},
+    error::{ParseError, ParseResult, SubstitutionError, SubstitutionResult},
     names::{AsSet, AutNum, FilterSet, RouteSet},
     parser::{ParserRule, TokenPair},
     primitive::{PrefixRange, RangeOperator},
+    subst::{debug_substitution, PeerAs, Substitute},
 };
 
 use super::action;
 
+/// RPSL `filter` expression. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.4
 pub type FilterExpr = Expr<afi::Ipv4>;
-pub type MpFilterExpr = Expr<afi::Any>;
-
 impl_from_str!(ParserRule::just_filter_expr => Expr<afi::Ipv4>);
-impl_from_str!(ParserRule::just_mp_filter_expr => Expr<afi::Any>);
 
-/// RSPL `mp-filter` expression. See [RFC4012].
+/// RPSL `mp-filter` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5.2
+pub type MpFilterExpr = Expr<afi::Any>;
+impl_from_str!(ParserRule::just_mp_filter_expr => Expr<afi::Any>);
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr<A: LiteralPrefixSetAfi> {
     /// An expression containing a single [`Term`].
@@ -108,6 +112,26 @@ where
     }
 }
 
+impl<P, A> Substitute<P> for Expr<A>
+where
+    P: PeerAs,
+    A: LiteralPrefixSetAfi,
+{
+    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+        log::info!(
+            "trying to substitute 'PeerAS' tokens in filter expression '{}'",
+            self
+        );
+        debug_substitution!(Expr: self);
+        match self {
+            Self::Unit(term) => Ok(Self::Unit(term.substitute(p)?)),
+            Self::Not(expr) => Ok(Self::Not(Box::new(expr.substitute(p)?))),
+            Self::And(lhs, rhs) => Ok(Self::And(lhs.substitute(p)?, Box::new(rhs.substitute(p)?))),
+            Self::Or(lhs, rhs) => Ok(Self::Or(lhs.substitute(p)?, Box::new(rhs.substitute(p)?))),
+        }
+    }
+}
+
 /// A term in an RPSL `mp-filter` expression.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Term<A: LiteralPrefixSetAfi> {
@@ -183,6 +207,22 @@ where
     }
 }
 
+impl<P, A> Substitute<P> for Term<A>
+where
+    P: PeerAs,
+    A: LiteralPrefixSetAfi,
+{
+    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+        debug_substitution!(Term: self);
+        match self {
+            Self::Literal(fltr_literal) => Ok(Self::Literal(fltr_literal.substitute(p)?)),
+            Self::Named(fltr_set_expr) => Ok(Self::Named(fltr_set_expr.substitute(p)?)),
+            Self::Expr(expr) => Ok(Self::Expr(Box::new(expr.substitute(p)?))),
+            any @ Self::Any => Ok(any),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Literal<A: LiteralPrefixSetAfi> {
     PrefixSet(PrefixSetExpr<A>, RangeOperator),
@@ -248,6 +288,21 @@ where
     }
 }
 
+impl<P, A> Substitute<P> for Literal<A>
+where
+    P: PeerAs,
+    A: LiteralPrefixSetAfi,
+{
+    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+        debug_substitution!(Literal: self);
+        match self {
+            Self::PrefixSet(set_expr, op) => Ok(Self::PrefixSet(set_expr.substitute(p)?, op)),
+            Self::AsPath(_) => unimplemented!("as-path filter literals not yet implemented"),
+            attr_match @ Self::AttrMatch(_) => Ok(attr_match),
+        }
+    }
+}
+
 /// An RPSL sub-expression representing a set of IP prefixes.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PrefixSetExpr<A: LiteralPrefixSetAfi> {
@@ -308,6 +363,20 @@ where
             any::<NamedPrefixSet>().prop_map(Self::Named),
         ]
         .boxed()
+    }
+}
+
+impl<P, A> Substitute<P> for PrefixSetExpr<A>
+where
+    P: PeerAs,
+    A: LiteralPrefixSetAfi,
+{
+    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+        debug_substitution!(PrefixSetExpr: self);
+        match self {
+            literal @ Self::Literal(_) => Ok(literal),
+            Self::Named(set) => Ok(Self::Named(set.substitute(p)?)),
+        }
     }
 }
 
@@ -375,6 +444,24 @@ impl Arbitrary for NamedPrefixSet {
             any::<AutNum>().prop_map(Self::AutNum),
         ]
         .boxed()
+    }
+}
+
+impl<P: PeerAs> Substitute<P> for NamedPrefixSet {
+    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+        debug_substitution!(NamedPrefixSet: self);
+        match self {
+            Self::PeerAs => {
+                if let Some(peeras) = p.peeras() {
+                    Ok(Self::AutNum(*peeras))
+                } else {
+                    Err(SubstitutionError::PeerAs)
+                }
+            }
+            Self::RouteSet(set_expr) => Ok(Self::RouteSet(set_expr.substitute(p)?)),
+            Self::AsSet(set_expr) => Ok(Self::AsSet(set_expr.substitute(p)?)),
+            _ => Ok(self),
+        }
     }
 }
 
@@ -453,17 +540,13 @@ impl fmt::Display for AsPathRegexp {
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for AsPathRegexp {
-    type Parameters = (
-        ParamsFor<bool>,
-        ParamsFor<Vec<AsPathRegexpElem>>,
-        ParamsFor<bool>,
-    );
+    type Parameters = ParamsFor<Vec<AsPathRegexpElem>>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
         (
-            any_with::<bool>(params.0),
-            any_with::<Vec<AsPathRegexpElem>>(params.1),
-            any_with::<bool>(params.2),
+            any::<bool>(),
+            any_with::<Vec<AsPathRegexpElem>>(params),
+            any::<bool>(),
         )
             .prop_map(|(match_start, elements, match_end)| {
                 Self::new(match_start, elements, match_end)
@@ -613,20 +696,18 @@ impl fmt::Display for AsPathRegexpComponent {
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for AsPathRegexpComponent {
     type Parameters = (
-        ParamsFor<AutNum>,
-        ParamsFor<AsSet>,
         ParamsFor<AsPathRegexpComponentSetMember>,
         ParamsFor<AsPathRegexpComponentSetMember>,
     );
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
         prop_oneof![
-            any_with::<AutNum>(params.0).prop_map(Self::AutNum),
-            any_with::<AsSet>(params.1).prop_map(Self::AsSet),
+            any::<AutNum>().prop_map(Self::AutNum),
+            any::<AsSet>().prop_map(Self::AsSet),
             Just(Self::Any),
-            proptest::collection::vec(any_with::<AsPathRegexpComponentSetMember>(params.2), 1..10)
+            proptest::collection::vec(any_with::<AsPathRegexpComponentSetMember>(params.0), 1..10)
                 .prop_map(Self::ComponentSet),
-            proptest::collection::vec(any_with::<AsPathRegexpComponentSetMember>(params.3), 1..10)
+            proptest::collection::vec(any_with::<AsPathRegexpComponentSetMember>(params.1), 1..10)
                 .prop_map(Self::ComplComponentSet),
         ]
         .prop_recursive(2, 4, 2, |inner| {
@@ -686,13 +767,13 @@ impl fmt::Display for AsPathRegexpComponentSetMember {
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for AsPathRegexpComponentSetMember {
-    type Parameters = (ParamsFor<AutNum>, ParamsFor<AutNum>, ParamsFor<AsSet>);
+    type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
         prop_oneof![
-            any_with::<AutNum>(params.0).prop_map(Self::AutNum),
-            any_with::<AsSet>(params.2).prop_map(Self::AsSet),
-            (any_with::<AutNum>(params.0), any_with::<AutNum>(params.1))
+            any::<AutNum>().prop_map(Self::AutNum),
+            any::<AsSet>().prop_map(Self::AsSet),
+            (any::<AutNum>(), any::<AutNum>())
                 .prop_map(|(lower, upper)| Self::AsRange(lower, upper)),
         ]
         .boxed()
@@ -776,22 +857,21 @@ impl fmt::Display for AsPathRegexpOp {
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for AsPathRegexpOp {
-    type Parameters = (ParamsFor<usize>, ParamsFor<usize>);
+    type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
         prop_oneof![
             Just(Self::Optional),
             Just(Self::Any),
             Just(Self::Multi),
-            any_with::<usize>(params.0).prop_map(Self::AtLeast),
-            any_with::<usize>(params.0).prop_map(Self::AtMost),
-            (any_with::<usize>(params.0), any_with::<usize>(params.1))
-                .prop_map(|(lower, upper)| Self::Range(lower, upper)),
+            any::<usize>().prop_map(Self::AtLeast),
+            any::<usize>().prop_map(Self::AtMost),
+            (any::<usize>(), any::<usize>()).prop_map(|(lower, upper)| Self::Range(lower, upper)),
             Just(Self::AnySame),
             Just(Self::MultiSame),
-            any_with::<usize>(params.0).prop_map(Self::AtLeastSame),
-            any_with::<usize>(params.0).prop_map(Self::AtMostSame),
-            (any_with::<usize>(params.0), any_with::<usize>(params.1))
+            any::<usize>().prop_map(Self::AtLeastSame),
+            any::<usize>().prop_map(Self::AtMostSame),
+            (any::<usize>(), any::<usize>())
                 .prop_map(|(lower, upper)| Self::RangeSame(lower, upper)),
         ]
         .boxed()

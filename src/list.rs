@@ -7,6 +7,9 @@ use crate::{
     parser::TokenPair,
 };
 
+/// Ordered list of RPSL expressions or names. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-2
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ListOf<T>(Vec<T>);
 

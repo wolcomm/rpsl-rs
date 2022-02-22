@@ -1,19 +1,16 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
-use std::net::{Ipv4Addr, Ipv6Addr};
-
-use ipnet::{Ipv4Net, Ipv6Net};
 
 use crate::{
-    addr_family::afi::{Ipv4, Ipv6},
     error::{ParseError, ParseResult},
-    expr::MpFilterExpr,
-    names::{AsSet, AutNum, FilterSet, PeeringSet, RouteSet, RtrSet},
     parser::{ParserRule, TokenPair},
-    primitive::{DnsName, EmailAddress, PrefixRange},
 };
 
+/// RPSL `action` expression. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6.1.1
 pub type ActionExpr = Expr;
+impl_from_str!(ParserRule::just_action_expr => Expr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Expr(Vec<Stmt>);
@@ -33,8 +30,6 @@ impl TryFrom<TokenPair<'_>> for Expr {
         }
     }
 }
-
-impl_from_str!(ParserRule::just_action_expr => Expr);
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

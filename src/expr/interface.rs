@@ -9,7 +9,14 @@ use crate::{
 
 use super::ActionExpr;
 
+/// RPSL `ifaddr` expression. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-9
 pub type IfaddrExpr = Expr<afi::Ipv4>;
+
+/// RPSL `interface` expression. See [RFC4012].
+///
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.5
 pub type InterfaceExpr = Expr<afi::Any>;
 
 impl_from_str!(ParserRule::just_ifaddr_expr => IfaddrExpr);

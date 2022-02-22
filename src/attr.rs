@@ -22,117 +22,165 @@ use crate::{
     },
 };
 
+/// Enumeration of RPSL attribute types.
 #[derive(Clone, Debug, EnumDiscriminants, Hash, PartialEq, Eq)]
 #[strum_discriminants(name(AttributeType))]
 #[strum_discriminants(derive(Hash, strum::Display))]
 pub enum RpslAttribute {
     // common attributes
+    /// RPSL `descr` attribute.
     #[strum_discriminants(strum(to_string = "descr"))]
     Descr(ObjectDescr),
+    /// RPSL `tech-c` attribute.
     #[strum_discriminants(strum(to_string = "tech-c"))]
     TechC(NicHdl),
+    /// RPSL `admin-c` attribute.
     #[strum_discriminants(strum(to_string = "admin-c"))]
     AdminC(NicHdl),
+    /// RPSL `remarks` attribute.
     #[strum_discriminants(strum(to_string = "remarks"))]
     Remarks(Remarks),
+    /// RPSL `notify` attribute.
     #[strum_discriminants(strum(to_string = "notify"))]
     Notify(EmailAddress),
+    /// RPSL `mnt-by` attribute.
     #[strum_discriminants(strum(to_string = "mnt-by"))]
     MntBy(ListOf<names::Mntner>),
+    /// RPSL `changed` attribute.
     #[strum_discriminants(strum(to_string = "changed"))]
     Changed(ChangedExpr),
+    /// RPSL `source` attribute.
     #[strum_discriminants(strum(to_string = "source"))]
     Source(RegistryName),
     // contact attributes
+    /// RPSL `nic-hdl` attribute.
     #[strum_discriminants(strum(to_string = "nic-hdl"))]
     NicHdl(NicHdl),
+    /// RPSL `address` attribute.
     #[strum_discriminants(strum(to_string = "address"))]
     Address(Address),
+    /// RPSL `phone` attribute.
     #[strum_discriminants(strum(to_string = "phone"))]
     Phone(TelNumber),
+    /// RPSL `fax-no` attribute.
     #[strum_discriminants(strum(to_string = "fax-no"))]
     FaxNo(TelNumber),
+    /// RPSL `e-mail` attribute.
     #[strum_discriminants(strum(to_string = "e-mail"))]
     EMail(EmailAddress),
     // common set attributes
+    /// RPSL `mbrs-by-ref` attribute.
     #[strum_discriminants(strum(to_string = "mbrs-by-ref"))]
     MbrsByRef(ListOf<names::Mntner>),
     // mntner attributes
+    /// RPSL `auth` attribute.
     #[strum_discriminants(strum(to_string = "auth"))]
     Auth(AuthExpr),
+    /// RPSL `upd-to` attribute.
     #[strum_discriminants(strum(to_string = "upd-to"))]
     UpdTo(EmailAddress),
+    /// RPSL `mnt-nfy` attribute.
     #[strum_discriminants(strum(to_string = "mnt-nfy"))]
     MntNfy(EmailAddress),
     // role attributes
+    /// RPSL `trouble` attribute.
     #[strum_discriminants(strum(to_string = "trouble"))]
     Trouble(Trouble),
     // key-cert attributes
+    /// RPSL `method` attribute.
     #[strum_discriminants(strum(to_string = "method"))]
     Method(SigningMethod),
+    /// RPSL `owner` attribute.
     #[strum_discriminants(strum(to_string = "owner"))]
     Owner(KeyOwner),
+    /// RPSL `fingerpr` attribute.
     #[strum_discriminants(strum(to_string = "fingerpr"))]
     Fingerpr(Fingerprint),
+    /// RPSL `certif` attribute.
     #[strum_discriminants(strum(to_string = "certif"))]
     Certif(Certificate),
     // aut-num attributes
+    /// RPSL `as-name` attribute.
     #[strum_discriminants(strum(to_string = "as-name"))]
     AsName(AsName),
+    /// RPSL `member-of` attribute for `aut-num` objects.
     #[strum_discriminants(strum(to_string = "member-of"))]
     AutNumMemberOf(ListOf<names::AsSet>),
+    /// RPSL `import` attribute.
     #[strum_discriminants(strum(to_string = "import"))]
     Import(ImportExpr),
+    /// RPSL `mp-import` attribute.
     #[strum_discriminants(strum(to_string = "mp-import"))]
     MpImport(MpImportExpr),
+    /// RPSL `export` attribute.
     #[strum_discriminants(strum(to_string = "export"))]
     Export(ExportExpr),
+    /// RPSL `mp-export` attribute.
     #[strum_discriminants(strum(to_string = "mp-export"))]
     MpExport(MpExportExpr),
+    /// RPSL `default` attribute.
     #[strum_discriminants(strum(to_string = "default"))]
     Default(DefaultExpr),
+    /// RPSL `mp-default` attribute.
     #[strum_discriminants(strum(to_string = "mp-default"))]
     MpDefault(MpDefaultExpr),
     // inet(6)num attributes
+    /// RPSL `netname` attribute.
     #[strum_discriminants(strum(to_string = "netname"))]
     Netname(Netname),
+    /// RPSL `country` attribute.
     #[strum_discriminants(strum(to_string = "country"))]
     Country(CountryCode),
     // route(6) attributes
+    /// RPSL `origin` attribute.
     #[strum_discriminants(strum(to_string = "origin"))]
     Origin(names::AutNum),
+    /// RPSL `member-of` attribute for `route` and `route6` objects.
     #[strum_discriminants(strum(to_string = "member-of"))]
     RouteMemberOf(ListOf<names::RouteSet>),
     // as-set attributes
+    /// RPSL `members` attribute for `as-set` objects.
     #[strum_discriminants(strum(to_string = "members"))]
     AsSetMembers(ListOf<AsSetMember>),
     // route-set attributes
+    /// RPSL `members` attribute for `route-set` objects.
     #[strum_discriminants(strum(to_string = "members"))]
     RouteSetMembers(ListOf<RouteSetMember<afi::Ipv4>>),
+    /// RPSL `mp-members` attribute for `route-set` objects.
     #[strum_discriminants(strum(to_string = "mp-members"))]
     RouteSetMpMembers(ListOf<RouteSetMember<afi::Any>>),
     // filter-set attributes
+    /// RPSL `filter` attribute.
     #[strum_discriminants(strum(to_string = "filter"))]
     Filter(FilterExpr),
     // rtr-set attributes
+    /// RPSL `members` attribute for `rtr-set` objects.
     #[strum_discriminants(strum(to_string = "members"))]
     RtrSetMembers(ListOf<RtrSetMember<afi::Ipv4>>),
     // peering-set attributes
+    /// RPSL `peering` attribute.
     #[strum_discriminants(strum(to_string = "peering"))]
     Peering(PeeringExpr),
     // inet-rtr attributes
+    /// RPSL `alias` attribute.
     #[strum_discriminants(strum(to_string = "alias"))]
     Alias(DnsName),
+    /// RPSL `local-as` attribute.
     #[strum_discriminants(strum(to_string = "local-as"))]
     LocalAs(names::AutNum),
+    /// RPSL `ifaddr` attribute.
     #[strum_discriminants(strum(to_string = "ifaddr"))]
     Ifaddr(IfaddrExpr),
+    /// RPSL `interface` attribute.
     #[strum_discriminants(strum(to_string = "interface"))]
     Interface(InterfaceExpr),
+    /// RPSL `peer` attribute.
     #[strum_discriminants(strum(to_string = "peer"))]
     Peer(PeerExpr),
+    /// RPSL `mp-peer` attribute.
     #[strum_discriminants(strum(to_string = "mp-peer"))]
     MpPeer(MpPeerExpr),
+    /// RPSL `member-of` attribute for `inet-rtr` objects.
     #[strum_discriminants(strum(to_string = "member-of"))]
     InetRtrMemberOf(ListOf<names::RtrSet>),
 }
@@ -329,6 +377,7 @@ impl fmt::Display for RpslAttribute {
 
 // TODO: impl Arbitrary for RpslAttribute
 
+/// An ordered sequence of RPSL attributes.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct AttributeSeq(Vec<RpslAttribute>);
 

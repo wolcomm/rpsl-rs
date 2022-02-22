@@ -8,12 +8,20 @@ use crate::{
     primitive::{CryptHash, EmailAddressRegex, PgpFromFingerprint},
 };
 
+/// RPSL `auth` expression. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AuthExpr {
+    /// `NONE` authentication scheme.
     None,
+    /// `MAIL-FROM` authentication scheme.
     Mail(EmailAddressRegex),
+    /// `PGP-FROM` authentication scheme.
     PgpFrom(PgpFromFingerprint),
+    /// `CRYPT-PW` authentication scheme.
     Crypt(CryptHash),
+    /// `key-cert` authentication schemes.
     KeyCert(KeyCert),
 }
 

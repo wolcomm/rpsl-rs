@@ -10,8 +10,17 @@ use crate::{
 
 use super::{rtr, AsExpr};
 
+/// RPSL `peering` expression. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.6
 pub type PeeringExpr = Expr<afi::Ipv4>;
+impl_from_str!(ParserRule::just_peering_expr => Expr<afi::Ipv4>);
+
+/// RPSL `mp-peering` expression. See [RFC4012].
+///
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5.1
 pub type MpPeeringExpr = Expr<afi::Any>;
+impl_from_str!(ParserRule::just_mp_peering_expr => Expr<afi::Any>);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr<A: LiteralPrefixSetAfi> {
@@ -33,9 +42,6 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
         }
     }
 }
-
-impl_from_str!(ParserRule::just_peering_expr => Expr<afi::Ipv4>);
-impl_from_str!(ParserRule::just_mp_peering_expr => Expr<afi::Any>);
 
 impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -63,19 +69,19 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for LiteralPeering<A> {
                 let mut pairs = pair.into_inner();
                 let (mut remote_rtr, mut local_rtr) = (None, None);
                 let as_expr = next_into_or!(pairs => "failed to get AS expression")?;
-                while let Some(pair) = pairs.next() {
-                    match pair.as_rule() {
+                for inner_pair in pairs {
+                    match inner_pair.as_rule() {
                         rule if rule == A::REMOTE_RTR_EXPR_RULE => {
                             remote_rtr = Some(
-                                next_into_or!(pair.into_inner() => "failed to get remote inet-rtr expression")?,
+                                next_into_or!(inner_pair.into_inner() => "failed to get remote inet-rtr expression")?,
                             )
                         }
                         rule if rule == A::LOCAL_RTR_EXPR_RULE => {
                             local_rtr = Some(
-                                next_into_or!(pair.into_inner() => "failed to get local inet-rtr expression")?,
+                                next_into_or!(inner_pair.into_inner() => "failed to get local inet-rtr expression")?,
                             )
                         }
-                        _ => Err(rule_mismatch!(pair => "inet-rtr expression"))?,
+                        _ => return Err(rule_mismatch!(inner_pair => "inet-rtr expression")),
                     }
                 }
                 Ok(Self {

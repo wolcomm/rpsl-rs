@@ -26,6 +26,8 @@
 #![doc(html_root_url = "https://docs.rs/rpsl/0.1.0-alpha.1")]
 #![warn(missing_docs)]
 
+// TODO: pub(crate) use macros...
+
 #[macro_use]
 extern crate pest_derive;
 

@@ -7,6 +7,9 @@ use crate::{
     primitive::{Date, EmailAddress},
 };
 
+/// RPSL `changed` expression. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ChangedExpr {
     by: EmailAddress,
@@ -14,6 +17,7 @@ pub struct ChangedExpr {
 }
 
 impl ChangedExpr {
+    /// Create a new [`ChangedExpr`].
     pub fn new(by: EmailAddress, on: Date) -> Self {
         Self { by, on }
     }

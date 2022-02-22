@@ -9,9 +9,15 @@ use crate::{
     primitive::RangeOperator,
 };
 
+/// Names that can appear in the `members` attribute of an `as-set` object.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.1
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AsSetMember {
+    /// An `as-set` member wrapping an `aut-num` name.
     AutNum(AutNum),
+    /// An `as-set` member wrapping an `as-set` name.
     AsSet(AsSet),
 }
 
@@ -39,6 +45,12 @@ impl fmt::Display for AsSetMember {
 
 // TODO: impl Arbitrary for AsSetMember
 
+/// Elements that can appear in the `members` or `mp-members` attribute of a
+/// `route-set` object.
+/// See [RFC2622] and [RFC4012].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.2
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.2
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct RouteSetMember<A: LiteralPrefixSetAfi> {
     base: RouteSetMemberElem<A>,
@@ -46,6 +58,7 @@ pub struct RouteSetMember<A: LiteralPrefixSetAfi> {
 }
 
 impl<A: LiteralPrefixSetAfi> RouteSetMember<A> {
+    /// Construct a new [`RouteSetMember`].
     pub fn new(base: RouteSetMemberElem<A>, op: RangeOperator) -> Self {
         Self { base, op }
     }
@@ -79,13 +92,25 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for RouteSetMember<A> {
 
 // TODO: impl Arbitrary for RouteSetMember
 
+/// RPSL names that can appear as the base of a member element in the `members`
+/// or `mp-members` attribute of a `route-set` object.
+/// See [RFC2622] and [RFC4012].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.2
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.2
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum RouteSetMemberElem<A: LiteralPrefixSetAfi> {
+    /// A `route-set` member wrapping literal IP prefix.
     Prefix(A::Net),
+    /// A `route-set` member wrapping the `RS-ANY` token.
     RsAny,
+    /// A `route-set` member wrapping the `AS-ANY` token.
     AsAny,
+    /// A `route-set` member wrapping a `route-set` name.
     RouteSet(RouteSet),
+    /// A `route-set` member wrapping a `as-set` name.
     AsSet(AsSet),
+    /// A `rotue-set` member wrapping an `aut-num` name.
     AutNum(AutNum),
 }
 
@@ -119,10 +144,19 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for RouteSetMemberElem<A> {
     }
 }
 
+/// RPSL names that can appear in the `members` or `mp-members` attribute of an
+/// `rtr-set` object.
+/// See [RFC2622] and [RFC4012].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.5
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.6
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum RtrSetMember<A: LiteralPrefixSetAfi> {
+    /// An `rtr-set` member wrapping a literal IP address.
     Addr(A::Addr),
+    /// An `rtr-set` member wrapping an `inet-rtr` name.
     InetRtr(InetRtr),
+    /// An `rtr-set` member wrapping an `rtr-set` name.
     RtrSet(RtrSet),
 }
 

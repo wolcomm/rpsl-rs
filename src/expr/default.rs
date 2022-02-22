@@ -9,8 +9,17 @@ use crate::{
 
 use super::{filter, peering, ActionExpr};
 
+/// RPSL `default` expression. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6.5
 pub type DefaultExpr = Expr<afi::Ipv4>;
+impl_from_str!(ParserRule::just_default_expr => DefaultExpr);
+
+/// RPSL `mp-default` expression. See [RFC4012].
+///
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5
 pub type MpDefaultExpr = Expr<afi::Any>;
+impl_from_str!(ParserRule::just_mp_default_expr => MpDefaultExpr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Expr<A: LiteralPrefixSetAfi> {
@@ -50,9 +59,6 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
         }
     }
 }
-
-impl_from_str!(ParserRule::just_default_expr => DefaultExpr);
-impl_from_str!(ParserRule::just_mp_default_expr => MpDefaultExpr);
 
 impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

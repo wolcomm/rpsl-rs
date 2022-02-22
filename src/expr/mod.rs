@@ -4,7 +4,7 @@ mod autnum;
 mod changed;
 mod default;
 mod export;
-pub mod filter;
+mod filter;
 mod import;
 mod interface;
 mod peer;

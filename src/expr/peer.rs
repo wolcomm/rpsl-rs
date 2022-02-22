@@ -10,7 +10,14 @@ use crate::{
     primitive::{PeerOptKey, PeerOptVal, Protocol},
 };
 
+/// RPSL `peer` expression. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-9
 pub type PeerExpr = Expr<afi::Ipv4>;
+
+/// RPSL `mp-peer` expression. See [RFC4012].
+///
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.5
 pub type MpPeerExpr = Expr<afi::Any>;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
