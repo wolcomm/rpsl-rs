@@ -1428,7 +1428,114 @@ source:     RIPE" => {
                 ]
             ).unwrap())
         }
-        // TODO: add rfc2622 section 9 examples
+        rfc2622_fig36_inet_rtr_example: "\
+inet-rtr:   Amsterdam.ripe.net
+alias:      amsterdam1.ripe.net
+local-as:   AS3333
+ifaddr:     192.87.45.190 masklen 24
+ifaddr:     192.87.4.28   masklen 24
+ifaddr:     193.0.0.222   masklen 27
+ifaddr:     193.0.0.158   masklen 27
+peer:       BGP4 192.87.45.195 asno(AS3334), flap_damp()
+mnt-by:     RIPE-NCC-MNT
+changed:    roderik@ripe.net 19970926
+source:     RIPE" => {
+            RpslObject::InetRtr(InetRtr::new(
+                "Amsterdam.ripe.net".into(),
+                vec![
+                    RpslAttribute::Alias("amsterdam1.ripe.net".into()),
+                    RpslAttribute::LocalAs("AS3333".parse().unwrap()),
+                    RpslAttribute::Ifaddr("192.87.45.190 masklen 24".parse().unwrap()),
+                    RpslAttribute::Ifaddr("192.87.4.28   masklen 24".parse().unwrap()),
+                    RpslAttribute::Ifaddr("193.0.0.222   masklen 27".parse().unwrap()),
+                    RpslAttribute::Ifaddr("193.0.0.158   masklen 27".parse().unwrap()),
+                    RpslAttribute::Peer("BGP4 192.87.45.195 asno(AS3334), flap_damp()".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_fig37_rtr_set_example: "\
+rtr-set:    rtrs-ibgp-peers
+members:    1.1.1.1, 2.2.2.2, 3.3.3.3
+mnt-by:     RIPE-NCC-MNT
+changed:    roderik@ripe.net 19970926
+source:     RIPE" => {
+            RpslObject::RtrSet(RtrSet::new(
+                "rtrs-ibgp-peers".parse().unwrap(),
+                vec![
+                    RpslAttribute::RtrSetMembers(vec![
+                        RtrSetMember::Addr("1.1.1.1".parse().unwrap()),
+                        RtrSetMember::Addr("2.2.2.2".parse().unwrap()),
+                        RtrSetMember::Addr("3.3.3.3".parse().unwrap()),
+                    ].into_iter().collect()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_fig37_peering_set_example: "\
+peering-set:    prng-ebgp-peers
+peering:        AS3334 192.87.45.195
+peering:        AS3335 192.87.45.196
+mnt-by:         RIPE-NCC-MNT
+changed:        roderik@ripe.net 19970926
+source:         RIPE" => {
+            RpslObject::PeeringSet(PeeringSet::new(
+                "prng-ebgp-peers".parse().unwrap(),
+                vec![
+                    RpslAttribute::Peering("AS3334 192.87.45.195".parse().unwrap()),
+                    RpslAttribute::Peering("AS3335 192.87.45.196".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_fig37_inet_rtr_example: "\
+inet-rtr:   Amsterdam.ripe.net
+alias:      amsterdam1.ripe.net
+local-as:   AS3333
+ifaddr:     192.87.45.190 masklen 24
+ifaddr:     192.87.4.28   masklen 24
+ifaddr:     193.0.0.222   masklen 27
+ifaddr:     193.0.0.158   masklen 27
+peer:       BGP4 rtrs-ibgp-peers asno(AS3333), flap_damp()
+peer:       BGP4 prng-ebgp-peers asno(PeerAS), flap_damp()
+mnt-by:     RIPE-NCC-MNT
+changed:    roderik@ripe.net 19970926
+source:     RIPE" => {
+            RpslObject::InetRtr(InetRtr::new(
+                "Amsterdam.ripe.net".into(),
+                vec![
+                    RpslAttribute::Alias("amsterdam1.ripe.net".into()),
+                    RpslAttribute::LocalAs("AS3333".parse().unwrap()),
+                    RpslAttribute::Ifaddr("192.87.45.190 masklen 24".parse().unwrap()),
+                    RpslAttribute::Ifaddr("192.87.4.28   masklen 24".parse().unwrap()),
+                    RpslAttribute::Ifaddr("193.0.0.222   masklen 27".parse().unwrap()),
+                    RpslAttribute::Ifaddr("193.0.0.158   masklen 27".parse().unwrap()),
+                    RpslAttribute::Peer("BGP4 rtrs-ibgp-peers asno(AS3333), flap_damp()".parse().unwrap()),
+                    RpslAttribute::Peer("BGP4 prng-ebgp-peers asno(PeerAS), flap_damp()".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
         rfc2726_sect6_mntner: "\
 mntner:      AS3244-MNT
 descr:       BankNet, Budapest HU

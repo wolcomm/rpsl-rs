@@ -196,6 +196,15 @@ mod tests {
                     ))),
                 })
             }
+            rfc2622_fig37_peering_set_example: "AS3334 192.87.45.195" => {
+                PeeringExpr::Literal(LiteralPeering {
+                    as_expr: "AS3334".parse().unwrap(),
+                    remote_rtr: Some(rtr::Expr::Unit(rtr::Term::Literal(
+                        "192.87.45.195".parse().unwrap(),
+                    ))),
+                    local_rtr: None,
+                })
+            }
         }
     }
 }

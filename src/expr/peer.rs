@@ -6,7 +6,9 @@ use crate::{
     error::{ParseError, ParseResult},
     list::ListOf,
     names::{InetRtr, PeeringSet, RtrSet},
-    parser::{debug_construction, next_into_or, rule_mismatch, ParserRule, TokenPair},
+    parser::{
+        debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
+    },
     primitive::{PeerOptKey, PeerOptVal, Protocol},
 };
 
@@ -14,11 +16,13 @@ use crate::{
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-9
 pub type PeerExpr = Expr<afi::Ipv4>;
+impl_from_str!(ParserRule::just_peer_expr => PeerExpr);
 
 /// RPSL `mp-peer` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.5
 pub type MpPeerExpr = Expr<afi::Any>;
+impl_from_str!(ParserRule::just_mp_peer_expr => MpPeerExpr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Expr<A: LiteralPrefixSetAfi> {
@@ -100,7 +104,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for PeerSpec<A> {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PeerOpt {
     key: PeerOptKey,
-    val: PeerOptVal,
+    val: Option<PeerOptVal>,
 }
 
 impl TryFrom<TokenPair<'_>> for PeerOpt {
@@ -112,7 +116,11 @@ impl TryFrom<TokenPair<'_>> for PeerOpt {
             ParserRule::peer_opt => {
                 let mut pairs = pair.into_inner();
                 let key = next_into_or!(pairs => "failed to get peer option key")?;
-                let val = next_into_or!(pairs => "failed to get peer option value")?;
+                let val = if let Some(inner_pair) = pairs.next() {
+                    Some(inner_pair.try_into()?)
+                } else {
+                    None
+                };
                 Ok(Self { key, val })
             }
             _ => Err(rule_mismatch!(pair => "peer option")),
@@ -122,6 +130,70 @@ impl TryFrom<TokenPair<'_>> for PeerOpt {
 
 impl fmt::Display for PeerOpt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}({})", self.key, self.val)
+        write!(f, "{}", self.key)?;
+        if let Some(val) = &self.val {
+            write!(f, "({})", val)
+        } else {
+            write!(f, "()")
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::compare_ast;
+
+    compare_ast! {
+        PeerExpr {
+            rfc2622_fig36_inet_rtr_example: "BGP4 192.87.45.195 asno(AS3334), flap_damp()" => {
+                PeerExpr {
+                    protocol: Protocol::Bgp4,
+                    peer: PeerSpec::Addr("192.87.45.195".parse().unwrap()),
+                    opts: Some(vec![
+                        PeerOpt {
+                            key: "asno".into(),
+                            val: Some("AS3334".into()),
+                        },
+                        PeerOpt {
+                            key: "flap_damp".into(),
+                            val: None,
+                        }
+                    ].into_iter().collect()),
+                }
+            }
+            rfc2622_fig37_inet_rtr_example1: "BGP4 rtrs-ibgp-peers asno(AS3333), flap_damp()" => {
+                PeerExpr {
+                    protocol: Protocol::Bgp4,
+                    peer: PeerSpec::RtrSet("rtrs-ibgp-peers".parse().unwrap()),
+                    opts: Some(vec![
+                        PeerOpt {
+                            key: "asno".into(),
+                            val: Some("AS3333".into()),
+                        },
+                        PeerOpt {
+                            key: "flap_damp".into(),
+                            val: None,
+                        }
+                    ].into_iter().collect()),
+                }
+            }
+            rfc2622_fig37_inet_rtr_example2: "BGP4 prng-ebgp-peers asno(PeerAS), flap_damp()" => {
+                PeerExpr {
+                    protocol: Protocol::Bgp4,
+                    peer: PeerSpec::PeeringSet("prng-ebgp-peers".parse().unwrap()),
+                    opts: Some(vec![
+                        PeerOpt {
+                            key: "asno".into(),
+                            val: Some("PeerAS".into()),
+                        },
+                        PeerOpt {
+                            key: "flap_damp".into(),
+                            val: None,
+                        }
+                    ].into_iter().collect()),
+                }
+            }
+        }
     }
 }
