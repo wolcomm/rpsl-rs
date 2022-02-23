@@ -17,6 +17,38 @@ use crate::{
     },
 };
 
+/// IP prefix literal.
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct Prefix<A: Afi>(A::Net);
+
+impl<A: Afi> FromStr for Prefix<A> {
+    type Err = <A::Net as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(s.parse()?))
+    }
+}
+
+impl<A: Afi> TryFrom<TokenPair<'_>> for Prefix<A> {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => Prefix);
+        match pair.as_rule() {
+            rule if rule == A::LITERAL_PREFIX_RULE => Ok(Self(pair.as_str().parse()?)),
+            _ => Err(rule_mismatch!(pair => "IP prefix")),
+        }
+    }
+}
+
+impl<A: Afi> fmt::Display for Prefix<A> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+// TODO: impl Arbitrary for Prefix
+
 /// IP prefix range literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct PrefixRange<A: Afi> {

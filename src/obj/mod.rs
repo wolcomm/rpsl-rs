@@ -428,13 +428,18 @@ rpsl_object_class! {
             //
             Origin,
             RouteMemberOf (*),
-            // TODO: rfc2622 section 8 "advanced attributes"
+            Inject (*),
+            Components (?),
+            AggrBndry (?),
+            AggrMtd (?),
+            ExportComps (?),
+            Holes (*),
         ],
     }
 }
 
 rpsl_object_class! {
-    /// RPSL `route` object.
+    /// RPSL `route6` object.
     ///
     /// Defined in [RFC4012].
     ///
@@ -454,7 +459,14 @@ rpsl_object_class! {
             Changed (+),
             Source,
             //
-            // TODO
+            Origin,
+            RouteMemberOf (*),
+            Inject6 (*),
+            Components6 (?),
+            AggrBndry (?),
+            AggrMtd (?),
+            ExportComps6 (?),
+            Holes6 (*),
         ],
     }
 }

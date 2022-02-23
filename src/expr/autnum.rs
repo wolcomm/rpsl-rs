@@ -17,9 +17,9 @@ pub type AsExpr = Expr;
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
     Unit(Term),
-    And(Term, Term),
-    Or(Term, Term),
-    Except(Term, Term),
+    And(Term, Box<Expr>),
+    Or(Term, Box<Expr>),
+    Except(Term, Box<Expr>),
 }
 
 impl_from_str!(ParserRule::just_as_expr => Expr);
@@ -37,21 +37,27 @@ impl TryFrom<TokenPair<'_>> for Expr {
                 let mut pairs = pair.into_inner();
                 Ok(Self::And(
                     next_into_or!(pairs => "failed to get left hand AS expression term")?,
-                    next_into_or!(pairs => "failed to get right hand AS expression term")?,
+                    Box::new(
+                        next_into_or!(pairs => "failed to get right hand AS expression term")?,
+                    ),
                 ))
             }
             ParserRule::as_expr_or => {
                 let mut pairs = pair.into_inner();
                 Ok(Self::Or(
                     next_into_or!(pairs => "failed to get left hand AS expression term")?,
-                    next_into_or!(pairs => "failed to get right hand AS expression term")?,
+                    Box::new(
+                        next_into_or!(pairs => "failed to get right hand AS expression term")?,
+                    ),
                 ))
             }
             ParserRule::as_expr_except => {
                 let mut pairs = pair.into_inner();
                 Ok(Self::Except(
                     next_into_or!(pairs => "failed to get left hand AS expression term")?,
-                    next_into_or!(pairs => "failed to get right hand AS expression term")?,
+                    Box::new(
+                        next_into_or!(pairs => "failed to get right hand AS expression term")?,
+                    ),
                 ))
             }
             _ => Err(rule_mismatch!(pair => "AS expression")),
@@ -116,6 +122,21 @@ mod tests {
         AsExpr {
             rfc2622_sect6_autnum_example1: "AS2" => {
                 AsExpr::Unit(Term::AutNum("AS2".parse().unwrap()))
+            }
+            rfc2622_fig30_route_example1: "AS1 OR AS2" => {
+                AsExpr::Or(
+                    Term::AutNum("AS1".parse().unwrap()),
+                    Box::new(Expr::Unit(Term::AutNum("AS2".parse().unwrap()))),
+                )
+            }
+            rfc2622_fig33_route_example: "AS1 or AS2 or AS3" => {
+                AsExpr::Or(
+                    Term::AutNum("AS1".parse().unwrap()),
+                    Box::new(Expr::Or(
+                        Term::AutNum("AS2".parse().unwrap()),
+                        Box::new(Expr::Unit(Term::AutNum("AS3".parse().unwrap()))),
+                    )),
+                )
             }
         }
     }

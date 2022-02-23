@@ -10,6 +10,7 @@ mod interface;
 mod peer;
 mod peering;
 mod proto;
+mod route;
 mod rtr;
 
 pub use self::{
@@ -25,5 +26,6 @@ pub use self::{
     peer::{MpPeerExpr, PeerExpr},
     peering::PeeringExpr,
     proto::ProtocolDistribution,
+    route::{AggrMtdExpr, Components6Expr, ComponentsExpr, Inject6Expr, InjectExpr},
     rtr::RtrExpr,
 };

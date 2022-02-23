@@ -8,9 +8,9 @@ use crate::{
     addr_family::afi,
     error::{ParseError, ParseResult},
     expr::{
-        AuthExpr, ChangedExpr, DefaultExpr, ExportExpr, FilterExpr, IfaddrExpr, ImportExpr,
-        InterfaceExpr, MpDefaultExpr, MpExportExpr, MpImportExpr, MpPeerExpr, PeerExpr,
-        PeeringExpr,
+        AggrMtdExpr, AsExpr, AuthExpr, ChangedExpr, Components6Expr, ComponentsExpr, DefaultExpr,
+        ExportExpr, FilterExpr, IfaddrExpr, ImportExpr, Inject6Expr, InjectExpr, InterfaceExpr,
+        MpDefaultExpr, MpExportExpr, MpFilterExpr, MpImportExpr, MpPeerExpr, PeerExpr, PeeringExpr,
     },
     list::ListOf,
     members::{AsSetMember, RouteSetMember, RtrSetMember},
@@ -18,7 +18,8 @@ use crate::{
     parser::{debug_construction, next_into_or, rule_mismatch, ParserRule, TokenPair},
     primitive::{
         Address, AsName, Certificate, CountryCode, DnsName, EmailAddress, Fingerprint, KeyOwner,
-        Netname, NicHdl, ObjectDescr, RegistryName, Remarks, SigningMethod, TelNumber, Trouble,
+        Netname, NicHdl, ObjectDescr, Prefix, RegistryName, Remarks, SigningMethod, TelNumber,
+        Trouble,
     },
 };
 
@@ -138,6 +139,36 @@ pub enum RpslAttribute {
     /// RPSL `member-of` attribute for `route` and `route6` objects.
     #[strum_discriminants(strum(to_string = "member-of"))]
     RouteMemberOf(ListOf<names::RouteSet>),
+    /// RPSL `inject` attribute for `route` objects.
+    #[strum_discriminants(strum(to_string = "inject"))]
+    Inject(InjectExpr),
+    /// RPSL `inject` attribute for `route6` objects.
+    #[strum_discriminants(strum(to_string = "inject"))]
+    Inject6(Inject6Expr),
+    /// RPSL `components` attribute for `route` objects.
+    #[strum_discriminants(strum(to_string = "components"))]
+    Components(ComponentsExpr),
+    /// RPSL `components` attribute for `route6` objects.
+    #[strum_discriminants(strum(to_string = "components"))]
+    Components6(Components6Expr),
+    /// RPSL `aggr-bndry` attribute.
+    #[strum_discriminants(strum(to_string = "aggr-bndry"))]
+    AggrBndry(AsExpr),
+    /// RPSL `aggr-mtd` attribute.
+    #[strum_discriminants(strum(to_string = "aggr-mtd"))]
+    AggrMtd(AggrMtdExpr),
+    /// RPSL `export-comps` attribute for `route` objects.
+    #[strum_discriminants(strum(to_string = "export-comps"))]
+    ExportComps(FilterExpr),
+    /// RPSL `export-comps` attribute for `route6` objects.
+    #[strum_discriminants(strum(to_string = "export-comps"))]
+    ExportComps6(MpFilterExpr),
+    /// RPSL `holes` attribute for `route` objects.
+    #[strum_discriminants(strum(to_string = "holes"))]
+    Holes(ListOf<Prefix<afi::Ipv4>>),
+    /// RPSL `holes` attribute for `route6` objects.
+    #[strum_discriminants(strum(to_string = "holes"))]
+    Holes6(ListOf<Prefix<afi::Ipv6>>),
     // as-set attributes
     /// RPSL `members` attribute for `as-set` objects.
     #[strum_discriminants(strum(to_string = "members"))]
@@ -285,6 +316,32 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
                 next_into_or!(pair.into_inner() => "failed to get origin")?,
             )),
             ParserRule::route_member_of_attr => Ok(Self::RouteMemberOf(pair.try_into()?)),
+            ParserRule::inject_attr => Ok(Self::Inject(
+                next_into_or!(pair.into_inner() => "failed to get inject expression")?,
+            )),
+            ParserRule::inject6_attr => Ok(Self::Inject6(
+                next_into_or!(pair.into_inner() => "failed to get inject6 expression")?,
+            )),
+            ParserRule::components_attr => Ok(Self::Components(
+                next_into_or!(pair.into_inner() => "failed to get components expression")?,
+            )),
+            ParserRule::components6_attr => Ok(Self::Components6(
+                next_into_or!(pair.into_inner() => "failed to get components6 expression")?,
+            )),
+            ParserRule::aggr_bndry_attr => Ok(Self::AggrBndry(
+                next_into_or!(pair.into_inner() => "failed to get aggr-bndry expression")?,
+            )),
+            ParserRule::aggr_mtd_attr => Ok(Self::AggrMtd(
+                next_into_or!(pair.into_inner() => "failed to get aggr-mtd expression")?,
+            )),
+            ParserRule::export_comps_attr => Ok(Self::ExportComps(
+                next_into_or!(pair.into_inner() => "failed to get export-comps filter")?,
+            )),
+            ParserRule::export_comps6_attr => Ok(Self::ExportComps6(
+                next_into_or!(pair.into_inner() => "failed to get export-comps filter")?,
+            )),
+            ParserRule::holes_attr => Ok(Self::Holes(pair.try_into()?)),
+            ParserRule::holes6_attr => Ok(Self::Holes6(pair.try_into()?)),
             ParserRule::as_set_members_attr => Ok(Self::AsSetMembers(pair.try_into()?)),
             ParserRule::route_set_members_attr => Ok(Self::RouteSetMembers(pair.try_into()?)),
             ParserRule::route_set_mp_members_attr => Ok(Self::RouteSetMpMembers(pair.try_into()?)),
@@ -357,6 +414,16 @@ impl fmt::Display for RpslAttribute {
             Self::Netname(inner) => write!(f, "{}", inner),
             Self::Country(inner) => write!(f, "{}", inner),
             Self::Origin(inner) => write!(f, "{}", inner),
+            Self::Inject(inner) => write!(f, "{}", inner),
+            Self::Inject6(inner) => write!(f, "{}", inner),
+            Self::Components(inner) => write!(f, "{}", inner),
+            Self::Components6(inner) => write!(f, "{}", inner),
+            Self::AggrBndry(inner) => write!(f, "{}", inner),
+            Self::AggrMtd(inner) => write!(f, "{}", inner),
+            Self::ExportComps(inner) => write!(f, "{}", inner),
+            Self::ExportComps6(inner) => write!(f, "{}", inner),
+            Self::Holes(inner) => write!(f, "{}", inner),
+            Self::Holes6(inner) => write!(f, "{}", inner),
             Self::RouteMemberOf(inner) => write!(f, "{}", inner),
             Self::AsSetMembers(inner) => write!(f, "{}", inner),
             Self::RouteSetMembers(inner) => write!(f, "{}", inner),

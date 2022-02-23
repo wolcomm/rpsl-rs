@@ -33,8 +33,8 @@ keyword         = { any_fltr | any_as | any_rs | peeras
     refine      = _{ ^"REFINE" }
     networks    = _{ ^"NETWORKS" }
     into        = _{ ^"INTO" }
-    inbound     = @{ ^"INBOUND" }
-    outbound    = @{ ^"OUTBOUND" }
+    inbound     = _{ ^"INBOUND" }
+    outbound    = _{ ^"OUTBOUND" }
 
 
 // ** RPSL object names **
@@ -186,9 +186,9 @@ rtr_set_mp_member_choice    = _{ rtr_set | inet_rtr | ip_addr_choice }
 mntner_name_list            = _{ mntner_name                 ~ ( "," ~ mntner_name )* }
 route_set_list              = _{ route_set                   ~ ( "," ~ route_set )* }
 ipv4_prefix_list            = _{ ipv4_prefix                 ~ ( "," ~ ipv4_prefix )* }
-ipv4_prefix_range_list      = _{ ipv4_prefix_range           ~ ( "," ~ ipv4_prefix_range )* }
+ipv4_prefix_range_list      =  { ipv4_prefix_range           ~ ( "," ~ ipv4_prefix_range )* }
 ipv6_prefix_list            = _{ ipv6_prefix                 ~ ( "," ~ ipv6_prefix )* }
-ipv6_prefix_range_list      = _{ ipv6_prefix_range           ~ ( "," ~ ipv6_prefix_range )* }
+ipv6_prefix_range_list      =  { ipv6_prefix_range           ~ ( "," ~ ipv6_prefix_range )* }
 as_set_members_list         = _{ as_set_member_choice        ~ ( "," ~ as_set_member_choice )* }
 route_set_members_list      = _{ route_set_member_choice     ~ ( "," ~ route_set_member_choice )* }
 route_set_mp_members_list   = _{ route_set_mp_member_choice  ~ ( "," ~ route_set_mp_member_choice )* }
@@ -252,18 +252,28 @@ inject_expr             = { ( at ~ rtr_expr )? ~ ( action ~ action_expr )? ~ ( ^
         inject_cond_and         = { inject_cond_term ~ and ~ inject_cond_term }
         inject_cond_or          = { inject_cond_term ~ or ~ inject_cond_term }
         inject_cond_unit        = { inject_cond_term }
-            inject_cond_term    = _{ ^"have-components" ~ ipv4_prefix_range_list | ^"exclude" ~ ipv4_prefix_range_list | ^"static" }
+            inject_cond_term    = _{ inject_cond_term_have | inject_cond_term_excl | inject_cond_term_stat }
+                inject_cond_term_have   = { ^"have-components" ~ "{" ~ ipv4_prefix_range_list ~ "}" }
+                inject_cond_term_excl   = { ^"exclude" ~ "{" ~ ipv4_prefix_range_list ~ "}" }
+                inject_cond_term_stat   = { ^"static" }
 
 inject6_expr            = { ( at ~ mp_rtr_expr )? ~ ( action ~ action_expr )? ~ ( ^"upon" ~ inject6_cond )? }
     inject6_cond        = _{ inject6_cond_and | inject6_cond_or | inject6_cond_unit }
         inject6_cond_and        = { inject6_cond_term ~ and ~ inject6_cond_term }
         inject6_cond_or         = { inject6_cond_term ~ or ~ inject6_cond_term }
         inject6_cond_unit       = { inject6_cond_term }
-            inject6_cond_term   = _{ ^"have-components" ~ ipv6_prefix_range_list | ^"exclude" ~ ipv6_prefix_range_list | ^"static" }
+            inject6_cond_term   = _{ inject6_cond_term_have | inject6_cond_term_excl | inject6_cond_term_stat }
+                inject6_cond_term_have  = { ^"have-components" ~ "{" ~ ipv6_prefix_range_list ~ "}" }
+                inject6_cond_term_excl  = { ^"exclude" ~ "{" ~ ipv6_prefix_range_list ~ "}" }
+                inject6_cond_term_stat  = { ^"static" }
 
-components_expr         = { ( atomic )? ~ ( ( filter_expr )? ~ ( ^"protocol" ~ protocol_name ~ filter_expr )? )? }
+components_expr         = { atomic? ~ filter_expr? ~ components_proto_terms }
+    components_proto_terms  = { components_proto_term* }
+        components_proto_term   = { ^"protocol" ~ protocol_name ~ filter_expr }
 
-components6_expr        = { ( atomic )? ~ ( ( mp_filter_expr )? ~ ( ^"protocol" ~ protocol_name ~ mp_filter_expr )? )? }
+components6_expr        = { atomic? ~ mp_filter_expr? ~ components6_proto_term }
+    components6_proto_terms = { components6_proto_term* }
+        components6_proto_term  = { ^"protocol" ~ protocol_name ~ mp_filter_expr }
 
 named_prefix_set        = { any_as | any_rs | route_set | as_set | aut_num | peeras }
 
@@ -337,9 +347,9 @@ mp_peering_expr         = _{ mp_peering_expr_named | mp_peering_expr_literal }
         local_mp_rtr_expr   = { mp_rtr_expr }
 
 as_expr                 = _{ as_expr_and | as_expr_or | as_expr_except | as_expr_unit }
-    as_expr_and         = { as_expr_term ~ and ~ as_expr_term }
-    as_expr_or          = { as_expr_term ~ or ~ as_expr_term }
-    as_expr_except      = { as_expr_term ~ except ~ as_expr_term }
+    as_expr_and         = { as_expr_term ~ and ~ as_expr }
+    as_expr_or          = { as_expr_term ~ or ~ as_expr }
+    as_expr_except      = { as_expr_term ~ except ~ as_expr }
     as_expr_unit        = { as_expr_term }
         as_expr_term    = _{ any_as | as_set | aut_num | "(" ~ as_expr ~ ")" }
 
@@ -407,7 +417,9 @@ default_expr            = { to ~ peering_expr ~ ( action ~ action_expr )? ~ ( ne
 
 mp_default_expr         = { ( ^"afi" ~ afi_safi_list )? ~ to ~ mp_peering_expr ~ ( action ~ action_expr )? ~ ( networks ~ mp_filter_expr )? }
 
-aggr_mtd_expr           = { inbound | outbound ~ as_expr }
+aggr_mtd_expr           = _{ aggr_mtd_expr_inbound | aggr_mtd_expr_outbound }
+    aggr_mtd_expr_inbound   = { inbound }
+    aggr_mtd_expr_outbound  = { outbound ~ as_expr? }
 
 // TODO
 rp_attribute_expr       = @{ free_form }
@@ -645,3 +657,8 @@ just_ifaddr_expr                = _{ SOI ~ ifaddr_expr ~ EOI }
 just_interface_expr             = _{ SOI ~ interface_expr ~ EOI }
 just_rtr_expr                   = _{ SOI ~ rtr_expr ~ EOI }
 just_mp_rtr_expr                = _{ SOI ~ mp_rtr_expr ~ EOI }
+just_inject_expr                = _{ SOI ~ inject_expr ~ EOI }
+just_inject6_expr               = _{ SOI ~ inject6_expr ~ EOI }
+just_components_expr            = _{ SOI ~ components_expr ~ EOI }
+just_components6_expr           = _{ SOI ~ components6_expr ~ EOI }
+just_aggr_mtd_expr              = _{ SOI ~ aggr_mtd_expr ~ EOI }

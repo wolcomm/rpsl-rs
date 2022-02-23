@@ -1152,6 +1152,283 @@ source:      RIPE" => {
                 ]
             ).unwrap())
         }
+        rfc2622_fig29_route_example1: "\
+route:      128.8.0.0/15
+origin:     AS1
+components: <^AS2>
+mnt-by:     RIPE-NCC-MNT
+changed:    roderik@ripe.net 19970926
+source:     RIPE" => {
+            RpslObject::Route(Route::new(
+                "128.8.0.0/15".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS1".parse().unwrap()),
+                    RpslAttribute::Components("<^AS2>".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_fig29_route_example2: "\
+route:      128.8.0.0/15
+origin:     AS1
+components: protocol BGP4 {128.8.0.0/16^+}
+            protocol OSPF {128.9.0.0/16^+}
+mnt-by:     RIPE-NCC-MNT
+changed:    roderik@ripe.net 19970926
+source:     RIPE" => {
+            RpslObject::Route(Route::new(
+                "128.8.0.0/15".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS1".parse().unwrap()),
+                    RpslAttribute::Components("protocol BGP4 {128.8.0.0/16^+}\n protocol OSPF {128.9.0.0/16^+}".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_fig30_route_example1: "\
+route:      128.8.0.0/15
+origin:     AS1
+components: {128.8.0.0/15^-}
+aggr-bndry: AS1 OR AS2
+aggr-mtd:   outbound AS-ANY
+mnt-by:     RIPE-NCC-MNT
+changed:    roderik@ripe.net 19970926
+source:     RIPE" => {
+            RpslObject::Route(Route::new(
+                "128.8.0.0/15".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS1".parse().unwrap()),
+                    RpslAttribute::Components("{128.8.0.0/15^-}".parse().unwrap()),
+                    RpslAttribute::AggrBndry("AS1 OR AS2".parse().unwrap()),
+                    RpslAttribute::AggrMtd("outbound AS-ANY".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_fig31_route_example: "\
+route:          128.8.0.0/15
+origin:         AS1
+components:     {128.8.0.0/15^-}
+aggr-mtd:       outbound AS-ANY
+export-comps:   {128.8.8.0/24}
+mnt-by:         RIPE-NCC-MNT
+changed:        roderik@ripe.net 19970926
+source:         RIPE" => {
+            RpslObject::Route(Route::new(
+                "128.8.0.0/15".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS1".parse().unwrap()),
+                    RpslAttribute::Components("{128.8.0.0/15^-}".parse().unwrap()),
+                    RpslAttribute::AggrMtd("outbound AS-ANY".parse().unwrap()),
+                    RpslAttribute::ExportComps("{128.8.8.0/24}".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_fig32_route_example1: "\
+route:      128.8.0.0/15
+origin:     AS1
+components: {128.8.0.0/15^-}
+aggr-mtd:   outbound AS-ANY
+inject:     at 1.1.1.1 action dpa = 100;
+inject:     at 1.1.1.2 action dpa = 110;
+mnt-by:     RIPE-NCC-MNT
+changed:    roderik@ripe.net 19970926
+source:     RIPE" => {
+            RpslObject::Route(Route::new(
+                "128.8.0.0/15".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS1".parse().unwrap()),
+                    RpslAttribute::Components("{128.8.0.0/15^-}".parse().unwrap()),
+                    RpslAttribute::AggrMtd("outbound AS-ANY".parse().unwrap()),
+                    RpslAttribute::Inject("at 1.1.1.1 action dpa = 100;".parse().unwrap()),
+                    RpslAttribute::Inject("at 1.1.1.2 action dpa = 110;".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_fig32_route_example2: "\
+route:      128.8.0.0/15
+origin:     AS1
+components: {128.8.0.0/15^-}
+aggr-mtd:   outbound AS-ANY
+inject:     upon HAVE-COMPONENTS {128.8.0.0/16, 128.9.0.0/16}
+holes:      128.8.8.0/24
+mnt-by:     RIPE-NCC-MNT
+changed:    roderik@ripe.net 19970926
+source:     RIPE" => {
+            RpslObject::Route(Route::new(
+                "128.8.0.0/15".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS1".parse().unwrap()),
+                    RpslAttribute::Components("{128.8.0.0/15^-}".parse().unwrap()),
+                    RpslAttribute::AggrMtd("outbound AS-ANY".parse().unwrap()),
+                    RpslAttribute::Inject("upon HAVE-COMPONENTS {128.8.0.0/16, 128.9.0.0/16}".parse().unwrap()),
+                    RpslAttribute::Holes(vec!["128.8.8.0/24".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_fig33_route_example: "\
+route:      128.8.0.0/15
+origin:     AS1
+aggr-bndry: AS1 or AS2 or AS3
+aggr-mtd:   outbound AS3 or AS4 or AS5
+components: {128.8.0.0/16, 128.9.0.0/16}
+inject:     upon HAVE-COMPONENTS {128.9.0.0/16, 128.8.0.0/16}
+mnt-by:     RIPE-NCC-MNT
+changed:    roderik@ripe.net 19970926
+source:     RIPE" => {
+            RpslObject::Route(Route::new(
+                "128.8.0.0/15".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS1".parse().unwrap()),
+                    RpslAttribute::AggrBndry("AS1 or AS2 or AS3".parse().unwrap()),
+                    RpslAttribute::AggrMtd("outbound AS3 or AS4 or AS5".parse().unwrap()),
+                    RpslAttribute::Components("{128.8.0.0/16, 128.9.0.0/16}".parse().unwrap()),
+                    RpslAttribute::Inject("upon HAVE-COMPONENTS {128.9.0.0/16, 128.8.0.0/16}".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_fig34_route_example1: "\
+route:      128.8.0.0/15
+origin:     AS1
+aggr-bndry: AS1 or AS2
+aggr-mtd:   outbound
+inject:     upon HAVE-COMPONENTS {128.8.0.0/16, 128.9.0.0/16}
+mnt-by:     RIPE-NCC-MNT
+changed:    roderik@ripe.net 19970926
+source:     RIPE" => {
+            RpslObject::Route(Route::new(
+                "128.8.0.0/15".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS1".parse().unwrap()),
+                    RpslAttribute::AggrBndry("AS1 or AS2".parse().unwrap()),
+                    RpslAttribute::AggrMtd("outbound".parse().unwrap()),
+                    RpslAttribute::Inject("upon HAVE-COMPONENTS {128.8.0.0/16, 128.9.0.0/16}".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_fig34_route_example2: "\
+route:          128.10.0.0/15
+origin:         AS1
+aggr-bndry:     AS1 or AS3
+aggr-mtd:       outbound
+inject:         upon HAVE-COMPONENTS {128.10.0.0/16, 128.11.0.0/16}
+export-comps:   {128.11.0.0/16}
+mnt-by:         RIPE-NCC-MNT
+changed:        roderik@ripe.net 19970926
+source:         RIPE" => {
+            RpslObject::Route(Route::new(
+                "128.10.0.0/15".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS1".parse().unwrap()),
+                    RpslAttribute::AggrBndry("AS1 or AS3".parse().unwrap()),
+                    RpslAttribute::AggrMtd("outbound".parse().unwrap()),
+                    RpslAttribute::Inject("upon HAVE-COMPONENTS {128.10.0.0/16, 128.11.0.0/16}".parse().unwrap()),
+                    RpslAttribute::ExportComps("{128.11.0.0/16}".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_fig34_route_example3: "\
+route:          128.8.0.0/14
+origin:         AS1
+aggr-bndry:     AS1 or AS2 or AS3
+aggr-mtd:       outbound
+inject:         upon HAVE-COMPONENTS {128.8.0.0/15, 128.10.0.0/15}
+export-comps:   {128.10.0.0/15}
+mnt-by:         RIPE-NCC-MNT
+changed:        roderik@ripe.net 19970926
+source:         RIPE" => {
+            RpslObject::Route(Route::new(
+                "128.8.0.0/14".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS1".parse().unwrap()),
+                    RpslAttribute::AggrBndry("AS1 or AS2 or AS3".parse().unwrap()),
+                    RpslAttribute::AggrMtd("outbound".parse().unwrap()),
+                    RpslAttribute::Inject("upon HAVE-COMPONENTS {128.8.0.0/15, 128.10.0.0/15}".parse().unwrap()),
+                    RpslAttribute::ExportComps("{128.10.0.0/15}".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2622_sect8_2_route_example: "\
+route:      128.7.0.0/16
+origin:     AS1
+inject:     at 7.7.7.1 action next-hop = 7.7.7.2; cost = 10; upon static
+inject:     at 7.7.7.1 action next-hop = 7.7.7.3; cost = 20; upon static
+mnt-by:     RIPE-NCC-MNT
+changed:    roderik@ripe.net 19970926
+source:     RIPE" => {
+            RpslObject::Route(Route::new(
+                "128.7.0.0/16".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS1".parse().unwrap()),
+                    RpslAttribute::Inject("at 7.7.7.1 action next-hop = 7.7.7.2; cost = 10; upon static".parse().unwrap()),
+                    RpslAttribute::Inject("at 7.7.7.1 action next-hop = 7.7.7.3; cost = 20; upon static".parse().unwrap()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ]
+            ).unwrap())
+        }
+        // TODO: add rfc2622 section 9 examples
         rfc2726_sect6_mntner: "\
 mntner:      AS3244-MNT
 descr:       BankNet, Budapest HU
