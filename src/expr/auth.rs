@@ -3,7 +3,7 @@ use std::fmt;
 
 use crate::{
     error::{ParseError, ParseResult},
-    names::KeyCert,
+    names::{KeyCert, Person, Role},
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
@@ -25,6 +25,10 @@ pub enum AuthExpr {
     Crypt(CryptHash),
     /// `key-cert` authentication schemes.
     KeyCert(KeyCert),
+    /// `person` authentication scheme.
+    Person(Person),
+    /// `role` authentication scheme.
+    Role(Role),
 }
 
 impl TryFrom<TokenPair<'_>> for AuthExpr {
@@ -46,6 +50,12 @@ impl TryFrom<TokenPair<'_>> for AuthExpr {
             ParserRule::auth_expr_key_cert => Ok(Self::KeyCert(
                 next_into_or!(pair.into_inner() => "failed to get key-cert name")?,
             )),
+            ParserRule::auth_expr_person => Ok(Self::Person(
+                next_into_or!(pair.into_inner() => "failed to get person name")?,
+            )),
+            ParserRule::auth_expr_role => Ok(Self::Role(
+                next_into_or!(pair.into_inner() => "failed to get role name")?,
+            )),
             _ => Err(rule_mismatch!(pair => "auth expression")),
         }
     }
@@ -60,6 +70,8 @@ impl fmt::Display for AuthExpr {
             Self::Mail(s) => write!(f, "MAIL-FROM {}", s),
             Self::PgpFrom(s) => write!(f, "PGP-FROM {}", s),
             Self::Crypt(s) => write!(f, "CRYPT-PW {}", s),
+            Self::Person(s) => write!(f, "PERSON {}", s),
+            Self::Role(s) => write!(f, "ROLE {}", s),
             Self::KeyCert(key_cert) => key_cert.fmt(f),
         }
     }

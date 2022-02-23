@@ -201,12 +201,16 @@ afi_safi_list               = _{ afi_safi                    ~ ( "," ~ afi_safi 
 // complex expressions
 changed_expr            = { email_addr ~ date }
 
-auth_expr               = _{ auth_expr_none | auth_expr_mail | auth_expr_pgp_from
-                          |  auth_expr_crypt | auth_expr_key_cert }
+auth_expr               = _{ auth_expr_none | auth_expr_mail
+                           | auth_expr_pgp_from | auth_expr_crypt
+                           | auth_expr_person | auth_expr_role
+                           | auth_expr_key_cert }
     auth_expr_none      = { ^"NONE" }
     auth_expr_mail      = { ^"MAIL-FROM" ~ email_addr_regexp }
     auth_expr_pgp_from  = { ^"PGP-FROM" ~ pgp_from_fingerpr }
     auth_expr_crypt     = { ^"CRYPT-PW" ~ crypt_hash }
+    auth_expr_person    = { ^"PERSON" ~ person }
+    auth_expr_role      = { ^"ROLE" ~ role }
     auth_expr_key_cert  = { key_cert }
 
 action_expr             = { ( action_stmt ~ ";" )+ }

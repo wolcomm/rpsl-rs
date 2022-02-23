@@ -234,6 +234,7 @@ rpsl_object_class! {
             Phone (+),
             FaxNo (*),
             EMail (+),
+            Auth (*),
         ],
     }
 }
@@ -265,6 +266,7 @@ rpsl_object_class! {
             Phone (+),
             FaxNo (*),
             EMail (+),
+            Auth (*),
         ],
     }
 }
