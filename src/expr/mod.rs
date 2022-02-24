@@ -11,6 +11,7 @@ mod mnt;
 mod peer;
 mod peering;
 mod proto;
+mod reclaim;
 mod route;
 mod rtr;
 
@@ -28,6 +29,7 @@ pub use self::{
     peer::{MpPeerExpr, PeerExpr},
     peering::PeeringExpr,
     proto::ProtocolDistribution,
+    reclaim::ReclaimExpr,
     route::{AggrMtdExpr, Components6Expr, ComponentsExpr, Inject6Expr, InjectExpr},
     rtr::RtrExpr,
 };

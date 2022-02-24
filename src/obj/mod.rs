@@ -320,6 +320,10 @@ rpsl_object_class! {
             Changed (+),
             Source,
             MntLower (*),
+            // rfc2725 doesn't say whether `reclaim` and `no-reclaim` are
+            // multi-valued!
+            Reclaim (?),
+            NoReclaim (?),
         ],
     }
 }
@@ -354,6 +358,10 @@ rpsl_object_class! {
             Default (*),
             MntRoutes (*),
             MntLower (*),
+            // rfc2725 doesn't say whether `reclaim` and `no-reclaim` are
+            // multi-valued!
+            Reclaim (?),
+            NoReclaim (?),
         ],
     }
 }
@@ -381,6 +389,10 @@ rpsl_object_class! {
             Source,
             MntRoutes (*),
             MntLower (*),
+            // rfc2725 doesn't say whether `reclaim` and `no-reclaim` are
+            // multi-valued!
+            Reclaim (?),
+            NoReclaim (?),
         ],
     }
 }
@@ -409,6 +421,10 @@ rpsl_object_class! {
             Source,
             MntRoutes (*),
             MntLower (*),
+            // rfc2725 doesn't say whether `reclaim` and `no-reclaim` are
+            // multi-valued!
+            Reclaim (?),
+            NoReclaim (?),
         ],
     }
 }
@@ -445,6 +461,10 @@ rpsl_object_class! {
             Holes (*),
             MntRoutes (*),
             MntLower (*),
+            // rfc2725 doesn't say whether `reclaim` and `no-reclaim` are
+            // multi-valued!
+            Reclaim (?),
+            NoReclaim (?),
         ],
     }
 }
@@ -480,6 +500,10 @@ rpsl_object_class! {
             Holes6 (*),
             MntRoutes (*),
             MntLower (*),
+            // rfc2725 doesn't say whether `reclaim` and `no-reclaim` are
+            // multi-valued!
+            Reclaim (?),
+            NoReclaim (?),
         ],
     }
 }

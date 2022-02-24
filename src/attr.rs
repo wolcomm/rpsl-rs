@@ -11,7 +11,7 @@ use crate::{
         AggrMtdExpr, AsExpr, AuthExpr, ChangedExpr, Components6Expr, ComponentsExpr, DefaultExpr,
         ExportExpr, FilterExpr, IfaddrExpr, ImportExpr, Inject6Expr, InjectExpr, InterfaceExpr,
         MntRoutesExpr, MpDefaultExpr, MpExportExpr, MpFilterExpr, MpImportExpr, MpPeerExpr,
-        PeerExpr, PeeringExpr,
+        PeerExpr, PeeringExpr, ReclaimExpr,
     },
     list::ListOf,
     members::{AsSetMember, RouteSetMember, RtrSetMember},
@@ -60,6 +60,12 @@ pub enum RpslAttribute {
     /// RPSL `mnt-lower` attribute.
     #[strum_discriminants(strum(to_string = "mnt-lower"))]
     MntLower(ListOf<names::Mntner>),
+    /// RPSL `reclaim` attribute.
+    #[strum_discriminants(strum(to_string = "reclaim"))]
+    Reclaim(ReclaimExpr),
+    /// RPSL `no-reclaim` attribute.
+    #[strum_discriminants(strum(to_string = "no-reclaim"))]
+    NoReclaim(ReclaimExpr),
     // contact attributes
     /// RPSL `nic-hdl` attribute.
     #[strum_discriminants(strum(to_string = "nic-hdl"))]
@@ -252,9 +258,15 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
                 next_into_or!(pair.into_inner() => "failed to get source registry name")?,
             )),
             ParserRule::mnt_routes_attr => Ok(Self::MntRoutes(
-                next_into_or!(pair.into_inner() => "failed to get mnt-routes expr")?,
+                next_into_or!(pair.into_inner() => "failed to get mnt-routes expression")?,
             )),
             ParserRule::mnt_lower_attr => Ok(Self::MntLower(pair.try_into()?)),
+            ParserRule::reclaim_attr => Ok(Self::Reclaim(
+                next_into_or!(pair.into_inner() => "failed to get reclaim expression")?,
+            )),
+            ParserRule::no_reclaim_attr => Ok(Self::NoReclaim(
+                next_into_or!(pair.into_inner() => "failed to get no-reclaim expression")?,
+            )),
             ParserRule::nic_hdl_attr => Ok(Self::NicHdl(
                 next_into_or!(pair.into_inner() => "failed to get nic-hdl")?,
             )),
@@ -402,6 +414,8 @@ impl fmt::Display for RpslAttribute {
             Self::Source(inner) => write!(f, "{}", inner),
             Self::MntRoutes(inner) => write!(f, "{}", inner),
             Self::MntLower(inner) => write!(f, "{}", inner),
+            Self::Reclaim(inner) => write!(f, "{}", inner),
+            Self::NoReclaim(inner) => write!(f, "{}", inner),
             Self::NicHdl(inner) => write!(f, "{}", inner),
             Self::Address(inner) => write!(f, "{}", inner),
             Self::Phone(inner) => write!(f, "{}", inner),
