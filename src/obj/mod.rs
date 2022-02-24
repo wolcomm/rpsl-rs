@@ -536,6 +536,11 @@ rpsl_object_class! {
             //
             AsSetMembers (*),
             MbrsByRef (*),
+            // `mnt-lower` is not allowed to appear in set objects in terms
+            // of the definition in rfc2725.
+            // however, for it to work correctly this must be allowed.
+            // Also, it appears in `route-set` examples in rfc2725! FFS!
+            MntLower (*),
         ],
     }
 }
@@ -565,6 +570,11 @@ rpsl_object_class! {
             RouteSetMembers (*),
             RouteSetMpMembers (*),
             MbrsByRef (*),
+            // `mnt-lower` is not allowed to appear in set objects in terms
+            // of the definition in rfc2725.
+            // however, for it to work correctly this must be allowed.
+            // Also, it appears in `route-set` examples in rfc2725! FFS!
+            MntLower (*),
         ],
     }
 }
@@ -592,6 +602,11 @@ rpsl_object_class! {
             Source,
             //
             Filter,
+            // `mnt-lower` is not allowed to appear in set objects in terms
+            // of the definition in rfc2725.
+            // however, for it to work correctly this must be allowed.
+            // Also, it appears in `route-set` examples in rfc2725! FFS!
+            MntLower (*),
         ],
     }
 }
@@ -620,6 +635,11 @@ rpsl_object_class! {
             //
             RtrSetMembers (*),
             MbrsByRef (*),
+            // `mnt-lower` is not allowed to appear in set objects in terms
+            // of the definition in rfc2725.
+            // however, for it to work correctly this must be allowed.
+            // Also, it appears in `route-set` examples in rfc2725! FFS!
+            MntLower (*),
         ],
     }
 }
@@ -647,6 +667,11 @@ rpsl_object_class! {
             Source,
             //
             Peering (+),
+            // `mnt-lower` is not allowed to appear in set objects in terms
+            // of the definition in rfc2725.
+            // however, for it to work correctly this must be allowed.
+            // Also, it appears in `route-set` examples in rfc2725! FFS!
+            MntLower (*),
         ],
     }
 }

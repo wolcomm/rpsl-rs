@@ -54,3 +54,20 @@ impl fmt::Display for ReclaimExpr {
 #[derive(Clone, Debug)]
 pub struct ReclaimExprFilter(String);
 impl_case_insensitive_str_primitive!(ParserRule::reclaim_expr_free_form => ReclaimExprFilter);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::compare_ast;
+
+    compare_ast! {
+        ReclaimExpr {
+            rfc2725_inetnum_example1: "ALL" => {
+                ReclaimExpr::All
+            }
+            rfc2725_inetnum_example2: "192.168.146/23+" => {
+                ReclaimExpr::Filter("192.168.146/23+".into())
+            }
+        }
+    }
+}

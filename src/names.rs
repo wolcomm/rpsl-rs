@@ -83,6 +83,8 @@ impl TryFrom<TokenPair<'_>> for KeyCert {
     }
 }
 
+impl_from_str!(ParserRule::key_cert => KeyCert);
+
 impl fmt::Display for KeyCert {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -155,6 +157,8 @@ impl TryFrom<TokenPair<'_>> for AsBlock {
     }
 }
 
+impl_from_str!(ParserRule::as_block => AsBlock);
+
 impl fmt::Display for AsBlock {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} - {}", self.lower, self.upper)
@@ -184,6 +188,8 @@ impl TryFrom<TokenPair<'_>> for InetNum {
         }
     }
 }
+
+impl_from_str!(ParserRule::inetnum => InetNum);
 
 impl fmt::Display for InetNum {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -216,6 +222,8 @@ impl TryFrom<TokenPair<'_>> for Inet6Num {
         }
     }
 }
+
+impl_from_str!(ParserRule::inet6num => Inet6Num);
 
 impl fmt::Display for Inet6Num {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

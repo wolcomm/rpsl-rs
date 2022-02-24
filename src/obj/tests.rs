@@ -1536,6 +1536,293 @@ source:     RIPE" => {
                 ]
             ).unwrap())
         }
+        // `referral` is mis-spelled in the original examples in rfc2725. LOL.
+        rfc2725_mntner_example1: "\
+mntner:         ROOT-MAINTAINER
+auth:           pgpkey-12345678
+mnt-by:         ROOT-MAINTAINER
+referral-by:    ROOT-MAINTAINER
+upd-to:         foo@example.net
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::Mntner(Mntner::new(
+                "ROOT-MAINTAINER".parse().unwrap(),
+                vec![
+                    RpslAttribute::Auth(AuthExpr::KeyCert("pgpkey-12345678".parse().unwrap())),
+                    RpslAttribute::MntBy(vec!["ROOT-MAINTAINER".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::ReferralBy("ROOT-MAINTAINER".parse().unwrap()),
+                    RpslAttribute::UpdTo("foo@example.net".into()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2725_mntner_example2: "\
+mntner:         WIZARDS
+descr:          High level Technical Folks
+auth:           pgpkey-23456789
+auth:           pgpkey-3456789a
+mnt-by:         WIZARDS
+referral-by:    ROOT-MAINTAINER
+upd-to:         foo@example.net
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::Mntner(Mntner::new(
+                "WIZARDS".parse().unwrap(),
+                vec![
+                    RpslAttribute::Descr("High level Technical Folks".into()),
+                    RpslAttribute::Auth(AuthExpr::KeyCert("pgpkey-23456789".parse().unwrap())),
+                    RpslAttribute::Auth(AuthExpr::KeyCert("pgpkey-3456789a".parse().unwrap())),
+                    RpslAttribute::MntBy(vec!["WIZARDS".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::ReferralBy("ROOT-MAINTAINER".parse().unwrap()),
+                    RpslAttribute::UpdTo("foo@example.net".into()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2725_mntner_example3: "\
+mntner:         MORTALS
+descr:          Maintain day to day operations
+auth:           pgpkey-456789ab
+auth:           pgpkey-56789abc
+auth:           pgpkey-6789abcd
+mnt-by:         WIZARDS
+referral-by:    WIZARDS
+upd-to:         foo@example.net
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::Mntner(Mntner::new(
+                "MORTALS".parse().unwrap(),
+                vec![
+                    RpslAttribute::Descr("Maintain day to day operations".into()),
+                    RpslAttribute::Auth(AuthExpr::KeyCert("pgpkey-456789ab".parse().unwrap())),
+                    RpslAttribute::Auth(AuthExpr::KeyCert("pgpkey-56789abc".parse().unwrap())),
+                    RpslAttribute::Auth(AuthExpr::KeyCert("pgpkey-6789abcd".parse().unwrap())),
+                    RpslAttribute::MntBy(vec!["WIZARDS".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::ReferralBy("WIZARDS".parse().unwrap()),
+                    RpslAttribute::UpdTo("foo@example.net".into()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2725_as_block_example1: "\
+as-block:       AS65500-AS65510
+mnt-by:         SOME-REGISTRY
+mnt-lower:      WIZARDS
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::AsBlock(AsBlock::new(
+                "AS65500-AS65510".parse().unwrap(),
+                vec![
+                    RpslAttribute::MntBy(vec!["SOME-REGISTRY".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::MntLower(vec!["WIZARDS".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2725_aut_num_example1: "\
+aut-num:        AS65501
+as-name:        Example-AS
+mnt-by:         WIZARDS
+mnt-lower:      MORTALS
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::AutNum(AutNum::new(
+                "AS65501".parse().unwrap(),
+                vec![
+                    RpslAttribute::AsName("Example-AS".into()),
+                    RpslAttribute::MntBy(vec!["WIZARDS".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::MntLower(vec!["MORTALS".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2725_inetnum_example1: "\
+inetnum:        192.168.144.0-192.168.151.255
+netname:        Example-Net
+mnt-by:         SOME-REGISTRY
+mnt-lower:      ISP
+reclaim:        ALL
+country:        XX
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::InetNum(InetNum::new(
+                "192.168.144.0-192.168.151.255".parse().unwrap(),
+                vec![
+                    RpslAttribute::Netname("Example-Net".into()),
+                    RpslAttribute::MntBy(vec!["SOME-REGISTRY".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::MntLower(vec!["ISP".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Reclaim("ALL".parse().unwrap()),
+                    RpslAttribute::Country("XX".into()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2725_inetnum_example2: "\
+inetnum:        192.168.144.0-192.168.147.255
+netname:        Example-Net
+mnt-by:         ISP
+mnt-lower:      EBG-COM
+reclaim:        192.168.146/23+
+country:        XX
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::InetNum(InetNum::new(
+                "192.168.144.0-192.168.147.255".parse().unwrap(),
+                vec![
+                    RpslAttribute::Netname("Example-Net".into()),
+                    RpslAttribute::MntBy(vec!["ISP".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::MntLower(vec!["EBG-COM".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Reclaim("192.168.146/23+".parse().unwrap()),
+                    RpslAttribute::Country("XX".into()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        // the `mnt-routes` qualifier in the original example from rfc2725
+        // contains an invalid ipv4-prefix "192.168.144".
+        // This form is expressly prohibited by rfc2622 section 2.
+        rfc2725_aut_num_example2: "\
+aut-num:        AS65501
+as-name:        Example-AS
+mnt-by:         WIZARDS
+mnt-lower:      MORTALS
+mnt-routes:     EBG-COM {192.168.144.0/23}
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::AutNum(AutNum::new(
+                "AS65501".parse().unwrap(),
+                vec![
+                    RpslAttribute::AsName("Example-AS".into()),
+                    RpslAttribute::MntBy(vec!["WIZARDS".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::MntLower(vec!["MORTALS".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::MntRoutes("EBG-COM {192.168.144.0/23}".parse().unwrap()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        // the `mnt-routes` qualifier in the original example from rfc2725
+        // contains an invalid ipv4-prefix "192.168.144".
+        // This form is expressly prohibited by rfc2622 section 2.
+        //
+        // TODO: support for `SOURCE::OBJECT` name refs (RFC2725 sect 9.6)
+        // mnt-by:         FICTION::MORTALS
+        rfc2725_route_example1: "\
+route:          192.168.144.0/24
+origin:         AS65501
+descr:          These boneheads don't aggregate
+mnt-by:         EBG-COM
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::Route(Route::new(
+                "192.168.144.0/24".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS65501".parse().unwrap()),
+                    RpslAttribute::Descr("These boneheads don't aggregate".into()),
+                    RpslAttribute::MntBy(vec!["EBG-COM".parse().unwrap()].into_iter().collect()),
+                    // RpslAttribute::MntBy(vec!["FICTION::MORTALS".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        // The `route-set` name components in the original examples from rfc2725
+        // are invalid, because they do not have the `RS-` prefix.
+        rfc2725_route_set_example1: "\
+route-set:      AS65501:RS-Customers
+mnt-by:         WIZARDS
+mnt-lower:      MORTALS
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::RouteSet(RouteSet::new(
+                "AS65501:RS-Customers".parse().unwrap(),
+                vec![
+                    RpslAttribute::MntBy(vec!["WIZARDS".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::MntLower(vec!["MORTALS".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2725_route_set_example2: "\
+route-set:      AS65501:RS-Customers:RS-EBG-COM
+mnt-by:         MORTALS
+mnt-lower:      EBG-COM
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::RouteSet(RouteSet::new(
+                "AS65501:RS-Customers:RS-EBG-COM".parse().unwrap(),
+                vec![
+                    RpslAttribute::MntBy(vec!["MORTALS".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::MntLower(vec!["EBG-COM".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        rfc2725_mntner_example4: "\
+mntner:         EBG-COM
+mnt-by:         EBG-COM
+auth-override:  19990401
+auth:           PGPKEY-DEADBEEF
+upd-to:         foo@example.net
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::Mntner(Mntner::new(
+                "EBG-COM".parse().unwrap(),
+                vec![
+                    RpslAttribute::MntBy(vec!["EBG-COM".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::AuthOverride("19990401".parse().unwrap()),
+                    RpslAttribute::Auth("PGPKEY-DEADBEEF".parse().unwrap()),
+                    RpslAttribute::UpdTo("foo@example.net".into()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
         rfc2726_sect6_mntner: "\
 mntner:      AS3244-MNT
 descr:       BankNet, Budapest HU

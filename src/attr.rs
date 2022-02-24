@@ -256,7 +256,9 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
             ParserRule::notify_attr => Ok(Self::Notify(
                 next_into_or!(pair.into_inner() => "failed to get notify address")?,
             )),
-            ParserRule::mnt_by_attr => Ok(Self::MntBy(pair.try_into()?)),
+            ParserRule::mnt_by_attr => Ok(Self::MntBy(
+                next_into_or!(pair.into_inner() => "failed to get mntner names list")?,
+            )),
             ParserRule::changed_attr => Ok(Self::Changed(
                 next_into_or!(pair.into_inner() => "failed to get changed expression")?,
             )),
@@ -266,7 +268,9 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
             ParserRule::mnt_routes_attr => Ok(Self::MntRoutes(
                 next_into_or!(pair.into_inner() => "failed to get mnt-routes expression")?,
             )),
-            ParserRule::mnt_lower_attr => Ok(Self::MntLower(pair.try_into()?)),
+            ParserRule::mnt_lower_attr => Ok(Self::MntLower(
+                next_into_or!(pair.into_inner() => "failed to get mntner names list")?,
+            )),
             ParserRule::reclaim_attr => Ok(Self::Reclaim(
                 next_into_or!(pair.into_inner() => "failed to get reclaim expression")?,
             )),
@@ -294,7 +298,9 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
             ParserRule::e_mail_attr => Ok(Self::EMail(
                 next_into_or!(pair.into_inner() => "failed to get email address")?,
             )),
-            ParserRule::mbrs_by_ref_attr => Ok(Self::MbrsByRef(pair.try_into()?)),
+            ParserRule::mbrs_by_ref_attr => Ok(Self::MbrsByRef(
+                next_into_or!(pair.into_inner() => "failed to get mntner names list")?,
+            )),
             ParserRule::auth_attr => Ok(Self::Auth(
                 next_into_or!(pair.into_inner() => "failed to get auth expression")?,
             )),

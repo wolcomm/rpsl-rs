@@ -83,3 +83,25 @@ impl fmt::Display for MntRoutesExprQualifier {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{primitive::RangeOperator, tests::compare_ast};
+
+    compare_ast! {
+        MntRoutesExpr {
+            rfc2725_aut_num_example2: "EBG-COM {192.168.144.0/23}" => {
+                MntRoutesExpr {
+                    mntners: vec!["EBG-COM".parse().unwrap()].into_iter().collect(),
+                    qualifier: Some(MntRoutesExprQualifier::Prefixes(vec![
+                        PrefixRange::new(
+                            "192.168.144.0/23".parse().unwrap(),
+                            RangeOperator::None,
+                        ),
+                    ].into_iter().collect())),
+                }
+            }
+        }
+    }
+}

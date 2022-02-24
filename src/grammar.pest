@@ -184,7 +184,7 @@ rtr_set_member_choice       = _{ rtr_set | inet_rtr | ipv4_addr }
 rtr_set_mp_member_choice    = _{ rtr_set | inet_rtr | ip_addr_choice }
 
 // lists
-mntner_name_list            = _{ mntner_name                 ~ ( "," ~ mntner_name )* }
+mntner_name_list            =  { mntner_name                 ~ ( "," ~ mntner_name )* }
 route_set_list              = _{ route_set                   ~ ( "," ~ route_set )* }
 ipv4_prefix_list            = _{ ipv4_prefix                 ~ ( "," ~ ipv4_prefix )* }
 ipv4_prefix_range_list      =  { ipv4_prefix_range           ~ ( "," ~ ipv4_prefix_range )* }
@@ -455,7 +455,7 @@ mnt_routes_expr         = { mntner_name_list ~ mnt_routes_expr_qual? }
         mnt_routes_expr_qual_list   = { "{" ~ ip_prefix_range_list ~ "}" }
         mnt_routes_expr_qual_any    = { ^"ANY" }
 
-reclaim_expr            = { reclaim_expr_all | reclaim_expr_free_form }
+reclaim_expr            = _{ reclaim_expr_all | reclaim_expr_free_form }
     reclaim_expr_all        = { ^"ALL" }
     // TODO
     reclaim_expr_free_form  = @{ free_form }
@@ -481,7 +481,7 @@ contact_attrs               = _{ nic_hdl_attr | address_attr | phone_attr
     fax_no_attr             = !{ ^"fax-no:"          ~ tel_number }
     e_mail_attr             = !{ ^"e-mail:"          ~ email_addr }
 // set attributes
-set_attrs                   = _{ mbrs_by_ref_attr }
+set_attrs                   = _{ mbrs_by_ref_attr | mnt_lower_attr }
     mbrs_by_ref_attr        = !{ ^"mbrs-by-ref:"     ~ mntner_name_list }
 // route/route6 attributes
 mp_route_attrs              = _{ origin_attr | route_member_of_attr
@@ -593,7 +593,7 @@ filter_set_obj                  =  { filter_set_class_attr  ~ ( filter_set_attr 
     filter_set_class_attr       = _{ ^"filter-set:"         ~ filter_set }
     filter_set_attr             = ${ NEWLINE ~
                                    ( common_attrs | filter_attr
-                                   | mp_filter_attr ) }
+                                   | mp_filter_attr | mnt_lower_attr ) }
         filter_attr             = !{ ^"filter:"             ~ filter_expr }
         mp_filter_attr          = !{ ^"mp-filter:"          ~ mp_filter_expr }
 // rtr-set object
@@ -610,7 +610,7 @@ peering_set_obj                 =  { peering_set_class_attr ~ ( peering_set_attr
     peering_set_class_attr      = _{ ^"peering-set:"        ~ peering_set }
     peering_set_attr            = ${ NEWLINE ~
                                    ( common_attrs | peering_attr
-                                   | mp_peering_attr ) }
+                                   | mp_peering_attr | mnt_lower_attr ) }
         peering_attr            = !{ ^"peering:"            ~ peering_expr }
         mp_peering_attr         = !{ ^"mp-peering:"         ~ mp_peering_expr }
 // aut-num class
