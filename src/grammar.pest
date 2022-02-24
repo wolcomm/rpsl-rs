@@ -481,16 +481,18 @@ set_attrs                   = _{ mbrs_by_ref_attr }
 // route/route6 attributes
 mp_route_attrs              = _{ origin_attr | route_member_of_attr
                                | aggr_bndry_attr | aggr_mtd_attr
-                               | mnt_routes_attr }
+                               | mnt_routes_attr | mnt_lower_attr }
     origin_attr             = !{ ^"origin:"             ~ aut_num }
     route_member_of_attr    = !{ ^"member-of:"          ~ route_set_list }
     aggr_bndry_attr         = !{ ^"aggr-bndry:"         ~ as_expr }
     aggr_mtd_attr           = !{ ^"aggr-mtd:"           ~ aggr_mtd_expr }
-inetnum_attrs               = _{ netname_attr | country_attr | mnt_routes_attr }
+inetnum_attrs               = _{ netname_attr | country_attr
+                               | mnt_routes_attr | mnt_lower_attr }
     netname_attr            = !{ ^"netname:"            ~ netname }
     country_attr            = !{ ^"country:"            ~ country_code }
 // special attributes
 mnt_routes_attr             = !{ ^"mnt-routes:"         ~ mnt_routes_expr }
+mnt_lower_attr              = !{ ^"mnt-lower:"          ~ mntner_name_list }
 
 // ** RPSL objects **
 rpsl_object                     = _{ mntner_obj | person_obj | role_obj
@@ -525,7 +527,7 @@ role_obj                        =  { role_class_attr        ~ ( role_attr )+ }
 as_block_obj                    =  { as_block_class_attr    ~ ( as_block_attr )+ }
     as_block_class_attr         = _{ ^"as-block:"           ~ as_block }
     as_block_attr               = ${ NEWLINE ~
-                                   ( common_attrs )}
+                                   ( common_attrs | mnt_lower_attr )}
 // inetnum object
 inetnum_obj                     =  { inetnum_class_attr     ~ ( inetnum_attr )+ }
     inetnum_class_attr          = _{ ^"inetnum:"            ~ inetnum }
@@ -605,7 +607,7 @@ aut_num_obj                     =  { aut_num_class_attr     ~ ( aut_num_attr )+ 
                                    ( common_attrs | as_name_attr
                                    | aut_num_member_of_attr | import_attr
                                    | export_attr | default_attr
-                                   | mnt_routes_attr ) }
+                                   | mnt_routes_attr | mnt_lower_attr ) }
         as_name_attr            = !{ ^"as-name:"            ~ as_name }
         aut_num_member_of_attr  = !{ ^"member-of:"          ~ as_set_list }
         import_attr             = !{ ^"import:"             ~ import_stmt }

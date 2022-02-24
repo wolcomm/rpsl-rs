@@ -57,6 +57,9 @@ pub enum RpslAttribute {
     /// RPSL `mnt-routes` attribute.
     #[strum_discriminants(strum(to_string = "mnt-routes"))]
     MntRoutes(MntRoutesExpr),
+    /// RPSL `mnt-lower` attribute.
+    #[strum_discriminants(strum(to_string = "mnt-lower"))]
+    MntLower(ListOf<names::Mntner>),
     // contact attributes
     /// RPSL `nic-hdl` attribute.
     #[strum_discriminants(strum(to_string = "nic-hdl"))]
@@ -251,6 +254,7 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
             ParserRule::mnt_routes_attr => Ok(Self::MntRoutes(
                 next_into_or!(pair.into_inner() => "failed to get mnt-routes expr")?,
             )),
+            ParserRule::mnt_lower_attr => Ok(Self::MntLower(pair.try_into()?)),
             ParserRule::nic_hdl_attr => Ok(Self::NicHdl(
                 next_into_or!(pair.into_inner() => "failed to get nic-hdl")?,
             )),
@@ -397,6 +401,7 @@ impl fmt::Display for RpslAttribute {
             Self::Changed(inner) => write!(f, "{}", inner),
             Self::Source(inner) => write!(f, "{}", inner),
             Self::MntRoutes(inner) => write!(f, "{}", inner),
+            Self::MntLower(inner) => write!(f, "{}", inner),
             Self::NicHdl(inner) => write!(f, "{}", inner),
             Self::Address(inner) => write!(f, "{}", inner),
             Self::Phone(inner) => write!(f, "{}", inner),
