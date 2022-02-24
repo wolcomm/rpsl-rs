@@ -176,6 +176,7 @@ country_code        = @{ ASCII_ALPHA{2} }
 // choices
 ip_addr_choice              = _{ ipv4_addr | ipv6_addr }
 ip_prefix_choice            = _{ ipv4_prefix | ipv6_prefix }
+ip_prefix_range_choice      = _{ ipv4_prefix_range | ipv6_prefix_range }
 as_set_member_choice        = _{ aut_num | as_set }
 route_set_member_choice     = ${ ( ipv4_prefix | named_route_set_member ) ~ range_op? }
 route_set_mp_member_choice  = ${ ( ip_prefix_choice | named_route_set_member ) ~ range_op? }
@@ -189,6 +190,7 @@ ipv4_prefix_list            = _{ ipv4_prefix                 ~ ( "," ~ ipv4_pref
 ipv4_prefix_range_list      =  { ipv4_prefix_range           ~ ( "," ~ ipv4_prefix_range )* }
 ipv6_prefix_list            = _{ ipv6_prefix                 ~ ( "," ~ ipv6_prefix )* }
 ipv6_prefix_range_list      =  { ipv6_prefix_range           ~ ( "," ~ ipv6_prefix_range )* }
+ip_prefix_range_list        =  { ip_prefix_range_choice      ~ ( "," ~ ip_prefix_range_choice )* }
 as_set_members_list         = _{ as_set_member_choice        ~ ( "," ~ as_set_member_choice )* }
 route_set_members_list      = _{ route_set_member_choice     ~ ( "," ~ route_set_member_choice )* }
 route_set_mp_members_list   = _{ route_set_mp_member_choice  ~ ( "," ~ route_set_mp_member_choice )* }
@@ -448,6 +450,11 @@ peer_expr               = { protocol_name ~ peer_spec ~ ( peer_opts )? }
 mp_peer_expr            = { protocol_name ~ mp_peer_spec ~ ( peer_opts )? }
     mp_peer_spec        = _{ ip_addr_choice | rtr_set | peering_set | inet_rtr }
 
+mnt_routes_expr         = { mntner_name_list ~ mnt_routes_expr_qual? }
+    mnt_routes_expr_qual    = _{ mnt_routes_expr_qual_list | mnt_routes_expr_qual_any }
+        mnt_routes_expr_qual_list   = { "{" ~ ip_prefix_range_list ~ "}" }
+        mnt_routes_expr_qual_any    = { ^"ANY" }
+
 // ** common RPSL attributes **
 // common attributes
 common_attrs                = _{ descr_attr | tech_c_attr | admin_c_attr | remarks_attr
@@ -473,14 +480,17 @@ set_attrs                   = _{ mbrs_by_ref_attr }
     mbrs_by_ref_attr        = !{ ^"mbrs-by-ref:"     ~ mntner_name_list }
 // route/route6 attributes
 mp_route_attrs              = _{ origin_attr | route_member_of_attr
-                               | aggr_bndry_attr | aggr_mtd_attr }
+                               | aggr_bndry_attr | aggr_mtd_attr
+                               | mnt_routes_attr }
     origin_attr             = !{ ^"origin:"             ~ aut_num }
     route_member_of_attr    = !{ ^"member-of:"          ~ route_set_list }
     aggr_bndry_attr         = !{ ^"aggr-bndry:"         ~ as_expr }
     aggr_mtd_attr           = !{ ^"aggr-mtd:"           ~ aggr_mtd_expr }
-inetnum_attrs               = _{ netname_attr | country_attr }
+inetnum_attrs               = _{ netname_attr | country_attr | mnt_routes_attr }
     netname_attr            = !{ ^"netname:"            ~ netname }
     country_attr            = !{ ^"country:"            ~ country_code }
+// special attributes
+mnt_routes_attr             = !{ ^"mnt-routes:"         ~ mnt_routes_expr }
 
 // ** RPSL objects **
 rpsl_object                     = _{ mntner_obj | person_obj | role_obj
@@ -594,7 +604,8 @@ aut_num_obj                     =  { aut_num_class_attr     ~ ( aut_num_attr )+ 
     aut_num_attr                = ${ NEWLINE ~
                                    ( common_attrs | as_name_attr
                                    | aut_num_member_of_attr | import_attr
-                                   | export_attr | default_attr ) }
+                                   | export_attr | default_attr
+                                   | mnt_routes_attr ) }
         as_name_attr            = !{ ^"as-name:"            ~ as_name }
         aut_num_member_of_attr  = !{ ^"member-of:"          ~ as_set_list }
         import_attr             = !{ ^"import:"             ~ import_stmt }
@@ -668,3 +679,4 @@ just_inject6_expr               = _{ SOI ~ inject6_expr ~ EOI }
 just_components_expr            = _{ SOI ~ components_expr ~ EOI }
 just_components6_expr           = _{ SOI ~ components6_expr ~ EOI }
 just_aggr_mtd_expr              = _{ SOI ~ aggr_mtd_expr ~ EOI }
+just_mnt_routes_expr            = _{ SOI ~ mnt_routes_expr ~ EOI }

@@ -351,6 +351,7 @@ rpsl_object_class! {
             Import (*),
             Export (*),
             Default (*),
+            MntRoutes (*),
         ],
     }
 }
@@ -376,6 +377,7 @@ rpsl_object_class! {
             MntBy (+),
             Changed (+),
             Source,
+            MntRoutes (*),
         ],
     }
 }
@@ -402,6 +404,7 @@ rpsl_object_class! {
             MntBy (+),
             Changed (+),
             Source,
+            MntRoutes (*),
         ],
     }
 }
@@ -436,6 +439,7 @@ rpsl_object_class! {
             AggrMtd (?),
             ExportComps (?),
             Holes (*),
+            MntRoutes (*),
         ],
     }
 }
@@ -469,6 +473,7 @@ rpsl_object_class! {
             AggrMtd (?),
             ExportComps6 (?),
             Holes6 (*),
+            MntRoutes (*),
         ],
     }
 }

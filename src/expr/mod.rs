@@ -7,6 +7,7 @@ mod export;
 mod filter;
 mod import;
 mod interface;
+mod mnt;
 mod peer;
 mod peering;
 mod proto;
@@ -23,6 +24,7 @@ pub use self::{
     filter::{FilterExpr, MpFilterExpr},
     import::{ImportExpr, MpImportExpr},
     interface::{IfaddrExpr, InterfaceExpr},
+    mnt::MntRoutesExpr,
     peer::{MpPeerExpr, PeerExpr},
     peering::PeeringExpr,
     proto::ProtocolDistribution,

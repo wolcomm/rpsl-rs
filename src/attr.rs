@@ -10,7 +10,8 @@ use crate::{
     expr::{
         AggrMtdExpr, AsExpr, AuthExpr, ChangedExpr, Components6Expr, ComponentsExpr, DefaultExpr,
         ExportExpr, FilterExpr, IfaddrExpr, ImportExpr, Inject6Expr, InjectExpr, InterfaceExpr,
-        MpDefaultExpr, MpExportExpr, MpFilterExpr, MpImportExpr, MpPeerExpr, PeerExpr, PeeringExpr,
+        MntRoutesExpr, MpDefaultExpr, MpExportExpr, MpFilterExpr, MpImportExpr, MpPeerExpr,
+        PeerExpr, PeeringExpr,
     },
     list::ListOf,
     members::{AsSetMember, RouteSetMember, RtrSetMember},
@@ -53,6 +54,9 @@ pub enum RpslAttribute {
     /// RPSL `source` attribute.
     #[strum_discriminants(strum(to_string = "source"))]
     Source(RegistryName),
+    /// RPSL `mnt-routes` attribute.
+    #[strum_discriminants(strum(to_string = "mnt-routes"))]
+    MntRoutes(MntRoutesExpr),
     // contact attributes
     /// RPSL `nic-hdl` attribute.
     #[strum_discriminants(strum(to_string = "nic-hdl"))]
@@ -244,6 +248,9 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
             ParserRule::source_attr => Ok(Self::Source(
                 next_into_or!(pair.into_inner() => "failed to get source registry name")?,
             )),
+            ParserRule::mnt_routes_attr => Ok(Self::MntRoutes(
+                next_into_or!(pair.into_inner() => "failed to get mnt-routes expr")?,
+            )),
             ParserRule::nic_hdl_attr => Ok(Self::NicHdl(
                 next_into_or!(pair.into_inner() => "failed to get nic-hdl")?,
             )),
@@ -389,6 +396,7 @@ impl fmt::Display for RpslAttribute {
             Self::MntBy(inner) => write!(f, "{}", inner),
             Self::Changed(inner) => write!(f, "{}", inner),
             Self::Source(inner) => write!(f, "{}", inner),
+            Self::MntRoutes(inner) => write!(f, "{}", inner),
             Self::NicHdl(inner) => write!(f, "{}", inner),
             Self::Address(inner) => write!(f, "{}", inner),
             Self::Phone(inner) => write!(f, "{}", inner),
