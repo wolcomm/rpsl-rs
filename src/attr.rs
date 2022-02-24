@@ -18,9 +18,9 @@ use crate::{
     names,
     parser::{debug_construction, next_into_or, rule_mismatch, ParserRule, TokenPair},
     primitive::{
-        Address, AsName, Certificate, CountryCode, DnsName, EmailAddress, Fingerprint, KeyOwner,
-        Netname, NicHdl, ObjectDescr, Prefix, RegistryName, Remarks, SigningMethod, TelNumber,
-        Trouble,
+        Address, AsName, Certificate, CountryCode, Date, DnsName, EmailAddress, Fingerprint,
+        KeyOwner, Netname, NicHdl, ObjectDescr, Prefix, RegistryName, Remarks, SigningMethod,
+        TelNumber, Trouble,
     },
 };
 
@@ -66,6 +66,12 @@ pub enum RpslAttribute {
     /// RPSL `no-reclaim` attribute.
     #[strum_discriminants(strum(to_string = "no-reclaim"))]
     NoReclaim(ReclaimExpr),
+    /// RPSL `referral-by` attribute.
+    #[strum_discriminants(strum(to_string = "referral-by"))]
+    ReferralBy(names::Mntner),
+    /// RPSL `auth-override` attribute.
+    #[strum_discriminants(strum(to_string = "auth-override"))]
+    AuthOverride(Date),
     // contact attributes
     /// RPSL `nic-hdl` attribute.
     #[strum_discriminants(strum(to_string = "nic-hdl"))]
@@ -267,6 +273,12 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
             ParserRule::no_reclaim_attr => Ok(Self::NoReclaim(
                 next_into_or!(pair.into_inner() => "failed to get no-reclaim expression")?,
             )),
+            ParserRule::referral_by_attr => Ok(Self::ReferralBy(
+                next_into_or!(pair.into_inner() => "failed to get referral-by mntner name")?,
+            )),
+            ParserRule::auth_override_attr => Ok(Self::AuthOverride(
+                next_into_or!(pair.into_inner() => "failed to get auth-override date")?,
+            )),
             ParserRule::nic_hdl_attr => Ok(Self::NicHdl(
                 next_into_or!(pair.into_inner() => "failed to get nic-hdl")?,
             )),
@@ -416,6 +428,8 @@ impl fmt::Display for RpslAttribute {
             Self::MntLower(inner) => write!(f, "{}", inner),
             Self::Reclaim(inner) => write!(f, "{}", inner),
             Self::NoReclaim(inner) => write!(f, "{}", inner),
+            Self::ReferralBy(inner) => write!(f, "{}", inner),
+            Self::AuthOverride(inner) => write!(f, "{}", inner),
             Self::NicHdl(inner) => write!(f, "{}", inner),
             Self::Address(inner) => write!(f, "{}", inner),
             Self::Phone(inner) => write!(f, "{}", inner),

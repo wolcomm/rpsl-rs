@@ -516,10 +516,13 @@ mntner_obj                      =  { mntner_class_attr      ~ ( mntner_attr )+ }
     mntner_class_attr           = _{ ^"mntner:"             ~ mntner_name }
     mntner_attr                 = ${ NEWLINE ~
                                    ( common_attrs | auth_attr
-                                   | upd_to_attr | mnt_nfy_attr ) }
+                                   | upd_to_attr | mnt_nfy_attr
+                                   | referral_by_attr | auth_override_attr ) }
         auth_attr               = !{ ^"auth:"               ~ auth_expr }
         upd_to_attr             = !{ ^"upd-to:"             ~ email_addr }
         mnt_nfy_attr            = !{ ^"mnt-nfy:"            ~ email_addr }
+        referral_by_attr        = !{ ^"referral-by:"        ~ mntner_name }
+        auth_override_attr      = !{ ^"auth-override:"      ~ date }
 // person
 person_obj                      =  { person_class_attr      ~ ( person_attr )+ }
     person_class_attr           = _{ ^"person:"             ~ person }

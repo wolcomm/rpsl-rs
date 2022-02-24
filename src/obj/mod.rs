@@ -204,6 +204,10 @@ rpsl_object_class! {
             Auth (+),
             UpdTo (+),
             MntNfy (*),
+            // `referral-by` is mandatory according to rfc2725, but that
+            // breaks backwards compatibility with ~everything!
+            ReferralBy (*),
+            AuthOverride (?),
         ],
     }
 }
