@@ -1969,5 +1969,26 @@ source:         BAR" => {
                 ]
             ).unwrap())
         }
+        rfc4012_sect3_route6_example: "\
+route6:     2001:0DB8::/32
+origin:     AS65001
+descr:      Example route6 object
+mnt-by:     EXAMPLE-MNT
+changed:    foo@example.net 20220224
+source:     BAR" => {
+            RpslObject::Route6(Route6::new(
+                "2001:0DB8::/32".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS65001".parse().unwrap()),
+                    RpslAttribute::Descr("Example route6 object".into()),
+                    RpslAttribute::MntBy(vec!["EXAMPLE-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
     }
 }
