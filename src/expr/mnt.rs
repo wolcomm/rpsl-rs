@@ -102,6 +102,21 @@ mod tests {
                     ].into_iter().collect())),
                 }
             }
+            rfc4012_sect4_aut_num_example1: "MAINT-AS65001 {2001:0DB8::/32^+, 192.0.2.0/24^+}" => {
+                MntRoutesExpr {
+                    mntners: vec!["MAINT-AS65001".parse().unwrap()].into_iter().collect(),
+                    qualifier: Some(MntRoutesExprQualifier::Prefixes(vec![
+                        PrefixRange::new(
+                            "2001:0DB8::/32".parse().unwrap(),
+                            RangeOperator::LessIncl,
+                        ),
+                        PrefixRange::new(
+                            "192.0.2.0/24".parse().unwrap(),
+                            RangeOperator::LessIncl,
+                        ),
+                    ].into_iter().collect()))
+                }
+            }
         }
     }
 }

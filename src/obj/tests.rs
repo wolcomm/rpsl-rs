@@ -2051,5 +2051,26 @@ source:         RIPE" => {
                 ],
             ).unwrap())
         }
+        rfc4012_sect4_aut_num_example1: "\
+aut-num:        AS65002
+mnt-routes:     MAINT-AS65001 {2001:0DB8::/32^+, 192.0.2.0/24^+}
+as-name:        Example-AS
+mnt-by:         EXAMPLE-MNT
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::AutNum(AutNum::new(
+                "AS65002".parse().unwrap(),
+                vec![
+                    RpslAttribute::MntRoutes("MAINT-AS65001 {2001:0DB8::/32^+, 192.0.2.0/24^+}".parse().unwrap()),
+                    RpslAttribute::AsName("Example-AS".into()),
+                    RpslAttribute::MntBy(vec!["EXAMPLE-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
     }
 }
