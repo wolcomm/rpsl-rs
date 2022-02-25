@@ -11,7 +11,7 @@ use crate::{
         AggrMtdExpr, AsExpr, AuthExpr, ChangedExpr, Components6Expr, ComponentsExpr, DefaultExpr,
         ExportExpr, FilterExpr, IfaddrExpr, ImportExpr, Inject6Expr, InjectExpr, InterfaceExpr,
         MntRoutesExpr, MpDefaultExpr, MpExportExpr, MpFilterExpr, MpImportExpr, MpPeerExpr,
-        PeerExpr, PeeringExpr, ReclaimExpr,
+        MpPeeringExpr, PeerExpr, PeeringExpr, ReclaimExpr,
     },
     list::ListOf,
     members::{AsSetMember, RouteSetMember, RtrSetMember},
@@ -203,14 +203,23 @@ pub enum RpslAttribute {
     /// RPSL `filter` attribute.
     #[strum_discriminants(strum(to_string = "filter"))]
     Filter(FilterExpr),
+    /// RPSL `mp-filter` attribute.
+    #[strum_discriminants(strum(to_string = "mp-filter"))]
+    MpFilter(MpFilterExpr),
     // rtr-set attributes
     /// RPSL `members` attribute for `rtr-set` objects.
     #[strum_discriminants(strum(to_string = "members"))]
     RtrSetMembers(ListOf<RtrSetMember<afi::Ipv4>>),
+    /// RPSL `mp-members` attribute for `rtr-set` objects.
+    #[strum_discriminants(strum(to_string = "mp-members"))]
+    RtrSetMpMembers(ListOf<RtrSetMember<afi::Any>>),
     // peering-set attributes
     /// RPSL `peering` attribute.
     #[strum_discriminants(strum(to_string = "peering"))]
     Peering(PeeringExpr),
+    /// RPSL `mp-peering` attribute.
+    #[strum_discriminants(strum(to_string = "mp-peering"))]
+    MpPeering(MpPeeringExpr),
     // inet-rtr attributes
     /// RPSL `alias` attribute.
     #[strum_discriminants(strum(to_string = "alias"))]
@@ -389,9 +398,16 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
             ParserRule::filter_attr => Ok(Self::Filter(
                 next_into_or!(pair.into_inner() => "failed to get filter expression")?,
             )),
+            ParserRule::mp_filter_attr => Ok(Self::MpFilter(
+                next_into_or!(pair.into_inner() => "failed to get mp-filter expression")?,
+            )),
             ParserRule::rtr_set_members_attr => Ok(Self::RtrSetMembers(pair.try_into()?)),
+            ParserRule::rtr_set_mp_members_attr => Ok(Self::RtrSetMpMembers(pair.try_into()?)),
             ParserRule::peering_attr => Ok(Self::Peering(
                 next_into_or!(pair.into_inner() => "failed to get peering expression")?,
+            )),
+            ParserRule::mp_peering_attr => Ok(Self::MpPeering(
+                next_into_or!(pair.into_inner() => "failed to get mp-peering expression")?,
             )),
             ParserRule::alias_attr => Ok(Self::Alias(
                 next_into_or!(pair.into_inner() => "failed to get alias name")?,
@@ -476,8 +492,11 @@ impl fmt::Display for RpslAttribute {
             Self::RouteSetMembers(inner) => write!(f, "{}", inner),
             Self::RouteSetMpMembers(inner) => write!(f, "{}", inner),
             Self::Filter(inner) => write!(f, "{}", inner),
+            Self::MpFilter(inner) => write!(f, "{}", inner),
             Self::RtrSetMembers(inner) => write!(f, "{}", inner),
+            Self::RtrSetMpMembers(inner) => write!(f, "{}", inner),
             Self::Peering(inner) => write!(f, "{}", inner),
+            Self::MpPeering(inner) => write!(f, "{}", inner),
             Self::Alias(inner) => write!(f, "{}", inner),
             Self::LocalAs(inner) => write!(f, "{}", inner),
             Self::Ifaddr(inner) => write!(f, "{}", inner),

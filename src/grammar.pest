@@ -175,7 +175,7 @@ country_code        = @{ ASCII_ALPHA{2} }
 // ** RPSL expressions **
 // choices
 ip_addr_choice              = _{ ipv4_addr | ipv6_addr }
-ip_prefix_choice            = _{ ipv4_prefix | ipv6_prefix }
+ip_prefix_choice            = @{ ipv4_prefix | ipv6_prefix }
 ip_prefix_range_choice      = _{ ipv4_prefix_range | ipv6_prefix_range }
 as_set_member_choice        = _{ aut_num | as_set }
 route_set_member_choice     = ${ ( ipv4_prefix | named_route_set_member ) ~ range_op? }
@@ -597,8 +597,8 @@ route_set_obj                   =  { route_set_class_attr   ~ ( route_set_attr )
     route_set_class_attr        = _{ ^"route-set:"          ~ route_set }
     route_set_attr              = ${ NEWLINE ~
                                    ( common_attrs | set_attrs
-                                   | route_set_members_attr ) }
-        route_set_members_attr  = !{ ^"members:"            ~ route_set_members_list }
+                                   | route_set_members_attr | route_set_mp_members_attr ) }
+        route_set_members_attr      = !{ ^"members:"        ~ route_set_members_list }
         route_set_mp_members_attr   = !{ ^"mp-members:"     ~ route_set_mp_members_list }
 // filter-set object
 filter_set_obj                  =  { filter_set_class_attr  ~ ( filter_set_attr )+ }

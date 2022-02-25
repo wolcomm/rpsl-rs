@@ -24,7 +24,7 @@ pub use self::{
     interface::{IfaddrExpr, InterfaceExpr},
     mnt::MntRoutesExpr,
     peer::{MpPeerExpr, PeerExpr},
-    peering::PeeringExpr,
+    peering::{MpPeeringExpr, PeeringExpr},
     policy::{ExportExpr, ImportExpr, MpExportExpr, MpImportExpr},
     proto::ProtocolDistribution,
     reclaim::ReclaimExpr,

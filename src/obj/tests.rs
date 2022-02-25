@@ -1990,5 +1990,66 @@ source:     BAR" => {
                 ]
             ).unwrap())
         }
+        rfc4012_sect4_2_route_set_example: "\
+route-set:      rs-foo
+mp-members:     rs-bar
+mp-members:     2001:0DB8::/32  # v6 member
+mp-members:     192.0.2.0/24   # v4 member
+mnt-by:         EXAMPLE-MNT
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::RouteSet(RouteSet::new(
+                "rs-foo".parse().unwrap(),
+                vec![
+                    RpslAttribute::RouteSetMpMembers(vec![
+                        RouteSetMember::new(
+                            RouteSetMemberElem::RouteSet("rs-bar".parse().unwrap()),
+                            RangeOperator::None,
+                        ),
+                    ].into_iter().collect()),
+                    RpslAttribute::RouteSetMpMembers(vec![
+                        RouteSetMember::new(
+                            RouteSetMemberElem::Prefix("2001:0DB8::/32".parse().unwrap()),
+                            RangeOperator::None,
+                        ),
+                    ].into_iter().collect()),
+                    RpslAttribute::RouteSetMpMembers(vec![
+                        RouteSetMember::new(
+                            RouteSetMemberElem::Prefix("192.0.2.0/24".parse().unwrap()),
+                            RangeOperator::None,
+                        ),
+                    ].into_iter().collect()),
+                    RpslAttribute::MntBy(vec!["EXAMPLE-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        rfc4012_sect4_4_peering_set_example: "\
+peering-set:    prng-ebgp-peers
+mp-peering:     AS65002 2001:0DB8::1 at 2001:0DB8::2
+descr:          Example peering-set
+tech-c:         RW488-RIPE
+mnt-by:         RIPE-NCC-MNT
+changed:        roderik@ripe.net 19970926
+source:         RIPE" => {
+            RpslObject::PeeringSet(PeeringSet::new(
+                "prng-ebgp-peers".parse().unwrap(),
+                vec![
+                    RpslAttribute::MpPeering("AS65002 2001:0DB8::1 at 2001:0DB8::2".parse().unwrap()),
+                    RpslAttribute::Descr("Example peering-set".into()),
+                    RpslAttribute::TechC("RW488-RIPE".into()),
+                    RpslAttribute::MntBy(vec!["RIPE-NCC-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "roderik@ripe.net".into(),
+                        "19970926".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("RIPE".into()),
+                ],
+            ).unwrap())
+        }
     }
 }

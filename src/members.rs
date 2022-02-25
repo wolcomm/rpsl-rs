@@ -110,7 +110,7 @@ pub enum RouteSetMemberElem<A: LiteralPrefixSetAfi> {
     RouteSet(RouteSet),
     /// A `route-set` member wrapping a `as-set` name.
     AsSet(AsSet),
-    /// A `rotue-set` member wrapping an `aut-num` name.
+    /// A `route-set` member wrapping an `aut-num` name.
     AutNum(AutNum),
 }
 

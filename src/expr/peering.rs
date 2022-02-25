@@ -207,4 +207,16 @@ mod tests {
             }
         }
     }
+
+    compare_ast! {
+        MpPeeringExpr {
+            rfc4012_sect4_4_peering_set_example: "AS65002 2001:0DB8::1 at 2001:0DB8::2" => {
+                MpPeeringExpr::Literal(LiteralPeering {
+                    as_expr: "AS65002".parse().unwrap(),
+                    remote_rtr: Some("2001:0DB8::1".parse().unwrap()),
+                    local_rtr: Some("2001:0DB8::2".parse().unwrap()),
+                })
+            }
+        }
+    }
 }

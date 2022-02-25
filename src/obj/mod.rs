@@ -604,7 +604,10 @@ rpsl_object_class! {
             Changed (+),
             Source,
             //
-            Filter,
+            // TODO: one of `filter` or `mp-filter` should be required during
+            // validation.
+            Filter (?),
+            MpFilter (?),
             // `mnt-lower` is not allowed to appear in set objects in terms
             // of the definition in rfc2725.
             // however, for it to work correctly this must be allowed.
@@ -637,6 +640,7 @@ rpsl_object_class! {
             Source,
             //
             RtrSetMembers (*),
+            RtrSetMpMembers (*),
             MbrsByRef (*),
             // `mnt-lower` is not allowed to appear in set objects in terms
             // of the definition in rfc2725.
@@ -669,7 +673,10 @@ rpsl_object_class! {
             Changed (+),
             Source,
             //
-            Peering (+),
+            // TODO: one of `peering` or `mp-peering` should be required during
+            // validation.
+            Peering (*),
+            MpPeering (*),
             // `mnt-lower` is not allowed to appear in set objects in terms
             // of the definition in rfc2725.
             // however, for it to work correctly this must be allowed.
