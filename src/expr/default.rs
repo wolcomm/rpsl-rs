@@ -7,6 +7,7 @@ use crate::{
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
+    primitive::AfiSafi,
 };
 
 use super::{filter, peering, ActionExpr};
@@ -25,6 +26,7 @@ impl_from_str!(ParserRule::just_mp_default_expr => MpDefaultExpr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Expr<A: LiteralPrefixSetAfi> {
+    afis: Option<AfiSafi>,
     peering: peering::Expr<A>,
     action: Option<ActionExpr>,
     networks: Option<filter::Expr<A>>,
@@ -37,7 +39,14 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
             rule if rule == A::DEFAULT_EXPR_RULE => {
-                let mut pairs = pair.into_inner();
+                let mut pairs = pair.into_inner().peekable();
+                let afis = if let Some(ParserRule::afi_safi_list) =
+                    pairs.peek().map(|inner_pair| inner_pair.as_rule())
+                {
+                    Some(next_into_or!(pairs => "failed to get afi list")?)
+                } else {
+                    None
+                };
                 let peering = next_into_or!(pairs => "failed to get peering expression")?;
                 let (mut action, mut networks) = (None, None);
                 for pair in pairs {
@@ -52,6 +61,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
                     }
                 }
                 Ok(Self {
+                    afis,
                     peering,
                     action,
                     networks,
@@ -64,6 +74,9 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
 
 impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(afis) = &self.afis {
+            write!(f, "afi {} ", afis)?;
+        }
         write!(f, "to {}", self.peering)?;
         if let Some(action) = &self.action {
             write!(f, " action {}", action)?;
@@ -86,6 +99,7 @@ mod tests {
         DefaultExpr {
             rfc2622_sect6_example1: "to AS2" => {
                 DefaultExpr {
+                    afis: None,
                     peering: "AS2".parse().unwrap(),
                     action: None,
                     networks: None,
@@ -93,6 +107,7 @@ mod tests {
             }
             rfc2622_sect6_example2: "to AS2 7.7.7.2 at 7.7.7.1" => {
                 DefaultExpr {
+                    afis: None,
                     peering: "AS2 7.7.7.2 at 7.7.7.1".parse().unwrap(),
                     action: None,
                     networks: None,
@@ -100,6 +115,7 @@ mod tests {
             }
             rfc2622_sect6_example3: "to AS2 action pref = 1;" => {
                 DefaultExpr {
+                    afis: None,
                     peering: "AS2".parse().unwrap(),
                     action: Some("pref = 1;".parse().unwrap()),
                     networks: None,
@@ -107,6 +123,7 @@ mod tests {
             }
             rfc2622_sect6_example4: "to AS2 networks { 128.9.0.0/16 }" => {
                 DefaultExpr {
+                    afis: None,
                     peering: "AS2".parse().unwrap(),
                     action: None,
                     networks: Some("{ 128.9.0.0/16 }".parse().unwrap()),

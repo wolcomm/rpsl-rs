@@ -3,13 +3,12 @@ mod auth;
 mod autnum;
 mod changed;
 mod default;
-mod export;
 mod filter;
-mod import;
 mod interface;
 mod mnt;
 mod peer;
 mod peering;
+mod policy;
 mod proto;
 mod reclaim;
 mod route;
@@ -21,13 +20,12 @@ pub use self::{
     autnum::AsExpr,
     changed::ChangedExpr,
     default::{DefaultExpr, MpDefaultExpr},
-    export::{ExportExpr, MpExportExpr},
     filter::{FilterExpr, MpFilterExpr},
-    import::{ImportExpr, MpImportExpr},
     interface::{IfaddrExpr, InterfaceExpr},
     mnt::MntRoutesExpr,
     peer::{MpPeerExpr, PeerExpr},
     peering::PeeringExpr,
+    policy::{ExportExpr, ImportExpr, MpExportExpr, MpImportExpr},
     proto::ProtocolDistribution,
     reclaim::ReclaimExpr,
     route::{AggrMtdExpr, Components6Expr, ComponentsExpr, Inject6Expr, InjectExpr},

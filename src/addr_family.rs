@@ -179,10 +179,10 @@ pub trait LiteralPrefixSetAfi: Afi {
     const IMPORT_EXPR_EXCEPT_RULE: ParserRule;
     /// Address family specific [`ParserRule`] for `REFINE` `import` expressions.
     const IMPORT_EXPR_REFINE_RULE: ParserRule;
-    /// Address family specific [`ParserRule`] for "simple" `import` expressions.
-    const IMPORT_STMT_SIMPLE_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for `import` afi-expressions.
+    const IMPORT_AFI_EXPR_RULE: ParserRule;
     /// Address family specific [`ParserRule`] for `import` statements.
-    const IMPORT_STMT_PROTOCOL_RULE: ParserRule;
+    const IMPORT_STMT_RULE: ParserRule;
 
     /// Address family specific [`ParserRule`] for `export` factors.
     const EXPORT_FACTOR_RULE: ParserRule;
@@ -194,10 +194,10 @@ pub trait LiteralPrefixSetAfi: Afi {
     const EXPORT_EXPR_EXCEPT_RULE: ParserRule;
     /// Address family specific [`ParserRule`] for `REFINE` `export` expressions.
     const EXPORT_EXPR_REFINE_RULE: ParserRule;
-    /// Address family specific [`ParserRule`] for "simple" `export` expressions.
-    const EXPORT_STMT_SIMPLE_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for `export` afi-expressions.
+    const EXPORT_AFI_EXPR_RULE: ParserRule;
     /// Address family specific [`ParserRule`] for `export` statements.
-    const EXPORT_STMT_PROTOCOL_RULE: ParserRule;
+    const EXPORT_STMT_RULE: ParserRule;
 
     /// Address family specific [`ParserRule`] for `route-set` member items.
     const ROUTE_SET_MEMBER_RULE: ParserRule;
@@ -275,16 +275,16 @@ pub mod afi {
         const IMPORT_EXPR_UNIT_RULE: ParserRule = ParserRule::import_expr_unit;
         const IMPORT_EXPR_EXCEPT_RULE: ParserRule = ParserRule::import_expr_except;
         const IMPORT_EXPR_REFINE_RULE: ParserRule = ParserRule::import_expr_refine;
-        const IMPORT_STMT_SIMPLE_RULE: ParserRule = ParserRule::import_stmt_simple;
-        const IMPORT_STMT_PROTOCOL_RULE: ParserRule = ParserRule::import_stmt_protocol;
+        const IMPORT_AFI_EXPR_RULE: ParserRule = ParserRule::import_afi_expr;
+        const IMPORT_STMT_RULE: ParserRule = ParserRule::import_stmt;
 
         const EXPORT_FACTOR_RULE: ParserRule = ParserRule::export_factor;
         const EXPORT_TERM_RULE: ParserRule = ParserRule::export_term;
         const EXPORT_EXPR_UNIT_RULE: ParserRule = ParserRule::export_expr_unit;
         const EXPORT_EXPR_EXCEPT_RULE: ParserRule = ParserRule::export_expr_except;
         const EXPORT_EXPR_REFINE_RULE: ParserRule = ParserRule::export_expr_refine;
-        const EXPORT_STMT_SIMPLE_RULE: ParserRule = ParserRule::export_stmt_simple;
-        const EXPORT_STMT_PROTOCOL_RULE: ParserRule = ParserRule::export_stmt_protocol;
+        const EXPORT_AFI_EXPR_RULE: ParserRule = ParserRule::export_afi_expr;
+        const EXPORT_STMT_RULE: ParserRule = ParserRule::export_stmt;
 
         const ROUTE_SET_MEMBER_RULE: ParserRule = ParserRule::route_set_member_choice;
     }
@@ -407,16 +407,16 @@ pub mod afi {
         const IMPORT_EXPR_UNIT_RULE: ParserRule = ParserRule::mp_import_expr_unit;
         const IMPORT_EXPR_EXCEPT_RULE: ParserRule = ParserRule::mp_import_expr_except;
         const IMPORT_EXPR_REFINE_RULE: ParserRule = ParserRule::mp_import_expr_refine;
-        const IMPORT_STMT_SIMPLE_RULE: ParserRule = ParserRule::mp_import_stmt_simple;
-        const IMPORT_STMT_PROTOCOL_RULE: ParserRule = ParserRule::mp_import_stmt_protocol;
+        const IMPORT_AFI_EXPR_RULE: ParserRule = ParserRule::mp_import_afi_expr;
+        const IMPORT_STMT_RULE: ParserRule = ParserRule::mp_import_stmt;
 
         const EXPORT_FACTOR_RULE: ParserRule = ParserRule::mp_export_factor;
         const EXPORT_TERM_RULE: ParserRule = ParserRule::mp_export_term;
         const EXPORT_EXPR_UNIT_RULE: ParserRule = ParserRule::mp_export_expr_unit;
         const EXPORT_EXPR_EXCEPT_RULE: ParserRule = ParserRule::mp_export_expr_except;
         const EXPORT_EXPR_REFINE_RULE: ParserRule = ParserRule::mp_export_expr_refine;
-        const EXPORT_STMT_SIMPLE_RULE: ParserRule = ParserRule::mp_export_stmt_simple;
-        const EXPORT_STMT_PROTOCOL_RULE: ParserRule = ParserRule::mp_export_stmt_protocol;
+        const EXPORT_AFI_EXPR_RULE: ParserRule = ParserRule::mp_export_afi_expr;
+        const EXPORT_STMT_RULE: ParserRule = ParserRule::mp_export_stmt;
 
         const ROUTE_SET_MEMBER_RULE: ParserRule = ParserRule::route_set_mp_member_choice;
     }

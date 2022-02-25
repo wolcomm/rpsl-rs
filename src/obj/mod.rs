@@ -358,8 +358,11 @@ rpsl_object_class! {
             AsName,
             AutNumMemberOf (*),
             Import (*),
+            MpImport (*),
             Export (*),
+            MpExport (*),
             Default (*),
+            MpDefault (*),
             MntRoutes (*),
             MntLower (*),
             // rfc2725 doesn't say whether `reclaim` and `no-reclaim` are

@@ -12,8 +12,8 @@ use crate::{
     error::{err, ParseError, ParseResult},
     names::AutNum,
     parser::{
-        debug_construction, impl_case_insensitive_str_primitive, impl_str_primitive, next_parse_or,
-        rule_mismatch, ParserRule, TokenPair,
+        debug_construction, impl_case_insensitive_str_primitive, impl_from_str, impl_str_primitive,
+        next_into_or, next_parse_or, rule_mismatch, ParserRule, TokenPair,
     },
 };
 
@@ -597,3 +597,105 @@ impl_case_insensitive_str_primitive!(ParserRule::peer_opt_key => PeerOptKey);
 #[derive(Clone, Debug)]
 pub struct PeerOptVal(String);
 impl_case_insensitive_str_primitive!(ParserRule::peer_opt_val => PeerOptVal);
+
+/// RPSL `afi` names.
+/// See [RFC4012].
+///
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.1
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct AfiSafi {
+    afi: AfiName,
+    safi: Option<SafiName>,
+}
+
+impl_from_str!(ParserRule::afi_safi => AfiSafi);
+
+impl TryFrom<TokenPair<'_>> for AfiSafi {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => AfiSafi);
+        match pair.as_rule() {
+            ParserRule::afi_safi => {
+                let mut pairs = pair.into_inner();
+                let afi = next_into_or!(pairs => "failed to get afi name")?;
+                let safi = if let Some(inner_pair) = pairs.next() {
+                    Some(inner_pair.try_into()?)
+                } else {
+                    None
+                };
+                Ok(Self { afi, safi })
+            }
+            _ => Err(rule_mismatch!(pair => "afi/safi identifier")),
+        }
+    }
+}
+
+impl fmt::Display for AfiSafi {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.afi)?;
+        if let Some(safi) = &self.safi {
+            write!(f, ".{}", safi)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+enum AfiName {
+    Ipv4,
+    Ipv6,
+    Any,
+}
+
+impl TryFrom<TokenPair<'_>> for AfiName {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => AfiName);
+        match pair.as_rule() {
+            ParserRule::afi_ipv4 => Ok(Self::Ipv4),
+            ParserRule::afi_ipv6 => Ok(Self::Ipv6),
+            ParserRule::afi_any => Ok(Self::Any),
+            _ => Err(rule_mismatch!(pair => "afi identifier")),
+        }
+    }
+}
+
+impl fmt::Display for AfiName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Ipv4 => write!(f, "ipv4"),
+            Self::Ipv6 => write!(f, "ipv6"),
+            Self::Any => write!(f, "any"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+enum SafiName {
+    Unicast,
+    Multicast,
+}
+
+impl TryFrom<TokenPair<'_>> for SafiName {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => SafiName);
+        match pair.as_rule() {
+            ParserRule::safi_unicast => Ok(Self::Unicast),
+            ParserRule::safi_multicast => Ok(Self::Multicast),
+            _ => Err(rule_mismatch!(pair => "safi identifier")),
+        }
+    }
+}
+
+impl fmt::Display for SafiName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Unicast => write!(f, "unicast"),
+            Self::Multicast => write!(f, "multicast"),
+        }
+    }
+}

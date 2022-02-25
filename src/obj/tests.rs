@@ -1916,5 +1916,58 @@ source:  RIPE" => {
                 ]
             ).unwrap())
         }
+        rfc4012_sect2_5_3_aut_num_example1: "\
+aut-num:        AS65534
+mp-import:      afi any.unicast from AS65001 accept as-foo;
+                  except afi any.unicast {
+                    from AS65002 accept AS65226;
+                  } except afi ipv6.unicast {
+                      from AS65003 accept {2001:0DB8::/32};
+                    }
+as-name:        Example-AS
+mnt-by:         EXAMPLE-MNT
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::AutNum(AutNum::new(
+                "AS65534".parse().unwrap(),
+                vec![
+                    RpslAttribute::MpImport("\
+                        afi any.unicast from AS65001 accept as-foo;
+                          except afi any.unicast {
+                            from AS65002 accept AS65226;
+                          } except afi ipv6.unicast {
+                              from AS65003 accept {2001:0DB8::/32};
+                            }".parse().unwrap()),
+                    RpslAttribute::AsName("Example-AS".into()),
+                    RpslAttribute::MntBy(vec!["EXAMPLE-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
+        rfc4012_sect2_5_3_aut_num_example2: "\
+aut-num:        AS65002
+mp-import:      afi ipv6.unicast from AS65001 accept {192.0.2.0/24}
+as-name:        Example-AS
+mnt-by:         EXAMPLE-MNT
+changed:        foo@example.net 20220224
+source:         BAR" => {
+            RpslObject::AutNum(AutNum::new(
+                "AS65002".parse().unwrap(),
+                vec![
+                    RpslAttribute::MpImport("afi ipv6.unicast from AS65001 accept {192.0.2.0/24}".parse().unwrap()),
+                    RpslAttribute::AsName("Example-AS".into()),
+                    RpslAttribute::MntBy(vec!["EXAMPLE-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
     }
 }
