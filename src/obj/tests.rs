@@ -2072,5 +2072,28 @@ source:         BAR" => {
                 ]
             ).unwrap())
         }
+        rfc5943_sect2_route6_example: "\
+route6:     2001:DB8::/32
+origin:     AS64500
+pingable:   2001:DB8::DEAD:BEEF
+ping-hdl:   OPS4-RIPE
+mnt-by:     EXAMPLE-MNT
+changed:    foo@example.net 20220224
+source:     BAR" => {
+            RpslObject::Route6(Route6::new(
+                "2001:DB8::/32".parse().unwrap(),
+                vec![
+                    RpslAttribute::Origin("AS64500".parse().unwrap()),
+                    RpslAttribute::Pingable6("2001:DB8::DEAD:BEEF".parse().unwrap()),
+                    RpslAttribute::PingHdl("OPS4-RIPE".into()),
+                    RpslAttribute::MntBy(vec!["EXAMPLE-MNT".parse().unwrap()].into_iter().collect()),
+                    RpslAttribute::Changed(ChangedExpr::new(
+                        "foo@example.net".into(),
+                        "20220224".parse().unwrap(),
+                    )),
+                    RpslAttribute::Source("BAR".into()),
+                ]
+            ).unwrap())
+        }
     }
 }

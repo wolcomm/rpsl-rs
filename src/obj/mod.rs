@@ -468,6 +468,8 @@ rpsl_object_class! {
             Holes (*),
             MntRoutes (*),
             MntLower (*),
+            Pingable4 (*),
+            PingHdl (*),
             // rfc2725 doesn't say whether `reclaim` and `no-reclaim` are
             // multi-valued!
             Reclaim (?),
@@ -507,6 +509,8 @@ rpsl_object_class! {
             Holes6 (*),
             MntRoutes (*),
             MntLower (*),
+            Pingable6 (*),
+            PingHdl (*),
             // rfc2725 doesn't say whether `reclaim` and `no-reclaim` are
             // multi-valued!
             Reclaim (?),

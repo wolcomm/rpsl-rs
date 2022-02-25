@@ -19,8 +19,8 @@ use crate::{
     parser::{debug_construction, next_into_or, rule_mismatch, ParserRule, TokenPair},
     primitive::{
         Address, AsName, Certificate, CountryCode, Date, DnsName, EmailAddress, Fingerprint,
-        KeyOwner, Netname, NicHdl, ObjectDescr, Prefix, RegistryName, Remarks, SigningMethod,
-        TelNumber, Trouble,
+        IpAddress, KeyOwner, Netname, NicHdl, ObjectDescr, Prefix, RegistryName, Remarks,
+        SigningMethod, TelNumber, Trouble,
     },
 };
 
@@ -72,6 +72,7 @@ pub enum RpslAttribute {
     /// RPSL `auth-override` attribute.
     #[strum_discriminants(strum(to_string = "auth-override"))]
     AuthOverride(Date),
+
     // contact attributes
     /// RPSL `nic-hdl` attribute.
     #[strum_discriminants(strum(to_string = "nic-hdl"))]
@@ -88,6 +89,7 @@ pub enum RpslAttribute {
     /// RPSL `e-mail` attribute.
     #[strum_discriminants(strum(to_string = "e-mail"))]
     EMail(EmailAddress),
+
     // common set attributes
     /// RPSL `mbrs-by-ref` attribute.
     #[strum_discriminants(strum(to_string = "mbrs-by-ref"))]
@@ -102,10 +104,12 @@ pub enum RpslAttribute {
     /// RPSL `mnt-nfy` attribute.
     #[strum_discriminants(strum(to_string = "mnt-nfy"))]
     MntNfy(EmailAddress),
+
     // role attributes
     /// RPSL `trouble` attribute.
     #[strum_discriminants(strum(to_string = "trouble"))]
     Trouble(Trouble),
+
     // key-cert attributes
     /// RPSL `method` attribute.
     #[strum_discriminants(strum(to_string = "method"))]
@@ -119,6 +123,7 @@ pub enum RpslAttribute {
     /// RPSL `certif` attribute.
     #[strum_discriminants(strum(to_string = "certif"))]
     Certif(Certificate),
+
     // aut-num attributes
     /// RPSL `as-name` attribute.
     #[strum_discriminants(strum(to_string = "as-name"))]
@@ -144,6 +149,7 @@ pub enum RpslAttribute {
     /// RPSL `mp-default` attribute.
     #[strum_discriminants(strum(to_string = "mp-default"))]
     MpDefault(MpDefaultExpr),
+
     // inet(6)num attributes
     /// RPSL `netname` attribute.
     #[strum_discriminants(strum(to_string = "netname"))]
@@ -151,6 +157,7 @@ pub enum RpslAttribute {
     /// RPSL `country` attribute.
     #[strum_discriminants(strum(to_string = "country"))]
     Country(CountryCode),
+
     // route(6) attributes
     /// RPSL `origin` attribute.
     #[strum_discriminants(strum(to_string = "origin"))]
@@ -188,10 +195,24 @@ pub enum RpslAttribute {
     /// RPSL `holes` attribute for `route6` objects.
     #[strum_discriminants(strum(to_string = "holes"))]
     Holes6(ListOf<Prefix<afi::Ipv6>>),
+    /// RPSL `pingable` attribute for `route` objects. See [RFC5943].
+    /// [RFC5943]: https://datatracker.ietf.org/doc/html/rfc5943
+    #[strum_discriminants(strum(to_string = "pingable"))]
+    Pingable4(IpAddress<afi::Ipv4>),
+    /// RPSL `pingable` attribute for `route6` objects. See [RFC5943].
+    /// [RFC5943]: https://datatracker.ietf.org/doc/html/rfc5943
+    #[strum_discriminants(strum(to_string = "pingable"))]
+    Pingable6(IpAddress<afi::Ipv6>),
+    /// RPSL `ping-hdl` attribute. See [RFC5943].
+    /// [RFC5943]: https://datatracker.ietf.org/doc/html/rfc5943
+    #[strum_discriminants(strum(to_string = "ping-hdl"))]
+    PingHdl(NicHdl),
+
     // as-set attributes
     /// RPSL `members` attribute for `as-set` objects.
     #[strum_discriminants(strum(to_string = "members"))]
     AsSetMembers(ListOf<AsSetMember>),
+
     // route-set attributes
     /// RPSL `members` attribute for `route-set` objects.
     #[strum_discriminants(strum(to_string = "members"))]
@@ -199,6 +220,7 @@ pub enum RpslAttribute {
     /// RPSL `mp-members` attribute for `route-set` objects.
     #[strum_discriminants(strum(to_string = "mp-members"))]
     RouteSetMpMembers(ListOf<RouteSetMember<afi::Any>>),
+
     // filter-set attributes
     /// RPSL `filter` attribute.
     #[strum_discriminants(strum(to_string = "filter"))]
@@ -206,6 +228,7 @@ pub enum RpslAttribute {
     /// RPSL `mp-filter` attribute.
     #[strum_discriminants(strum(to_string = "mp-filter"))]
     MpFilter(MpFilterExpr),
+
     // rtr-set attributes
     /// RPSL `members` attribute for `rtr-set` objects.
     #[strum_discriminants(strum(to_string = "members"))]
@@ -213,6 +236,7 @@ pub enum RpslAttribute {
     /// RPSL `mp-members` attribute for `rtr-set` objects.
     #[strum_discriminants(strum(to_string = "mp-members"))]
     RtrSetMpMembers(ListOf<RtrSetMember<afi::Any>>),
+
     // peering-set attributes
     /// RPSL `peering` attribute.
     #[strum_discriminants(strum(to_string = "peering"))]
@@ -220,6 +244,7 @@ pub enum RpslAttribute {
     /// RPSL `mp-peering` attribute.
     #[strum_discriminants(strum(to_string = "mp-peering"))]
     MpPeering(MpPeeringExpr),
+
     // inet-rtr attributes
     /// RPSL `alias` attribute.
     #[strum_discriminants(strum(to_string = "alias"))]
@@ -392,6 +417,15 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
             )),
             ParserRule::holes_attr => Ok(Self::Holes(pair.try_into()?)),
             ParserRule::holes6_attr => Ok(Self::Holes6(pair.try_into()?)),
+            ParserRule::pingable4_attr => Ok(Self::Pingable4(
+                next_into_or!(pair.into_inner() => "failed to get pingable address")?,
+            )),
+            ParserRule::pingable6_attr => Ok(Self::Pingable6(
+                next_into_or!(pair.into_inner() => "failed to get pingable address")?,
+            )),
+            ParserRule::ping_hdl_attr => Ok(Self::PingHdl(
+                next_into_or!(pair.into_inner() => "failed to get ping-hdl nic-hdl")?,
+            )),
             ParserRule::as_set_members_attr => Ok(Self::AsSetMembers(pair.try_into()?)),
             ParserRule::route_set_members_attr => Ok(Self::RouteSetMembers(pair.try_into()?)),
             ParserRule::route_set_mp_members_attr => Ok(Self::RouteSetMpMembers(pair.try_into()?)),
@@ -487,6 +521,9 @@ impl fmt::Display for RpslAttribute {
             Self::ExportComps6(inner) => write!(f, "{}", inner),
             Self::Holes(inner) => write!(f, "{}", inner),
             Self::Holes6(inner) => write!(f, "{}", inner),
+            Self::Pingable4(inner) => write!(f, "{}", inner),
+            Self::Pingable6(inner) => write!(f, "{}", inner),
+            Self::PingHdl(inner) => write!(f, "{}", inner),
             Self::RouteMemberOf(inner) => write!(f, "{}", inner),
             Self::AsSetMembers(inner) => write!(f, "{}", inner),
             Self::RouteSetMembers(inner) => write!(f, "{}", inner),

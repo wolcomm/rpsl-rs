@@ -499,11 +499,13 @@ set_attrs                   = _{ mbrs_by_ref_attr | mnt_lower_attr }
 mp_route_attrs              = _{ origin_attr | route_member_of_attr
                                | aggr_bndry_attr | aggr_mtd_attr
                                | mnt_routes_attr | mnt_lower_attr
-                               | reclaim_attr | no_reclaim_attr }
+                               | reclaim_attr | no_reclaim_attr
+                               | ping_hdl_attr }
     origin_attr             = !{ ^"origin:"             ~ aut_num }
     route_member_of_attr    = !{ ^"member-of:"          ~ route_set_list }
     aggr_bndry_attr         = !{ ^"aggr-bndry:"         ~ as_expr }
     aggr_mtd_attr           = !{ ^"aggr-mtd:"           ~ aggr_mtd_expr }
+    ping_hdl_attr           = !{ ^"ping-hdl:"           ~ nic_hdl }
 inetnum_attrs               = _{ netname_attr | country_attr
                                | mnt_routes_attr | mnt_lower_attr
                                | reclaim_attr | no_reclaim_attr }
@@ -569,22 +571,26 @@ route_obj                       =  { route_class_attr       ~ ( route_attr )+ }
     route_attr                  = ${ NEWLINE ~
                                    ( common_attrs | mp_route_attrs
                                    | inject_attr | components_attr
-                                   | export_comps_attr | holes_attr ) }
+                                   | export_comps_attr | holes_attr
+                                   | pingable4_attr ) }
         inject_attr             = !{ ^"inject:"             ~ inject_expr }
         components_attr         = !{ ^"components:"         ~ components_expr }
         export_comps_attr       = !{ ^"export-comps:"       ~ filter_expr }
         holes_attr              = !{ ^"holes:"              ~ ipv4_prefix_list }
+        pingable4_attr          = !{ ^"pingable:"           ~ ipv4_addr }
 // route6 object
 route6_obj                      =  { route6_class_attr        ~ ( route6_attr )+ }
     route6_class_attr           = _{ ^"route6:"              ~ ipv6_prefix }
     route6_attr                 = ${ NEWLINE ~
                                    ( common_attrs | mp_route_attrs
                                    | inject6_attr | components6_attr
-                                   | export_comps6_attr | holes6_attr ) }
+                                   | export_comps6_attr | holes6_attr
+                                   | pingable6_attr ) }
         inject6_attr            = !{ ^"inject:"             ~ inject6_expr }
         components6_attr        = !{ ^"components:"         ~ components6_expr }
         export_comps6_attr      = !{ ^"export-comps:"       ~ mp_filter_expr }
         holes6_attr             = !{ ^"holes:"              ~ ipv6_prefix_list }
+        pingable6_attr          = !{ ^"pingable:"           ~ ipv6_addr }
 // as-set object
 as_set_obj                      =  { as_set_class_attr      ~ ( as_set_attr )+ }
     as_set_class_attr           = _{ ^"as-set:"             ~ as_set }

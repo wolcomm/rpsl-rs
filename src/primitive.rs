@@ -17,6 +17,38 @@ use crate::{
     },
 };
 
+/// IP address literal.
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct IpAddress<A: Afi>(A::Addr);
+
+impl<A: Afi> FromStr for IpAddress<A> {
+    type Err = <A::Addr as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(s.parse()?))
+    }
+}
+
+impl<A: Afi> TryFrom<TokenPair<'_>> for IpAddress<A> {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => IpAddress);
+        match pair.as_rule() {
+            rule if rule == A::LITERAL_ADDR_RULE => Ok(Self(pair.as_str().parse()?)),
+            _ => Err(rule_mismatch!(pair => "IP address")),
+        }
+    }
+}
+
+impl<A: Afi> fmt::Display for IpAddress<A> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+// TODO: impl Arbitrary for IpAddress
+
 /// IP prefix literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Prefix<A: Afi>(A::Net);
