@@ -128,7 +128,7 @@ macro_rules! rule_mismatch {
 pub(crate) use rule_mismatch;
 
 #[cfg(test)]
-#[allow(non_fmt_panic)]
+#[allow(non_fmt_panics)]
 mod tests {
     use paste::paste;
     use pest::{consumes_to, parses_to};
