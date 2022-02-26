@@ -1,6 +1,9 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::{arbitrary::ParamsFor, prelude::*};
+
 use crate::{
     addr_family::afi,
     error::{ParseError, ParseResult},
@@ -54,6 +57,20 @@ impl fmt::Display for MntRoutesExpr {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for MntRoutesExpr {
+    type Parameters = ParamsFor<Option<MntRoutesExprQualifier>>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        (
+            any::<ListOf<Mntner>>(),
+            any_with::<Option<MntRoutesExprQualifier>>(params),
+        )
+            .prop_map(|(mntners, qualifier)| Self { mntners, qualifier })
+            .boxed()
+    }
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum MntRoutesExprQualifier {
     Prefixes(ListOf<PrefixRange<afi::Any>>),
@@ -84,10 +101,30 @@ impl fmt::Display for MntRoutesExprQualifier {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for MntRoutesExprQualifier {
+    type Parameters = ParamsFor<ListOf<PrefixRange<afi::Any>>>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            Just(Self::Any),
+            any_with::<ListOf<PrefixRange<afi::Any>>>(params).prop_map(Self::Prefixes),
+        ]
+        .boxed()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{primitive::RangeOperator, tests::compare_ast};
+    use crate::{
+        primitive::RangeOperator,
+        tests::{compare_ast, display_fmt_parses},
+    };
+
+    display_fmt_parses! {
+        MntRoutesExpr,
+    }
 
     compare_ast! {
         MntRoutesExpr {

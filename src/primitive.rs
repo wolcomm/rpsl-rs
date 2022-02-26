@@ -47,7 +47,19 @@ impl<A: Afi> fmt::Display for IpAddress<A> {
     }
 }
 
-// TODO: impl Arbitrary for IpAddress
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A> Arbitrary for IpAddress<A>
+where
+    A: Afi + fmt::Debug + 'static,
+    A::Addr: Arbitrary,
+    <A::Addr as Arbitrary>::Strategy: 'static,
+{
+    type Parameters = ParamsFor<A::Addr>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        any_with::<A::Addr>(params).prop_map(Self).boxed()
+    }
+}
 
 /// IP prefix literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]

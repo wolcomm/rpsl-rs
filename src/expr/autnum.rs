@@ -1,6 +1,9 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::{arbitrary::ParamsFor, prelude::*};
+
 use crate::{
     error::{ParseError, ParseResult},
     names::{AsSet, AutNum},
@@ -76,6 +79,28 @@ impl fmt::Display for Expr {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Expr {
+    type Parameters = ParamsFor<Term>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        let term = any_with::<Term>(params.clone());
+        any_with::<Term>(params)
+            .prop_map(Self::Unit)
+            .prop_recursive(4, 8, 8, move |unit| {
+                prop_oneof![
+                    (term.clone(), unit.clone())
+                        .prop_map(|(term, unit)| Self::And(term, Box::new(unit))),
+                    (term.clone(), unit.clone())
+                        .prop_map(|(term, unit)| Self::Or(term, Box::new(unit))),
+                    (term.clone(), unit.clone())
+                        .prop_map(|(term, unit)| Self::Except(term, Box::new(unit))),
+                ]
+            })
+            .boxed()
+    }
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Term {
     Any,
@@ -113,10 +138,40 @@ impl fmt::Display for Term {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Term {
+    type Parameters = (ParamsFor<AsSet>, ParamsFor<AutNum>);
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        let leaf = prop_oneof![
+            Just(Self::Any),
+            any_with::<AsSet>(params.0).prop_map(Self::AsSet),
+            any_with::<AutNum>(params.1).prop_map(Self::AutNum),
+        ];
+        leaf.prop_recursive(4, 8, 8, |inner| {
+            prop_oneof![
+                inner.clone().prop_map(Expr::Unit),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(lhs, rhs)| Expr::And(lhs, Box::new(Expr::Unit(rhs)))),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(lhs, rhs)| Expr::Or(lhs, Box::new(Expr::Unit(rhs)))),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(lhs, rhs)| Expr::Except(lhs, Box::new(Expr::Unit(rhs)))),
+            ]
+            .prop_map(|expr| Self::Expr(Box::new(expr)))
+        })
+        .boxed()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::compare_ast;
+    use crate::tests::{compare_ast, display_fmt_parses};
+
+    display_fmt_parses! {
+        AsExpr,
+    }
 
     compare_ast! {
         AsExpr {

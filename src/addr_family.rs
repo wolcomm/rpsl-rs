@@ -77,8 +77,6 @@ pub trait LiteralPrefixSetAfi: Afi {
             .any(|filter_expr_rule| &rule == filter_expr_rule)
     }
 
-    /// Address family specific [`ParserRule`] for router IP address literals.
-    const RTR_ADDR_LITERAL_RULE: ParserRule;
     /// Address family specific [`ParserRule`] for unit router expressions.
     const RTR_EXPR_UNIT_RULE: ParserRule;
     /// Address family specific [`ParserRule`] for unit router expressions.
@@ -242,7 +240,6 @@ pub mod afi {
         const FILTER_EXPR_AND_RULE: ParserRule = ParserRule::filter_expr_and;
         const FILTER_EXPR_OR_RULE: ParserRule = ParserRule::filter_expr_or;
 
-        const RTR_ADDR_LITERAL_RULE: ParserRule = ParserRule::rtr_addr_literal;
         const RTR_EXPR_UNIT_RULE: ParserRule = ParserRule::rtr_expr_unit;
         const RTR_EXPR_AND_RULE: ParserRule = ParserRule::rtr_expr_and;
         const RTR_EXPR_OR_RULE: ParserRule = ParserRule::rtr_expr_or;
@@ -374,7 +371,6 @@ pub mod afi {
         const FILTER_EXPR_AND_RULE: ParserRule = ParserRule::mp_filter_expr_and;
         const FILTER_EXPR_OR_RULE: ParserRule = ParserRule::mp_filter_expr_or;
 
-        const RTR_ADDR_LITERAL_RULE: ParserRule = ParserRule::mp_rtr_addr_literal;
         const RTR_EXPR_UNIT_RULE: ParserRule = ParserRule::mp_rtr_expr_unit;
         const RTR_EXPR_AND_RULE: ParserRule = ParserRule::mp_rtr_expr_and;
         const RTR_EXPR_OR_RULE: ParserRule = ParserRule::mp_rtr_expr_or;

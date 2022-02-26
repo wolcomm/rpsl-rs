@@ -1,6 +1,9 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::{arbitrary::ParamsFor, prelude::*};
+
 use crate::{
     addr_family::{afi, LiteralPrefixSetAfi},
     error::{ParseError, ParseResult},
@@ -8,6 +11,7 @@ use crate::{
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
+    primitive::IpAddress,
 };
 
 /// RPSL `router-expression`. See [RFC2622].
@@ -76,11 +80,32 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A: LiteralPrefixSetAfi> Arbitrary for Expr<A>
+where
+    A: fmt::Debug + Clone + 'static,
+    Term<A>: Arbitrary,
+    <Term<A> as Arbitrary>::Strategy: Clone,
+{
+    type Parameters = ParamsFor<Term<A>>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        let term = any_with::<Term<A>>(params);
+        prop_oneof![
+            term.clone().prop_map(Self::Unit),
+            (term.clone(), term.clone()).prop_map(|(lhs, rhs)| Self::And(lhs, rhs)),
+            (term.clone(), term.clone()).prop_map(|(lhs, rhs)| Self::Or(lhs, rhs)),
+            (term.clone(), term.clone()).prop_map(|(lhs, rhs)| Self::Except(lhs, rhs)),
+        ]
+        .boxed()
+    }
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Term<A: LiteralPrefixSetAfi> {
     RtrSet(RtrSet),
     InetRtr(InetRtr),
-    Literal(A::Addr),
+    Literal(IpAddress<A>),
     Expr(Box<Expr<A>>),
 }
 
@@ -92,7 +117,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Term<A> {
         match pair.as_rule() {
             ParserRule::rtr_set => Ok(Self::RtrSet(pair.try_into()?)),
             ParserRule::inet_rtr => Ok(Self::InetRtr(pair.try_into()?)),
-            rule if rule == A::RTR_ADDR_LITERAL_RULE => Ok(Self::Literal(pair.as_str().parse()?)),
+            rule if rule == A::LITERAL_ADDR_RULE => Ok(Self::Literal(pair.try_into()?)),
             rule if A::match_rtr_expr_rule(rule) => Ok(Self::Expr(Box::new(pair.try_into()?))),
             _ => Err(rule_mismatch!(pair => "inet-rtr expression term")),
         }
@@ -110,10 +135,43 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Term<A> {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A: LiteralPrefixSetAfi> Arbitrary for Term<A>
+where
+    A: fmt::Debug + 'static,
+    A::Addr: Arbitrary,
+    <A::Addr as Arbitrary>::Strategy: 'static,
+{
+    type Parameters = ParamsFor<IpAddress<A>>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            any::<RtrSet>().prop_map(Self::RtrSet),
+            any::<InetRtr>().prop_map(Self::InetRtr),
+            any_with::<IpAddress<A>>(params).prop_map(Self::Literal),
+        ]
+        .prop_recursive(4, 8, 8, |inner| {
+            prop_oneof![
+                inner.clone().prop_map(Expr::Unit),
+                (inner.clone(), inner.clone()).prop_map(|(lhs, rhs)| Expr::And(lhs, rhs)),
+                (inner.clone(), inner.clone()).prop_map(|(lhs, rhs)| Expr::Or(lhs, rhs)),
+                (inner.clone(), inner.clone()).prop_map(|(lhs, rhs)| Expr::Except(lhs, rhs)),
+            ]
+            .prop_map(|expr| Self::Expr(Box::new(expr)))
+        })
+        .boxed()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::compare_ast;
+    use crate::tests::{compare_ast, display_fmt_parses};
+
+    display_fmt_parses! {
+        RtrExpr,
+        MpRtrExpr,
+    }
 
     compare_ast! {
         RtrExpr {
@@ -130,6 +188,17 @@ mod tests {
             // rfc2622_sect5_6_autnum_example6: "not 7.7.7.1" => {
             //     RtrExpr::Unit(Term::Expr)
             // }
+        }
+    }
+
+    compare_ast! {
+        MpRtrExpr {
+            mp_rtr_addr_literal_ipv4: "192.0.2.10" => {
+                MpRtrExpr::Unit(Term::Literal("192.0.2.10".parse().unwrap()))
+            }
+            mp_rtr_addr_literal_ipv6: "a000::" => {
+                MpRtrExpr::Unit(Term::Literal("a000::".parse().unwrap()))
+            }
         }
     }
 }

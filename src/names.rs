@@ -557,7 +557,6 @@ impl_set_arbitrary!("[Pp][Rr][Nn][Gg]-[A-Za-z0-9_-]+" => PeeringSet);
 mod tests {
     use super::*;
     use crate::tests::display_fmt_parses;
-    use paste::paste;
 
     display_fmt_parses! {
         Mntner,

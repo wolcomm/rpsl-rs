@@ -174,7 +174,7 @@ country_code        = @{ ASCII_ALPHA{2} }
 
 // ** RPSL expressions **
 // choices
-ip_addr_choice              = _{ ipv4_addr | ipv6_addr }
+ip_addr_choice              = @{ ipv4_addr | ipv6_addr }
 ip_prefix_choice            = @{ ipv4_prefix | ipv6_prefix }
 ip_prefix_range_choice      = _{ ipv4_prefix_range | ipv6_prefix_range }
 as_set_member_choice        = _{ aut_num | as_set }
@@ -364,16 +364,14 @@ rtr_expr                = _{ rtr_expr_and | rtr_expr_or | rtr_expr_except | rtr_
     rtr_expr_or         = { rtr_expr_term ~ or ~ rtr_expr_term }
     rtr_expr_except     = { rtr_expr_term ~ except ~ rtr_expr_term }
     rtr_expr_unit       = { rtr_expr_term }
-        rtr_expr_term       = _{ rtr_set | inet_rtr | rtr_addr_literal | "(" ~ rtr_expr ~ ")" }
-            rtr_addr_literal    = @{ ipv4_addr }
+        rtr_expr_term       = _{ ipv4_addr | rtr_set | inet_rtr | "(" ~ rtr_expr ~ ")" }
 
 mp_rtr_expr             = _{ mp_rtr_expr_and | mp_rtr_expr_or | mp_rtr_expr_except | mp_rtr_expr_unit }
     mp_rtr_expr_and     = { mp_rtr_expr_term ~ and ~ mp_rtr_expr_term }
     mp_rtr_expr_or      = { mp_rtr_expr_term ~ or ~ mp_rtr_expr_term }
     mp_rtr_expr_except  = { mp_rtr_expr_term ~ except ~ mp_rtr_expr_term }
     mp_rtr_expr_unit    = { mp_rtr_expr_term }
-        mp_rtr_expr_term    = _{ rtr_set | inet_rtr | mp_rtr_addr_literal | "(" ~ mp_rtr_expr ~ ")" }
-            mp_rtr_addr_literal = @{ ipv4_addr | ipv6_addr }
+        mp_rtr_expr_term    = _{ ip_addr_choice | rtr_set | inet_rtr | "(" ~ mp_rtr_expr ~ ")" }
 
 protocol_dist_expr      = { ( ^"protocol" ~ from_protocol )? ~ ( into ~ into_protocol )? }
     from_protocol       = { protocol_name }

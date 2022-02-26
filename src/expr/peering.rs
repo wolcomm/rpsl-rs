@@ -1,6 +1,9 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::{arbitrary::ParamsFor, prelude::*};
+
 use crate::{
     addr_family::{afi, LiteralPrefixSetAfi},
     error::{ParseError, ParseResult},
@@ -51,6 +54,24 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
             Self::Named(peering_set) => peering_set.fmt(f),
             Self::Literal(literal) => literal.fmt(f),
         }
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A> Arbitrary for Expr<A>
+where
+    A: LiteralPrefixSetAfi + Clone + fmt::Debug + 'static,
+    A::Addr: Arbitrary,
+    <A::Addr as Arbitrary>::Strategy: 'static,
+{
+    type Parameters = ParamsFor<LiteralPeering<A>>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            any::<PeeringSet>().prop_map(Self::Named),
+            any_with::<LiteralPeering<A>>(params).prop_map(Self::Literal),
+        ]
+        .boxed()
     }
 }
 
@@ -110,10 +131,43 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for LiteralPeering<A> {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A> Arbitrary for LiteralPeering<A>
+where
+    A: LiteralPrefixSetAfi + Clone + fmt::Debug + 'static,
+    A::Addr: Arbitrary,
+    <A::Addr as Arbitrary>::Strategy: 'static,
+{
+    type Parameters = (
+        ParamsFor<AsExpr>,
+        ParamsFor<Option<rtr::Expr<A>>>,
+        ParamsFor<Option<rtr::Expr<A>>>,
+    );
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        (
+            any_with::<AsExpr>(params.0),
+            any_with::<Option<rtr::Expr<A>>>(params.1),
+            any_with::<Option<rtr::Expr<A>>>(params.2),
+        )
+            .prop_map(|(as_expr, remote_rtr, local_rtr)| Self {
+                as_expr,
+                remote_rtr,
+                local_rtr,
+            })
+            .boxed()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::compare_ast;
+    use crate::tests::{compare_ast, display_fmt_parses};
+
+    display_fmt_parses! {
+        PeeringExpr,
+        MpPeeringExpr,
+    }
 
     compare_ast! {
         PeeringExpr {
