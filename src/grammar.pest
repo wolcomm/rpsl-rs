@@ -360,38 +360,22 @@ as_expr                 = _{ as_expr_and | as_expr_or | as_expr_except | as_expr
         as_expr_term    = _{ any_as | as_set | aut_num | "(" ~ as_expr ~ ")" }
 
 rtr_expr                = _{ rtr_expr_and | rtr_expr_or | rtr_expr_except | rtr_expr_unit }
-    rtr_expr_and        = { rtr_expr_term ~ and ~ rtr_expr_term }
-    rtr_expr_or         = { rtr_expr_term ~ or ~ rtr_expr_term }
-    rtr_expr_except     = { rtr_expr_term ~ except ~ rtr_expr_term }
+    rtr_expr_and        = { rtr_expr_term ~ and ~ rtr_expr }
+    rtr_expr_or         = { rtr_expr_term ~ or ~ rtr_expr }
+    rtr_expr_except     = { rtr_expr_term ~ except ~ rtr_expr }
     rtr_expr_unit       = { rtr_expr_term }
         rtr_expr_term       = _{ ipv4_addr | rtr_set | inet_rtr | "(" ~ rtr_expr ~ ")" }
 
 mp_rtr_expr             = _{ mp_rtr_expr_and | mp_rtr_expr_or | mp_rtr_expr_except | mp_rtr_expr_unit }
-    mp_rtr_expr_and     = { mp_rtr_expr_term ~ and ~ mp_rtr_expr_term }
-    mp_rtr_expr_or      = { mp_rtr_expr_term ~ or ~ mp_rtr_expr_term }
-    mp_rtr_expr_except  = { mp_rtr_expr_term ~ except ~ mp_rtr_expr_term }
+    mp_rtr_expr_and     = { mp_rtr_expr_term ~ and ~ mp_rtr_expr }
+    mp_rtr_expr_or      = { mp_rtr_expr_term ~ or ~ mp_rtr_expr }
+    mp_rtr_expr_except  = { mp_rtr_expr_term ~ except ~ mp_rtr_expr }
     mp_rtr_expr_unit    = { mp_rtr_expr_term }
         mp_rtr_expr_term    = _{ ip_addr_choice | rtr_set | inet_rtr | "(" ~ mp_rtr_expr ~ ")" }
 
 protocol_dist_expr      = { ( ^"protocol" ~ from_protocol )? ~ ( into ~ into_protocol )? }
     from_protocol       = { protocol_name }
     into_protocol       = { protocol_name }
-
-//import_stmt             = { protocol_dist_expr ~ import_expr }
-//    import_expr             = _{ import_expr_except | import_expr_refine | import_expr_unit }
-//        import_expr_except      = { import_term ~ except ~ import_expr }
-//        import_expr_refine      = { import_term ~ refine ~ import_expr }
-//        import_expr_unit        = { import_term }
-//            import_term             = { import_factor ~ ";"? | "{" ~ ( import_factor ~ ";" )+ ~ "}" }
-//                import_factor           = { ( from ~ peering_expr ~ ( action ~ action_expr )? )+ ~ accept ~ filter_expr }
-
-//mp_import_stmt          = { protocol_dist_expr ~ ( ^"afi" ~ afi_safi_list )? ~ mp_import_expr }
-//    mp_import_expr          = _{ mp_import_expr_except | mp_import_expr_refine | mp_import_expr_unit }
-//        mp_import_expr_except   = { mp_import_term ~ except ~ mp_import_expr }
-//        mp_import_expr_refine   = { mp_import_term ~ refine ~ mp_import_expr }
-//        mp_import_expr_unit     = { mp_import_term }
-//            mp_import_term          = { mp_import_factor ~ ";"? | "{" ~ ( mp_import_factor ~ ";" )+ ~ "}" }
-//                mp_import_factor        = { ( from ~ mp_peering_expr ~ ( action ~ action_expr )? )+ ~ accept ~ mp_filter_expr }
 
 import_stmt             = { protocol_dist_expr ~ import_afi_expr }
     import_afi_expr         = { import_expr }

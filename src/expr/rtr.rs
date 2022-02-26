@@ -29,9 +29,9 @@ impl_from_str!(ParserRule::just_mp_rtr_expr => MpRtrExpr);
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr<A: LiteralPrefixSetAfi> {
     Unit(Term<A>),
-    And(Term<A>, Term<A>),
-    Or(Term<A>, Term<A>),
-    Except(Term<A>, Term<A>),
+    And(Term<A>, Box<Expr<A>>),
+    Or(Term<A>, Box<Expr<A>>),
+    Except(Term<A>, Box<Expr<A>>),
 }
 
 impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
@@ -47,21 +47,27 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
                 let mut pairs = pair.into_inner();
                 Ok(Self::And(
                     next_into_or!(pairs => "failed to get left hand inet-rtr expression term")?,
-                    next_into_or!(pairs => "failed to get right hand inet-rtr expression term")?,
+                    Box::new(
+                        next_into_or!(pairs => "failed to get right hand inet-rtr expression")?,
+                    ),
                 ))
             }
             rule if rule == A::RTR_EXPR_OR_RULE => {
                 let mut pairs = pair.into_inner();
                 Ok(Self::Or(
                     next_into_or!(pairs => "failed to get left hand inet-rtr expression term")?,
-                    next_into_or!(pairs => "failed to get right hand inet-rtr expression term")?,
+                    Box::new(
+                        next_into_or!(pairs => "failed to get right hand inet-rtr expression")?,
+                    ),
                 ))
             }
             rule if rule == A::RTR_EXPR_EXCEPT_RULE => {
                 let mut pairs = pair.into_inner();
                 Ok(Self::Except(
                     next_into_or!(pairs => "failed to get left hand inet-rtr expression term")?,
-                    next_into_or!(pairs => "failed to get right hand inet-rtr expression term")?,
+                    Box::new(
+                        next_into_or!(pairs => "failed to get right hand inet-rtr expression")?,
+                    ),
                 ))
             }
             _ => Err(rule_mismatch!(pair => "inet-rtr expression")),
@@ -85,19 +91,26 @@ impl<A: LiteralPrefixSetAfi> Arbitrary for Expr<A>
 where
     A: fmt::Debug + Clone + 'static,
     Term<A>: Arbitrary,
+    <Term<A> as Arbitrary>::Parameters: Clone,
     <Term<A> as Arbitrary>::Strategy: Clone,
 {
     type Parameters = ParamsFor<Term<A>>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
-        let term = any_with::<Term<A>>(params);
-        prop_oneof![
-            term.clone().prop_map(Self::Unit),
-            (term.clone(), term.clone()).prop_map(|(lhs, rhs)| Self::And(lhs, rhs)),
-            (term.clone(), term.clone()).prop_map(|(lhs, rhs)| Self::Or(lhs, rhs)),
-            (term.clone(), term.clone()).prop_map(|(lhs, rhs)| Self::Except(lhs, rhs)),
-        ]
-        .boxed()
+        let term = any_with::<Term<A>>(params.clone());
+        any_with::<Term<A>>(params)
+            .prop_map(Self::Unit)
+            .prop_recursive(4, 8, 8, move |unit| {
+                prop_oneof![
+                    (term.clone(), unit.clone())
+                        .prop_map(|(term, unit)| Self::And(term, Box::new(unit))),
+                    (term.clone(), unit.clone())
+                        .prop_map(|(term, unit)| Self::Or(term, Box::new(unit))),
+                    (term.clone(), unit.clone())
+                        .prop_map(|(term, unit)| Self::Except(term, Box::new(unit))),
+                ]
+            })
+            .boxed()
     }
 }
 
@@ -153,9 +166,12 @@ where
         .prop_recursive(4, 8, 8, |inner| {
             prop_oneof![
                 inner.clone().prop_map(Expr::Unit),
-                (inner.clone(), inner.clone()).prop_map(|(lhs, rhs)| Expr::And(lhs, rhs)),
-                (inner.clone(), inner.clone()).prop_map(|(lhs, rhs)| Expr::Or(lhs, rhs)),
-                (inner.clone(), inner.clone()).prop_map(|(lhs, rhs)| Expr::Except(lhs, rhs)),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(lhs, rhs)| Expr::And(lhs, Box::new(Expr::Unit(rhs)))),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(lhs, rhs)| Expr::Or(lhs, Box::new(Expr::Unit(rhs)))),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(lhs, rhs)| Expr::Except(lhs, Box::new(Expr::Unit(rhs)))),
             ]
             .prop_map(|expr| Self::Expr(Box::new(expr)))
         })

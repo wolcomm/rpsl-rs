@@ -58,11 +58,12 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A> Arbitrary for Expr<A>
+impl<A: LiteralPrefixSetAfi> Arbitrary for Expr<A>
 where
-    A: LiteralPrefixSetAfi + Clone + fmt::Debug + 'static,
+    A: Clone + fmt::Debug + 'static,
     A::Addr: Arbitrary,
     <A::Addr as Arbitrary>::Strategy: 'static,
+    <A::Addr as Arbitrary>::Parameters: Clone,
 {
     type Parameters = ParamsFor<LiteralPeering<A>>;
     type Strategy = BoxedStrategy<Self>;
@@ -132,23 +133,20 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for LiteralPeering<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A> Arbitrary for LiteralPeering<A>
+impl<A: LiteralPrefixSetAfi> Arbitrary for LiteralPeering<A>
 where
-    A: LiteralPrefixSetAfi + Clone + fmt::Debug + 'static,
+    A: Clone + fmt::Debug + 'static,
     A::Addr: Arbitrary,
     <A::Addr as Arbitrary>::Strategy: 'static,
+    <A::Addr as Arbitrary>::Parameters: Clone,
 {
-    type Parameters = (
-        ParamsFor<AsExpr>,
-        ParamsFor<Option<rtr::Expr<A>>>,
-        ParamsFor<Option<rtr::Expr<A>>>,
-    );
+    type Parameters = (ParamsFor<AsExpr>, ParamsFor<Option<rtr::Expr<A>>>);
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
         (
             any_with::<AsExpr>(params.0),
-            any_with::<Option<rtr::Expr<A>>>(params.1),
-            any_with::<Option<rtr::Expr<A>>>(params.2),
+            any_with::<Option<rtr::Expr<A>>>(params.1.clone()),
+            any_with::<Option<rtr::Expr<A>>>(params.1.clone()),
         )
             .prop_map(|(as_expr, remote_rtr, local_rtr)| Self {
                 as_expr,
