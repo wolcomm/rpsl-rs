@@ -1,6 +1,9 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::{arbitrary::ParamsFor, prelude::*};
+
 use crate::{
     error::{ParseError, ParseResult},
     parser::{
@@ -36,12 +39,25 @@ impl TryFrom<TokenPair<'_>> for Expr {
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0
+        let mut s = self
+            .0
             .iter()
             .map(|stmt| stmt.to_string())
             .collect::<Vec<_>>()
-            .join("; ")
-            .fmt(f)
+            .join("; ");
+        s.push(';');
+        s.fmt(f)
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Expr {
+    type Parameters = ParamsFor<Stmt>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        prop::collection::vec(any_with::<Stmt>(params), 1..8)
+            .prop_map(Self)
+            .boxed()
     }
 }
 
@@ -70,6 +86,19 @@ impl fmt::Display for Stmt {
             Self::Operator(stmt) => stmt.fmt(f),
             Self::Method(stmt) => stmt.fmt(f),
         }
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Stmt {
+    type Parameters = ParamsFor<MethodStmt>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            any::<OperatorStmt>().prop_map(Self::Operator),
+            any_with::<MethodStmt>(params).prop_map(Self::Method),
+        ]
+        .boxed()
     }
 }
 
@@ -102,6 +131,17 @@ impl TryFrom<TokenPair<'_>> for OperatorStmt {
 impl fmt::Display for OperatorStmt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {} {}", self.prop, self.op, self.val)
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for OperatorStmt {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        (any::<Property>(), any::<Operator>(), any::<Value>())
+            .prop_map(|(prop, op, val)| Self { prop, op, val })
+            .boxed()
     }
 }
 
@@ -143,6 +183,21 @@ impl fmt::Display for MethodStmt {
             write!(f, ".{}", method)?;
         }
         write!(f, "({})", self.val)
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for MethodStmt {
+    type Parameters = ParamsFor<Option<Method>>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        (
+            any::<Property>(),
+            any_with::<Option<Method>>(params),
+            any::<Value>(),
+        )
+            .prop_map(|(prop, method, val)| Self { prop, method, val })
+            .boxed()
     }
 }
 
@@ -192,9 +247,39 @@ impl fmt::Display for Property {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Property {
+    type Parameters = ParamsFor<UnknownProperty>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            Just(Self::Pref),
+            Just(Self::Med),
+            Just(Self::Dpa),
+            Just(Self::AsPath),
+            Just(Self::Community),
+            Just(Self::NextHop),
+            Just(Self::Cost),
+            any_with::<UnknownProperty>(params).prop_map(Self::Unknown),
+        ]
+        .boxed()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct UnknownProperty(String);
 impl_case_insensitive_str_primitive!(ParserRule::rp_unknown => UnknownProperty);
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for UnknownProperty {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        r"[A-Za-z]([0-9A-Za-z_-]*[0-9A-Za-z])?"
+            .prop_map(Self)
+            .boxed()
+    }
+}
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Operator {
@@ -260,13 +345,58 @@ impl fmt::Display for Operator {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Operator {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            Just(Self::Assign),
+            Just(Self::Append),
+            Just(Self::LshAssign),
+            Just(Self::RshAssign),
+            Just(Self::AddAssign),
+            Just(Self::SubAssign),
+            Just(Self::MulAssign),
+            Just(Self::DivAssign),
+            Just(Self::Eq),
+            Just(Self::Ne),
+            Just(Self::Le),
+            Just(Self::Ge),
+            Just(Self::Lt),
+            Just(Self::Gt),
+        ]
+        .boxed()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Method(String);
 impl_case_insensitive_str_primitive!(ParserRule::action_meth => Method);
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Method {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        r"[A-Za-z]([0-9A-Za-z_-]*[0-9A-Za-z])?"
+            .prop_map(Self)
+            .boxed()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Value(String);
 impl_case_insensitive_str_primitive!(ParserRule::action_val => Value);
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Value {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        r"[0-9A-Za-z]+".prop_map(Self).boxed()
+    }
+}
 
 // #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 // pub enum Value {
@@ -347,7 +477,11 @@ impl_case_insensitive_str_primitive!(ParserRule::action_val => Value);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::compare_ast;
+    use crate::tests::{compare_ast, display_fmt_parses};
+
+    display_fmt_parses! {
+        ActionExpr,
+    }
 
     compare_ast! {
         ActionExpr {

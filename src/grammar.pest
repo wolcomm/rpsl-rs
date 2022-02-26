@@ -220,7 +220,8 @@ action_expr             = { ( action_stmt ~ ";" )+ }
         action_stmt_oper    = { action_prop ~ action_op ~ action_val }
         action_stmt_meth    = ${ action_prop ~ ( "." ~ action_meth )? ~ "(" ~ action_val ~ ")" }
             action_prop     = _{ rp_pref | rp_med | rp_dpa | rp_aspath
-                               | rp_community | rp_next_hop | rp_cost }
+                               | rp_community | rp_next_hop | rp_cost
+                               | rp_unknown }
                 rp_pref         = @{ ^"pref" }
                 rp_med          = @{ ^"med" }
                 rp_dpa          = @{ ^"dpa" }
@@ -228,14 +229,14 @@ action_expr             = { ( action_stmt ~ ";" )+ }
                 rp_community    = @{ ^"community" }
                 rp_next_hop     = @{ ^"next-hop" }
                 rp_cost         = @{ ^"cost" }
-                rp_unknown      = @{ extchar* }
-            action_op       = _{ action_op_assign | action_op_append
-                               | action_op_lsh_assign | action_op_rsh_assign
+                rp_unknown      = @{ general_object_name }
+            action_op       = _{ action_op_lsh_assign | action_op_rsh_assign
                                | action_op_add_assign | action_op_sub_assign
                                | action_op_mul_assign | action_op_div_assign
                                | action_op_eq | action_op_ne
                                | action_op_le | action_op_ge
-                               | action_op_lt | action_op_gt }
+                               | action_op_lt | action_op_gt
+                               | action_op_assign | action_op_append }
                 action_op_assign        = @{ "=" }
                 action_op_append        = @{ ".=" }
                 action_op_lsh_assign    = @{ "<<=" }
@@ -251,7 +252,7 @@ action_expr             = { ( action_stmt ~ ";" )+ }
                 action_op_lt            = @{ "<" }
                 action_op_gt            = @{ ">" }
             action_val      = @{ ( !( ")" | ";" ) ~ ANY )* }
-            action_meth     = @{ extchar+ }
+            action_meth     = @{ general_object_name }
 
 inject_expr             = { ( at ~ rtr_expr )? ~ ( action ~ action_expr )? ~ ( ^"upon" ~ inject_cond )? }
     inject_cond         = _{ inject_cond_and | inject_cond_or | inject_cond_unit }
