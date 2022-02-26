@@ -93,6 +93,19 @@ impl fmt::Display for KeyCert {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for KeyCert {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            "PGPKEY-[0-9A-Fa-f]+".prop_map(Self::Pgp),
+            "X509-[0-9]+".prop_map(Self::X509),
+        ]
+        .boxed()
+    }
+}
+
 /// RPSL `aut-num` name: a representation of an autonomous system number. See
 /// [RFC2622].
 ///
@@ -165,6 +178,18 @@ impl fmt::Display for AsBlock {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for AsBlock {
+    type Parameters = ParamsFor<u32>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+        any_with::<u32>(args)
+            .prop_flat_map(|lower| (lower..).prop_map(move |upper| (AutNum(lower), AutNum(upper))))
+            .prop_map(|(lower, upper)| Self { lower, upper })
+            .boxed()
+    }
+}
+
 /// RPSL `inetnum` name.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct InetNum {
@@ -194,6 +219,21 @@ impl_from_str!(ParserRule::inetnum => InetNum);
 impl fmt::Display for InetNum {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} - {}", self.lower, self.upper)
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for InetNum {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        any::<Ipv4Addr>()
+            .prop_flat_map(|lower| {
+                let upper = (<Ipv4Addr as Into<u32>>::into(lower)..).prop_map(Ipv4Addr::from);
+                (Just(lower), upper)
+            })
+            .prop_map(|(lower, upper)| Self { lower, upper })
+            .boxed()
     }
 }
 
@@ -231,6 +271,21 @@ impl fmt::Display for Inet6Num {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Inet6Num {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        any::<Ipv6Addr>()
+            .prop_flat_map(|lower| {
+                let upper = (<Ipv6Addr as Into<u128>>::into(lower)..).prop_map(Ipv6Addr::from);
+                (Just(lower), upper)
+            })
+            .prop_map(|(lower, upper)| Self { lower, upper })
+            .boxed()
+    }
+}
+
 /// RPSL `route` name. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6
@@ -254,6 +309,18 @@ impl_from_str!(ParserRule::ipv4_prefix => Route);
 impl fmt::Display for Route {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Route {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        (any::<Ipv4Addr>(), (0u8..32))
+            .prop_map(|(addr, len)| Ipv4Net::new(addr, len).unwrap().trunc())
+            .prop_map(Self)
+            .boxed()
     }
 }
 
@@ -283,12 +350,36 @@ impl fmt::Display for Route6 {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Route6 {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        (any::<Ipv6Addr>(), (0u8..128))
+            .prop_map(|(addr, len)| Ipv6Net::new(addr, len).unwrap().trunc())
+            .prop_map(Self)
+            .boxed()
+    }
+}
+
 /// RPSL `inet-rtr` name. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-9
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct InetRtr(String);
 impl_str_primitive!(ParserRule::inet_rtr => InetRtr);
+impl_from_str!(ParserRule::inet_rtr => InetRtr);
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for InetRtr {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        r"[A-Za-z][0-9A-Za-z_-]*(\.[A-Za-z][0-9A-Za-z_-]*)*"
+            .prop_map(Self)
+            .boxed()
+    }
+}
 
 /// RPSL `dictionary` name. See [RFC2622].
 ///
@@ -469,8 +560,15 @@ mod tests {
     use paste::paste;
 
     display_fmt_parses! {
-        AutNum,
         Mntner,
+        KeyCert,
+        AutNum,
+        AsBlock,
+        InetNum,
+        Inet6Num,
+        Route,
+        Route6,
+        InetRtr,
         AsSet,
         RouteSet,
         FilterSet,
