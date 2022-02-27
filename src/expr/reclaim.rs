@@ -9,6 +9,9 @@ use crate::{
     },
 };
 
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::{arbitrary::ParamsFor, prelude::*};
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 /// RPSL `reclaim` expression. See [RFC2725].
 ///
@@ -51,14 +54,40 @@ impl fmt::Display for ReclaimExpr {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for ReclaimExpr {
+    type Parameters = ParamsFor<ReclaimExprFilter>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            Just(Self::All),
+            any_with::<ReclaimExprFilter>(params).prop_map(Self::Filter),
+        ]
+        .boxed()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ReclaimExprFilter(String);
 impl_case_insensitive_str_primitive!(ParserRule::reclaim_expr_free_form => ReclaimExprFilter);
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for ReclaimExprFilter {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        r"[\PC&&\S]\PC*".prop_map(Self).boxed()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::compare_ast;
+    use crate::tests::{compare_ast, display_fmt_parses};
+
+    display_fmt_parses! {
+        ReclaimExpr,
+    }
 
     compare_ast! {
         ReclaimExpr {
