@@ -18,7 +18,7 @@ use crate::{
 };
 
 #[cfg(any(test, feature = "arbitrary"))]
-use crate::primitive::impl_rpsl_name_arbitrary;
+use crate::primitive::arbitrary::impl_rpsl_name_arbitrary;
 
 /// RPSL `mntner` name. See [RFC2622].
 ///

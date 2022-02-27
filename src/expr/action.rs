@@ -12,6 +12,9 @@ use crate::{
     },
 };
 
+#[cfg(any(test, feature = "arbitrary"))]
+use crate::primitive::arbitrary::impl_rpsl_name_arbitrary;
+
 /// RPSL `action` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6.1.1
@@ -270,7 +273,7 @@ impl Arbitrary for Property {
 pub struct UnknownProperty(String);
 impl_case_insensitive_str_primitive!(ParserRule::rp_unknown => UnknownProperty);
 #[cfg(any(test, feature = "arbitrary"))]
-crate::primitive::impl_rpsl_name_arbitrary!(UnknownProperty);
+impl_rpsl_name_arbitrary!(UnknownProperty);
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Operator {
@@ -365,7 +368,7 @@ impl Arbitrary for Operator {
 pub struct Method(String);
 impl_case_insensitive_str_primitive!(ParserRule::action_meth => Method);
 #[cfg(any(test, feature = "arbitrary"))]
-crate::primitive::impl_rpsl_name_arbitrary!(Method);
+impl_rpsl_name_arbitrary!(Method);
 
 #[derive(Clone, Debug)]
 pub struct Value(String);

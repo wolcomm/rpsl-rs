@@ -4,11 +4,18 @@ use std::fmt;
 use crate::{
     addr_family::{afi, LiteralPrefixSetAfi},
     error::{ParseError, ParseResult},
+    list::ListOf,
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
     primitive::AfiSafi,
 };
+
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::{arbitrary::ParamsFor, prelude::*};
+
+#[cfg(any(test, feature = "arbitrary"))]
+use crate::primitive::arbitrary::AfiSafiList;
 
 use super::{filter, peering, ActionExpr};
 
@@ -26,7 +33,7 @@ impl_from_str!(ParserRule::just_mp_default_expr => MpDefaultExpr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Expr<A: LiteralPrefixSetAfi> {
-    afis: Option<AfiSafi>,
+    afis: Option<ListOf<AfiSafi>>,
     peering: peering::Expr<A>,
     action: Option<ActionExpr>,
     networks: Option<filter::Expr<A>>,
@@ -88,12 +95,46 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
     }
 }
 
-// TODO: impl Arbitrary for Expr
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A> Arbitrary for Expr<A>
+where
+    A: AfiSafiList + fmt::Debug + Clone + 'static,
+    A::Addr: Arbitrary,
+    <A::Addr as Arbitrary>::Parameters: Clone,
+{
+    type Parameters = (
+        ParamsFor<Option<ListOf<AfiSafi>>>,
+        ParamsFor<peering::Expr<A>>,
+        ParamsFor<Option<ActionExpr>>,
+        ParamsFor<Option<filter::Expr<A>>>,
+    );
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        (
+            A::any_afis(params.0),
+            any_with::<peering::Expr<A>>(params.1),
+            any_with::<Option<ActionExpr>>(params.2),
+            any_with::<Option<filter::Expr<A>>>(params.3),
+        )
+            .prop_map(|(afis, peering, action, networks)| Self {
+                afis,
+                peering,
+                action,
+                networks,
+            })
+            .boxed()
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::compare_ast;
+    use crate::tests::{compare_ast, display_fmt_parses};
+
+    display_fmt_parses! {
+        DefaultExpr,
+        MpDefaultExpr,
+    }
 
     compare_ast! {
         DefaultExpr {

@@ -318,29 +318,8 @@ impl<A: LiteralPrefixSetAfi, P: Policy<A>> fmt::Display for Factor<A, P> {
 #[cfg(any(test, feature = "arbitrary"))]
 mod arbitrary {
     use super::*;
+    use crate::primitive::arbitrary::AfiSafiList;
     use proptest::{arbitrary::ParamsFor, prelude::*};
-
-    trait AfiSafiList: LiteralPrefixSetAfi {
-        fn any_afis(
-            params: ParamsFor<Option<ListOf<AfiSafi>>>,
-        ) -> BoxedStrategy<Option<ListOf<AfiSafi>>>;
-    }
-
-    impl AfiSafiList for afi::Ipv4 {
-        fn any_afis(
-            _: ParamsFor<Option<ListOf<AfiSafi>>>,
-        ) -> BoxedStrategy<Option<ListOf<AfiSafi>>> {
-            Just(None).boxed()
-        }
-    }
-
-    impl AfiSafiList for afi::Any {
-        fn any_afis(
-            params: ParamsFor<Option<ListOf<AfiSafi>>>,
-        ) -> BoxedStrategy<Option<ListOf<AfiSafi>>> {
-            any_with::<Option<ListOf<AfiSafi>>>(params).boxed()
-        }
-    }
 
     impl<A, P> Arbitrary for Statement<A, P>
     where

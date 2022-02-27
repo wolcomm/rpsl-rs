@@ -821,33 +821,63 @@ impl Arbitrary for SafiName {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-macro_rules! impl_rpsl_name_arbitrary {
-    ( $t:ty ) => {
-        impl proptest::arbitrary::Arbitrary for $t {
-            type Parameters = ();
-            type Strategy = proptest::strategy::BoxedStrategy<Self>;
-            fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-                let reserved = regex::Regex::new(r"^(?i)AS\d|AS-|RS-|FLTR-|RTRS-|PRNG-").unwrap();
-                let keywords = [
-                    "ANY", "AS-ANY", "RS-ANY", "PeerAS", "AND", "OR", "NOT", "ATOMIC", "FROM",
-                    "TO", "AT", "ACTION", "ACCEPT", "ANNOUNCE", "EXCEPT", "REFINE", "NETWORKS",
-                    "INTO", "INBOUND", "OUTBOUND",
-                ];
-                "[A-Za-z][A-Za-z0-9_-]+"
-                    .prop_filter("names cannot collide with rpsl keywords", move |s| {
-                        keywords.iter().all(|keyword| s != keyword)
-                    })
-                    .prop_filter_map("names cannot begin with a reserved sequence", move |s| {
-                        if reserved.is_match(&s) {
-                            None
-                        } else {
-                            Some(Self(s))
-                        }
-                    })
-                    .boxed()
-            }
-        }
+pub mod arbitrary {
+    use super::*;
+    use crate::{
+        addr_family::{afi, LiteralPrefixSetAfi},
+        list::ListOf,
     };
+
+    pub trait AfiSafiList: LiteralPrefixSetAfi {
+        fn any_afis(
+            params: ParamsFor<Option<ListOf<AfiSafi>>>,
+        ) -> BoxedStrategy<Option<ListOf<AfiSafi>>>;
+    }
+
+    impl AfiSafiList for afi::Ipv4 {
+        fn any_afis(
+            _: ParamsFor<Option<ListOf<AfiSafi>>>,
+        ) -> BoxedStrategy<Option<ListOf<AfiSafi>>> {
+            Just(None).boxed()
+        }
+    }
+
+    impl AfiSafiList for afi::Any {
+        fn any_afis(
+            params: ParamsFor<Option<ListOf<AfiSafi>>>,
+        ) -> BoxedStrategy<Option<ListOf<AfiSafi>>> {
+            any_with::<Option<ListOf<AfiSafi>>>(params).boxed()
+        }
+    }
+
+    macro_rules! impl_rpsl_name_arbitrary {
+        ( $t:ty ) => {
+            impl proptest::arbitrary::Arbitrary for $t {
+                type Parameters = ();
+                type Strategy = proptest::strategy::BoxedStrategy<Self>;
+                fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+                    let reserved =
+                        regex::Regex::new(r"^(?i)AS\d|AS-|RS-|FLTR-|RTRS-|PRNG-").unwrap();
+                    let keywords = [
+                        "ANY", "AS-ANY", "RS-ANY", "PeerAS", "AND", "OR", "NOT", "ATOMIC", "FROM",
+                        "TO", "AT", "ACTION", "ACCEPT", "ANNOUNCE", "EXCEPT", "REFINE", "NETWORKS",
+                        "INTO", "INBOUND", "OUTBOUND",
+                    ];
+                    "[A-Za-z][A-Za-z0-9_-]+"
+                        .prop_filter("names cannot collide with rpsl keywords", move |s| {
+                            keywords.iter().all(|keyword| s != keyword)
+                        })
+                        .prop_filter_map("names cannot begin with a reserved sequence", move |s| {
+                            if reserved.is_match(&s) {
+                                None
+                            } else {
+                                Some(Self(s))
+                            }
+                        })
+                        .boxed()
+                }
+            }
+        };
+    }
+    pub(crate) use impl_rpsl_name_arbitrary;
 }
-#[cfg(any(test, feature = "arbitrary"))]
-pub(crate) use impl_rpsl_name_arbitrary;
