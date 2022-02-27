@@ -100,7 +100,7 @@ where
         let term = any_with::<Term<A>>(params.clone());
         any_with::<Term<A>>(params)
             .prop_map(Self::Unit)
-            .prop_recursive(4, 8, 8, move |unit| {
+            .prop_recursive(2, 4, 4, move |unit| {
                 prop_oneof![
                     (term.clone(), unit.clone())
                         .prop_map(|(term, unit)| Self::And(term, Box::new(unit))),
@@ -163,7 +163,7 @@ where
             any::<InetRtr>().prop_map(Self::InetRtr),
             any_with::<IpAddress<A>>(params).prop_map(Self::Literal),
         ]
-        .prop_recursive(4, 8, 8, |inner| {
+        .prop_recursive(2, 4, 4, |inner| {
             prop_oneof![
                 inner.clone().prop_map(Expr::Unit),
                 (inner.clone(), inner.clone())

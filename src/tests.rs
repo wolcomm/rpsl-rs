@@ -7,7 +7,7 @@ macro_rules! display_fmt_parses {
 
                     proptest::proptest! {
                         #![proptest_config(proptest::prelude::ProptestConfig {
-                            max_shrink_iters: 1000,
+                            max_shrink_iters: 10000,
                             ..proptest::prelude::ProptestConfig::default()
                         })]
                         #[test]

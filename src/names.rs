@@ -7,8 +7,6 @@ use ipnet::{Ipv4Net, Ipv6Net};
 
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, collection::size_range, prelude::*};
-#[cfg(any(test, feature = "arbitrary"))]
-use regex::Regex;
 
 use crate::{
     error::{ParseError, ParseResult},
@@ -19,6 +17,9 @@ use crate::{
     primitive::SetNameComp,
 };
 
+#[cfg(any(test, feature = "arbitrary"))]
+use crate::primitive::impl_rpsl_name_arbitrary;
+
 /// RPSL `mntner` name. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
@@ -26,24 +27,8 @@ use crate::{
 pub struct Mntner(String);
 impl_str_primitive!(ParserRule::mntner_name => Mntner);
 impl_from_str!(ParserRule::mntner_name => Mntner);
-
 #[cfg(any(test, feature = "arbitrary"))]
-impl Arbitrary for Mntner {
-    type Parameters = ();
-    type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        let reserved = Regex::new(r"^(?i)AS\d|AS-|RS-|FLTR-|RTRS-|PRNG-").unwrap();
-        "[A-Za-z][A-Za-z0-9_-]+"
-            .prop_filter_map("names cannot begin with a reserved sequence", move |s| {
-                if reserved.is_match(&s) {
-                    None
-                } else {
-                    Some(Self(s))
-                }
-            })
-            .boxed()
-    }
-}
+impl_rpsl_name_arbitrary!(Mntner);
 
 /// RPSL `person` name. See [RFC2622].
 ///

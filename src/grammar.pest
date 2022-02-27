@@ -131,10 +131,13 @@ remarks                 = @{ free_form }
 address                 = @{ free_form }
 trouble                 = @{ free_form }
 owner                   = @{ free_form }
-protocol_name           = _{ protocol_bgp4 | protocol_ospf | protocol_rip
-                           | protocol_igrp | protocol_isis | protocol_static
-                           | protocol_ripng | protocol_dvmrp| protocol_pim_dm
-                           | protocol_pim_sm | protocol_cbt | protocol_mospf
+protocol_name           = _{ protocol_bgp4 | protocol_mpbgp
+                           | protocol_ospf | protocol_isis
+                           | protocol_ripng | protocol_rip
+                           | protocol_igrp | protocol_static
+                           | protocol_ripng | protocol_dvmrp
+                           | protocol_pim_dm | protocol_pim_sm
+                           | protocol_cbt | protocol_mospf
                            | protocol_unknown }
     protocol_bgp4       = @{ ^"BGP4" }
     protocol_mpbgp      = @{ ^"MPBGP" }
@@ -149,7 +152,7 @@ protocol_name           = _{ protocol_bgp4 | protocol_ospf | protocol_rip
     protocol_pim_sm     = @{ ^"PIM-SM" }
     protocol_cbt        = @{ ^"CBT" }
     protocol_mospf      = @{ ^"MOSPF" }
-    protocol_unknown    = @{ extchar+ }
+    protocol_unknown    = @{ general_object_name }
 afi_safi                = ${ afi ~ ( "." ~ safi )? }
     afi                 = _{ afi_any | afi_ipv4 | afi_ipv6 }
         afi_any         = @{ ^"any" }
@@ -222,14 +225,18 @@ action_expr             = { ( action_stmt ~ ";" )+ }
             action_prop     = _{ rp_pref | rp_med | rp_dpa | rp_aspath
                                | rp_community | rp_next_hop | rp_cost
                                | rp_unknown }
-                rp_pref         = @{ ^"pref" }
-                rp_med          = @{ ^"med" }
-                rp_dpa          = @{ ^"dpa" }
-                rp_aspath       = @{ ^"aspath" }
-                rp_community    = @{ ^"community" }
-                rp_next_hop     = @{ ^"next-hop" }
-                rp_cost         = @{ ^"cost" }
-                rp_unknown      = @{ general_object_name }
+                rp_pref         = @{ ^"pref" ~ &action_prop_term }
+                rp_med          = @{ ^"med" ~ &action_prop_term }
+                rp_dpa          = @{ ^"dpa" ~ &action_prop_term }
+                rp_aspath       = @{ ^"aspath" ~ &action_prop_term }
+                rp_community    = @{ ^"community" ~ &action_prop_term }
+                rp_next_hop     = @{ ^"next-hop" ~ &action_prop_term }
+                rp_cost         = @{ ^"cost" ~ &action_prop_term }
+                    // This is a hack to ensure that parsing doesn't fail
+                    // when an unknown property name that begins with a
+                    // known property name (e.g. "preference").
+                    action_prop_term    = _{ WHITESPACE | "." | "(" | action_op }
+                rp_unknown      = @{ basic_name }
             action_op       = _{ action_op_lsh_assign | action_op_rsh_assign
                                | action_op_add_assign | action_op_sub_assign
                                | action_op_mul_assign | action_op_div_assign
@@ -252,7 +259,7 @@ action_expr             = { ( action_stmt ~ ";" )+ }
                 action_op_lt            = @{ "<" }
                 action_op_gt            = @{ ">" }
             action_val      = @{ ( !( ")" | ";" ) ~ ANY )* }
-            action_meth     = @{ general_object_name }
+            action_meth     = @{ basic_name }
 
 inject_expr             = { ( at ~ rtr_expr )? ~ ( action ~ action_expr )? ~ ( ^"upon" ~ inject_cond )? }
     inject_cond         = _{ inject_cond_and | inject_cond_or | inject_cond_unit }
@@ -374,7 +381,7 @@ mp_rtr_expr             = _{ mp_rtr_expr_and | mp_rtr_expr_or | mp_rtr_expr_exce
     mp_rtr_expr_unit    = { mp_rtr_expr_term }
         mp_rtr_expr_term    = _{ ip_addr_choice | rtr_set | inet_rtr | "(" ~ mp_rtr_expr ~ ")" }
 
-protocol_dist_expr      = { ( ^"protocol" ~ from_protocol )? ~ ( into ~ into_protocol )? }
+protocol_dist_expr      = _{ ( ^"protocol" ~ from_protocol )? ~ ( into ~ into_protocol )? }
     from_protocol       = { protocol_name }
     into_protocol       = { protocol_name }
 
@@ -685,7 +692,6 @@ just_peering_expr               = _{ SOI ~ peering_expr ~ EOI }
 just_mp_peering_expr            = _{ SOI ~ mp_peering_expr ~ EOI }
 just_action_expr                = _{ SOI ~ action_expr ~ EOI }
 just_as_expr                    = _{ SOI ~ as_expr ~ EOI }
-just_protocol_dist_expr         = _{ SOI ~ protocol_dist_expr ~ EOI }
 just_ifaddr_expr                = _{ SOI ~ ifaddr_expr ~ EOI }
 just_interface_expr             = _{ SOI ~ interface_expr ~ EOI }
 just_peer_expr                  = _{ SOI ~ peer_expr ~ EOI }

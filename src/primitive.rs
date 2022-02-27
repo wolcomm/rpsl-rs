@@ -619,12 +619,46 @@ impl fmt::Display for Protocol {
     }
 }
 
-// TODO: impl Arbitrary for Protocol
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Protocol {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            Just(Self::Bgp4),
+            Just(Self::MpBgp),
+            Just(Self::Ospf),
+            Just(Self::RipNg),
+            Just(Self::Rip),
+            Just(Self::Igrp),
+            Just(Self::IsIs),
+            Just(Self::Static),
+            Just(Self::Dvmrp),
+            Just(Self::PimDm),
+            Just(Self::PimSm),
+            Just(Self::Cbt),
+            Just(Self::Mospf),
+            any::<UnknownProtocol>().prop_map(Self::Unknown)
+        ]
+        .boxed()
+    }
+}
 
 /// An unknown `protocol` name.
 #[derive(Clone, Debug)]
 pub struct UnknownProtocol(String);
 impl_case_insensitive_str_primitive!(ParserRule::protocol_unknown => UnknownProtocol);
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for UnknownProtocol {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        r"[A-Za-z]([0-9A-Za-z_-]*[0-9A-Za-z])?"
+            .prop_map(Self)
+            .boxed()
+    }
+}
 
 /// RPSL `protocol` option name.
 /// See [RFC2622].
@@ -685,10 +719,28 @@ impl fmt::Display for AfiSafi {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for AfiSafi {
+    type Parameters = ParamsFor<Option<SafiName>>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        (any::<AfiName>(), any_with::<Option<SafiName>>(params))
+            .prop_map(|(afi, safi)| Self { afi, safi })
+            .boxed()
+    }
+}
+
+/// RPSL address family indicator.
+/// See [RFC4012}].
+///
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.1
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-enum AfiName {
+pub enum AfiName {
+    /// `ipv4` address family.
     Ipv4,
+    /// `ipv6` address family.
     Ipv6,
+    /// `any` token.
     Any,
 }
 
@@ -716,9 +768,24 @@ impl fmt::Display for AfiName {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for AfiName {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![Just(Self::Ipv4), Just(Self::Ipv6), Just(Self::Any)].boxed()
+    }
+}
+
+/// RPSL subsequent address family indicator.
+/// See [RFC4012}].
+///
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.1
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-enum SafiName {
+pub enum SafiName {
+    /// `unicast` SAFI.
     Unicast,
+    /// `multicast` SAFI.
     Multicast,
 }
 
@@ -743,3 +810,44 @@ impl fmt::Display for SafiName {
         }
     }
 }
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for SafiName {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![Just(Self::Unicast), Just(Self::Multicast)].boxed()
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+macro_rules! impl_rpsl_name_arbitrary {
+    ( $t:ty ) => {
+        impl proptest::arbitrary::Arbitrary for $t {
+            type Parameters = ();
+            type Strategy = proptest::strategy::BoxedStrategy<Self>;
+            fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+                let reserved = regex::Regex::new(r"^(?i)AS\d|AS-|RS-|FLTR-|RTRS-|PRNG-").unwrap();
+                let keywords = [
+                    "ANY", "AS-ANY", "RS-ANY", "PeerAS", "AND", "OR", "NOT", "ATOMIC", "FROM",
+                    "TO", "AT", "ACTION", "ACCEPT", "ANNOUNCE", "EXCEPT", "REFINE", "NETWORKS",
+                    "INTO", "INBOUND", "OUTBOUND",
+                ];
+                "[A-Za-z][A-Za-z0-9_-]+"
+                    .prop_filter("names cannot collide with rpsl keywords", move |s| {
+                        keywords.iter().all(|keyword| s != keyword)
+                    })
+                    .prop_filter_map("names cannot begin with a reserved sequence", move |s| {
+                        if reserved.is_match(&s) {
+                            None
+                        } else {
+                            Some(Self(s))
+                        }
+                    })
+                    .boxed()
+            }
+        }
+    };
+}
+#[cfg(any(test, feature = "arbitrary"))]
+pub(crate) use impl_rpsl_name_arbitrary;

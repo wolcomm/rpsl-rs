@@ -269,17 +269,8 @@ impl Arbitrary for Property {
 #[derive(Clone, Debug)]
 pub struct UnknownProperty(String);
 impl_case_insensitive_str_primitive!(ParserRule::rp_unknown => UnknownProperty);
-
 #[cfg(any(test, feature = "arbitrary"))]
-impl Arbitrary for UnknownProperty {
-    type Parameters = ();
-    type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        r"[A-Za-z]([0-9A-Za-z_-]*[0-9A-Za-z])?"
-            .prop_map(Self)
-            .boxed()
-    }
-}
+crate::primitive::impl_rpsl_name_arbitrary!(UnknownProperty);
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Operator {
@@ -373,17 +364,8 @@ impl Arbitrary for Operator {
 #[derive(Clone, Debug)]
 pub struct Method(String);
 impl_case_insensitive_str_primitive!(ParserRule::action_meth => Method);
-
 #[cfg(any(test, feature = "arbitrary"))]
-impl Arbitrary for Method {
-    type Parameters = ();
-    type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        r"[A-Za-z]([0-9A-Za-z_-]*[0-9A-Za-z])?"
-            .prop_map(Self)
-            .boxed()
-    }
-}
+crate::primitive::impl_rpsl_name_arbitrary!(Method);
 
 #[derive(Clone, Debug)]
 pub struct Value(String);
@@ -511,6 +493,27 @@ mod tests {
                         val: Value("10250, 3561:10".into())
                     })
                 ])
+            }
+            regression1: "pref.RS-a(a);" => {
+                Expr(vec![Stmt::Method(MethodStmt {
+                    prop: Property::Pref,
+                    method: Some("RS-a".into()),
+                    val: Value("a".into()),
+                })])
+            }
+            regression2: "meD0 = a;" => {
+                Expr(vec![Stmt::Operator(OperatorStmt {
+                    prop: Property::Unknown("meD0".into()),
+                    op: Operator::Assign,
+                    val: Value("a".into()),
+                })])
+            }
+            regression3: "meD0(a);" => {
+                Expr(vec![Stmt::Method(MethodStmt {
+                    prop: Property::Unknown("meD0".into()),
+                    method: None,
+                    val: Value("a".into()),
+                })])
             }
         }
     }

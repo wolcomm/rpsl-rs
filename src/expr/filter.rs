@@ -102,7 +102,7 @@ where
         let term = any_with::<Term<A>>(args.clone()).boxed();
         any_with::<Term<A>>(args.clone())
             .prop_map(Self::Unit)
-            .prop_recursive(4, 8, 8, move |unit| {
+            .prop_recursive(2, 4, 4, move |unit| {
                 prop_oneof![
                     unit.clone().prop_map(|unit| Self::Not(Box::new(unit))),
                     (term.clone(), unit.clone())
@@ -193,7 +193,7 @@ where
             any::<FilterSet>().prop_map(Self::Named),
             Just(Self::Any),
         ];
-        leaf.prop_recursive(4, 8, 8, |inner| {
+        leaf.prop_recursive(2, 4, 4, |inner| {
             prop_oneof![
                 inner.clone().prop_map(Expr::Unit),
                 inner
@@ -603,15 +603,12 @@ impl fmt::Display for AsPathRegexpElem {
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for AsPathRegexpElem {
-    type Parameters = (
-        ParamsFor<AsPathRegexpComponent>,
-        ParamsFor<Option<AsPathRegexpOp>>,
-    );
+    type Parameters = ParamsFor<Option<AsPathRegexpOp>>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
         (
-            any_with::<AsPathRegexpComponent>(params.0),
-            any_with::<Option<AsPathRegexpOp>>(params.1),
+            any::<AsPathRegexpComponent>(),
+            any_with::<Option<AsPathRegexpOp>>(params),
         )
             .prop_map(|(component, op)| Self::new(component, op))
             .boxed()
@@ -698,22 +695,19 @@ impl fmt::Display for AsPathRegexpComponent {
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for AsPathRegexpComponent {
-    type Parameters = (
-        ParamsFor<AsPathRegexpComponentSetMember>,
-        ParamsFor<AsPathRegexpComponentSetMember>,
-    );
+    type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
         prop_oneof![
             any::<AutNum>().prop_map(Self::AutNum),
             any::<AsSet>().prop_map(Self::AsSet),
             Just(Self::Any),
-            proptest::collection::vec(any_with::<AsPathRegexpComponentSetMember>(params.0), 1..10)
+            proptest::collection::vec(any::<AsPathRegexpComponentSetMember>(), 1..10)
                 .prop_map(Self::ComponentSet),
-            proptest::collection::vec(any_with::<AsPathRegexpComponentSetMember>(params.1), 1..10)
+            proptest::collection::vec(any::<AsPathRegexpComponentSetMember>(), 1..10)
                 .prop_map(Self::ComplComponentSet),
         ]
-        .prop_recursive(2, 4, 2, |inner| {
+        .prop_recursive(2, 4, 4, |inner| {
             (
                 (inner.clone(), any::<Option<AsPathRegexpOp>>()),
                 (inner, any::<Option<AsPathRegexpOp>>()),

@@ -2,7 +2,7 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 #[cfg(any(test, feature = "arbitrary"))]
-use proptest::{arbitrary::ParamsFor, prelude::*};
+use proptest::prelude::*;
 
 use crate::{
     error::{ParseError, ParseResult},
@@ -81,13 +81,13 @@ impl fmt::Display for Expr {
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for Expr {
-    type Parameters = ParamsFor<Term>;
+    type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
-        let term = any_with::<Term>(params.clone());
-        any_with::<Term>(params)
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        let term = any::<Term>();
+        any::<Term>()
             .prop_map(Self::Unit)
-            .prop_recursive(4, 8, 8, move |unit| {
+            .prop_recursive(2, 4, 4, move |unit| {
                 prop_oneof![
                     (term.clone(), unit.clone())
                         .prop_map(|(term, unit)| Self::And(term, Box::new(unit))),
@@ -140,15 +140,15 @@ impl fmt::Display for Term {
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for Term {
-    type Parameters = (ParamsFor<AsSet>, ParamsFor<AutNum>);
+    type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
         let leaf = prop_oneof![
             Just(Self::Any),
-            any_with::<AsSet>(params.0).prop_map(Self::AsSet),
-            any_with::<AutNum>(params.1).prop_map(Self::AutNum),
+            any::<AsSet>().prop_map(Self::AsSet),
+            any::<AutNum>().prop_map(Self::AutNum),
         ];
-        leaf.prop_recursive(4, 8, 8, |inner| {
+        leaf.prop_recursive(2, 4, 4, |inner| {
             prop_oneof![
                 inner.clone().prop_map(Expr::Unit),
                 (inner.clone(), inner.clone())

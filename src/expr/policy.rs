@@ -9,10 +9,10 @@ use crate::{
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
-    primitive::AfiSafi,
+    primitive::{AfiSafi, Protocol},
 };
 
-use super::{filter, peering, ActionExpr, ProtocolDistribution};
+use super::{filter, peering, ActionExpr};
 
 /// RPSL `import` expression. See [RFC2622].
 ///
@@ -55,8 +55,8 @@ pub trait Policy<A: LiteralPrefixSetAfi> {
 pub struct Import<A>(PhantomData<A>);
 
 impl<A: LiteralPrefixSetAfi> Policy<A> for Import<A> {
-    const PEER_DIRECTION: &'static str = "FROM";
-    const ACTION_VERB: &'static str = "ACCEPT";
+    const PEER_DIRECTION: &'static str = "from";
+    const ACTION_VERB: &'static str = "accept";
 
     const STMT_RULE: ParserRule = A::IMPORT_STMT_RULE;
     const AFI_EXPR_RULE: ParserRule = A::IMPORT_AFI_EXPR_RULE;
@@ -71,8 +71,8 @@ impl<A: LiteralPrefixSetAfi> Policy<A> for Import<A> {
 pub struct Export<A>(PhantomData<A>);
 
 impl<A: LiteralPrefixSetAfi> Policy<A> for Export<A> {
-    const PEER_DIRECTION: &'static str = "TO";
-    const ACTION_VERB: &'static str = "ANNOUNCE";
+    const PEER_DIRECTION: &'static str = "to";
+    const ACTION_VERB: &'static str = "announce";
 
     const STMT_RULE: ParserRule = A::EXPORT_STMT_RULE;
     const AFI_EXPR_RULE: ParserRule = A::EXPORT_AFI_EXPR_RULE;
@@ -85,7 +85,8 @@ impl<A: LiteralPrefixSetAfi> Policy<A> for Export<A> {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Statement<A: LiteralPrefixSetAfi, P: Policy<A>> {
-    protocol_dist: Option<ProtocolDistribution>,
+    protocol_from: Option<Protocol>,
+    protocol_into: Option<Protocol>,
     afi_expr: AfiExpr<A, P>,
 }
 
@@ -97,19 +98,30 @@ impl<A: LiteralPrefixSetAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for Statement<
         match pair.as_rule() {
             rule if rule == P::STMT_RULE => {
                 let mut pairs = pair.into_inner().peekable();
-                let protocol_dist = if let Some(inner_pair) = pairs.next() {
-                    let span = inner_pair.as_span();
-                    if span.start() == span.end() {
-                        None
-                    } else {
-                        Some(inner_pair.try_into()?)
-                    }
+                let protocol_from = if let Some(ParserRule::from_protocol) =
+                    pairs.peek().map(|inner_pair| inner_pair.as_rule())
+                {
+                    let inner_pair = pairs.next().unwrap();
+                    Some(
+                        next_into_or!(inner_pair.into_inner() => "failed to get redistribution source protocol")?,
+                    )
+                } else {
+                    None
+                };
+                let protocol_into = if let Some(ParserRule::into_protocol) =
+                    pairs.peek().map(|inner_pair| inner_pair.as_rule())
+                {
+                    let inner_pair = pairs.next().unwrap();
+                    Some(
+                        next_into_or!(inner_pair.into_inner() => "failed to get redistribution source protocol")?,
+                    )
                 } else {
                     None
                 };
                 let afi_expr = next_into_or!(pairs => "failed to get policy afi expression")?;
                 Ok(Self {
-                    protocol_dist,
+                    protocol_from,
+                    protocol_into,
                     afi_expr,
                 })
             }
@@ -120,8 +132,11 @@ impl<A: LiteralPrefixSetAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for Statement<
 
 impl<A: LiteralPrefixSetAfi, P: Policy<A>> fmt::Display for Statement<A, P> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(protocol_dist_expr) = &self.protocol_dist {
-            write!(f, "{} ", protocol_dist_expr)?;
+        if let Some(protocol) = &self.protocol_from {
+            write!(f, "protocol {} ", protocol)?;
+        }
+        if let Some(protocol) = &self.protocol_into {
+            write!(f, "into {} ", protocol)?;
         }
         write!(f, "{}", self.afi_expr)
     }
@@ -159,7 +174,7 @@ impl<A: LiteralPrefixSetAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for AfiExpr<A,
 impl<A: LiteralPrefixSetAfi, P: Policy<A>> fmt::Display for AfiExpr<A, P> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(afis) = &self.afis {
-            write!(f, "afi {}", afis)?;
+            write!(f, "afi {} ", afis)?;
         }
         write!(f, "{}", self.expr)
     }
@@ -234,11 +249,11 @@ impl<A: LiteralPrefixSetAfi, P: Policy<A>> fmt::Display for Term<A, P> {
         if self.0.len() <= 1 {
             self.0[0].fmt(f)
         } else {
-            writeln!(f, "{{")?;
+            write!(f, "{{")?;
             self.0
                 .iter()
-                .try_for_each(|factor| writeln!(f, "{};", factor))?;
-            writeln!(f, "}}")
+                .try_for_each(|factor| write!(f, " {};", factor))?;
+            write!(f, " }}")
         }
     }
 }
@@ -290,26 +305,208 @@ impl<A: LiteralPrefixSetAfi, P: Policy<A>> fmt::Display for Factor<A, P> {
         self.peerings
             .iter()
             .try_for_each(|(peering_expr, action_expr)| {
-                write!(f, "{} {}", P::PEER_DIRECTION, peering_expr)?;
+                write!(f, "{} {} ", P::PEER_DIRECTION, peering_expr)?;
                 if let Some(action_expr) = action_expr {
-                    write!(f, " ACTION {}", action_expr)?;
+                    write!(f, "ACTION {} ", action_expr)?;
                 }
                 Ok(())
             })?;
-        write!(f, " {} {}", P::ACTION_VERB, self.filter)
+        write!(f, "{} {}", P::ACTION_VERB, self.filter)
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+mod arbitrary {
+    use super::*;
+    use proptest::{arbitrary::ParamsFor, prelude::*};
+
+    trait AfiSafiList: LiteralPrefixSetAfi {
+        fn any_afis(
+            params: ParamsFor<Option<ListOf<AfiSafi>>>,
+        ) -> BoxedStrategy<Option<ListOf<AfiSafi>>>;
+    }
+
+    impl AfiSafiList for afi::Ipv4 {
+        fn any_afis(
+            _: ParamsFor<Option<ListOf<AfiSafi>>>,
+        ) -> BoxedStrategy<Option<ListOf<AfiSafi>>> {
+            Just(None).boxed()
+        }
+    }
+
+    impl AfiSafiList for afi::Any {
+        fn any_afis(
+            params: ParamsFor<Option<ListOf<AfiSafi>>>,
+        ) -> BoxedStrategy<Option<ListOf<AfiSafi>>> {
+            any_with::<Option<ListOf<AfiSafi>>>(params).boxed()
+        }
+    }
+
+    impl<A, P> Arbitrary for Statement<A, P>
+    where
+        A: AfiSafiList + fmt::Debug + Clone + 'static,
+        P: Policy<A> + fmt::Debug + 'static,
+        A::Addr: Arbitrary,
+        <A::Addr as Arbitrary>::Parameters: Clone,
+    {
+        type Parameters = (
+            ParamsFor<Option<Protocol>>,
+            ParamsFor<Option<Protocol>>,
+            ParamsFor<AfiExpr<A, P>>,
+        );
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+            (
+                any_with::<Option<Protocol>>(params.0),
+                any_with::<Option<Protocol>>(params.1),
+                any_with::<AfiExpr<A, P>>(params.2),
+            )
+                .prop_map(|(protocol_from, protocol_into, afi_expr)| Self {
+                    protocol_from,
+                    protocol_into,
+                    afi_expr,
+                })
+                .boxed()
+        }
+    }
+
+    impl<A, P> Arbitrary for AfiExpr<A, P>
+    where
+        A: AfiSafiList + fmt::Debug + Clone + 'static,
+        P: Policy<A> + fmt::Debug + 'static,
+        A::Addr: Arbitrary,
+        <A::Addr as Arbitrary>::Parameters: Clone,
+    {
+        type Parameters = (ParamsFor<Option<ListOf<AfiSafi>>>, ParamsFor<Expr<A, P>>);
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+            (A::any_afis(params.0), any_with::<Expr<A, P>>(params.1))
+                .prop_map(|(afis, expr)| Self { afis, expr })
+                .boxed()
+        }
+    }
+
+    impl<A, P> Arbitrary for Expr<A, P>
+    where
+        A: AfiSafiList + fmt::Debug + Clone + 'static,
+        P: Policy<A> + fmt::Debug + 'static,
+        A::Addr: Arbitrary,
+        <A::Addr as Arbitrary>::Parameters: Clone,
+    {
+        type Parameters = (ParamsFor<Term<A, P>>, ParamsFor<Option<AfiSafi>>);
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+            let term = any_with::<Term<A, P>>(params.0.clone()).boxed();
+            let afis = A::any_afis(params.1);
+            any_with::<Term<A, P>>(params.0)
+                .prop_map(Self::Unit)
+                .prop_recursive(2, 4, 4, move |unit| {
+                    prop_oneof![
+                        (term.clone(), afis.clone(), unit.clone()).prop_map(
+                            |(term, afis, unit)| {
+                                Self::Except(term, Box::new(AfiExpr { afis, expr: unit }))
+                            }
+                        ),
+                        (term.clone(), afis.clone(), unit.clone()).prop_map(
+                            |(term, afis, unit)| {
+                                Self::Refine(term, Box::new(AfiExpr { afis, expr: unit }))
+                            }
+                        ),
+                    ]
+                })
+                .boxed()
+        }
+    }
+
+    impl<A, P> Arbitrary for Term<A, P>
+    where
+        A: AfiSafiList + fmt::Debug + Clone + 'static,
+        P: Policy<A> + fmt::Debug + 'static,
+        A::Addr: Arbitrary,
+        <A::Addr as Arbitrary>::Parameters: Clone,
+    {
+        type Parameters = ParamsFor<Factor<A, P>>;
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+            proptest::collection::vec(any_with::<Factor<A, P>>(params), 1..8)
+                .prop_map(Self)
+                .boxed()
+        }
+    }
+
+    impl<A, P> Arbitrary for Factor<A, P>
+    where
+        A: AfiSafiList + fmt::Debug + Clone + 'static,
+        P: Policy<A> + fmt::Debug,
+        A::Addr: Arbitrary,
+        <A::Addr as Arbitrary>::Parameters: Clone,
+    {
+        type Parameters = (
+            ParamsFor<peering::Expr<A>>,
+            ParamsFor<Option<ActionExpr>>,
+            ParamsFor<filter::Expr<A>>,
+        );
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+            (
+                proptest::collection::vec(
+                    (
+                        any_with::<peering::Expr<A>>(params.0),
+                        any_with::<Option<ActionExpr>>(params.1),
+                    ),
+                    1..8,
+                ),
+                any_with::<filter::Expr<A>>(params.2),
+            )
+                .prop_map(|(peerings, filter)| Self {
+                    peerings,
+                    filter,
+                    direction: PhantomData,
+                })
+                .boxed()
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::compare_ast;
+    use crate::tests::{compare_ast, display_fmt_parses};
+
+    #[test]
+    fn display_export_expr() {
+        let expr = MpExportExpr {
+            protocol_from: None,
+            protocol_into: None,
+            afi_expr: AfiExpr {
+                afis: None,
+                expr: Expr::Unit(Term(vec![Factor {
+                    peerings: vec![
+                        ("AS1".parse().unwrap(), None),
+                        ("AS2".parse().unwrap(), None),
+                    ],
+                    filter: "AS-ANY".parse().unwrap(),
+                    direction: PhantomData,
+                }])),
+            },
+        };
+        let repr = "to AS1 to AS2 announce AS-ANY";
+        assert_eq!(expr.to_string(), repr)
+    }
+
+    display_fmt_parses! {
+        ImportExpr,
+        ExportExpr,
+        MpImportExpr,
+        MpExportExpr,
+    }
 
     compare_ast! {
         ImportExpr {
             rfc2622_sect5_6_autnum_example1: "from AS2 7.7.7.2 at 7.7.7.1 accept { 128.9.0.0/16 }" => {
                 ImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -322,7 +519,8 @@ mod tests {
             }
             rfc2622_sect5_6_autnum_example2: "from AS2 at 7.7.7.1 accept { 128.9.0.0/16 }" => {
                 ImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -335,7 +533,8 @@ mod tests {
             }
             rfc2622_sect5_6_autnum_example3: "from AS2 accept { 128.9.0.0/16 }" => {
                 ImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -348,7 +547,8 @@ mod tests {
             }
             rfc2622_sect5_6_autnum_example4: "from AS-FOO at 9.9.9.1 accept { 128.9.0.0/16 }" => {
                 ImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -361,7 +561,8 @@ mod tests {
             }
             rfc2622_sect5_6_autnum_example5: "from AS-FOO accept { 128.9.0.0/16 }" => {
                 ImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -387,7 +588,8 @@ mod tests {
             // }
             rfc2622_sect5_6_autnum_example7: "from prng-foo accept { 128.9.0.0/16 }" => {
                 ImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -400,7 +602,8 @@ mod tests {
             }
             rfc2622_sect6_autnum_example0: "from AS2 accept AS2" => {
                 ImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -413,7 +616,8 @@ mod tests {
             }
             rfc2622_sect6_autnum_example1: "from AS2 action pref = 1; accept { 128.9.0.0/16 }" => {
                 ImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -429,7 +633,8 @@ mod tests {
             action pref = 10; med = 0; community.append(10250, 3561:10); \
             accept { 128.9.0.0/16 }" => {
                 ImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -448,7 +653,8 @@ mod tests {
             from AS2 action pref = 2;
             accept AS4" => {
                 ImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -468,7 +674,6 @@ mod tests {
                     },
                 }
             }
-            //TODO: double check this...
             // The original version in RFC2622 Section 6.6 (with braces around
             // nested import-expressions) doesn't conform to the grammar!
             rfc2622_sect6_autnum_example4: "\
@@ -476,7 +681,8 @@ mod tests {
                 except from AS2 action pref = 2; accept AS226;
                     except from AS3 action pref = 3; accept {128.9.0.0/16};" => {
                 ImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Except(
@@ -525,7 +731,8 @@ mod tests {
                 from AS3 accept AS3;
             }" => {
                 ImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Refine(
@@ -585,7 +792,8 @@ mod tests {
                 from AS65003 accept {2001:0DB8::/32};
             }" => {
                 MpImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: Some(vec!["any.unicast".parse().unwrap()].into_iter().collect()),
                         expr: Expr::Except(
@@ -626,7 +834,8 @@ mod tests {
             }
             rfc4012_sect2_5_3_aut_num_example2: "afi ipv6.unicast from AS65001 accept {192.0.2.0/24}" => {
                 MpImportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: Some(vec!["ipv6.unicast".parse().unwrap()].into_iter().collect()),
                         expr: Expr::Unit(
@@ -651,7 +860,8 @@ mod tests {
             action med = 5; community .= { 70 }; \
             announce AS4" => {
                 ExportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -664,7 +874,8 @@ mod tests {
             }
             rfc2622_sect6_autnum_example2: "to AS-FOO announce ANY" => {
                 ExportExpr {
-                    protocol_dist: None,
+                    protocol_from: None,
+                    protocol_into: None,
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -677,7 +888,8 @@ mod tests {
             }
             rfc2622_sect6_autnum_example3: "protocol BGP4 into RIP to AS1 announce ANY" => {
                 ExportExpr {
-                    protocol_dist: Some("protocol BGP4 into RIP".parse().unwrap()),
+                    protocol_from: Some(Protocol::Bgp4),
+                    protocol_into: Some(Protocol::Rip),
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
@@ -690,7 +902,8 @@ mod tests {
             }
             rfc2622_sect6_autnum_example4: "protocol BGP4 into OSPF to AS1 announce AS2" => {
                 ExportExpr {
-                    protocol_dist: Some("protocol BGP4 into OSPF".parse().unwrap()),
+                    protocol_from: Some(Protocol::Bgp4),
+                    protocol_into: Some(Protocol::Ospf),
                     afi_expr: AfiExpr {
                         afis: None,
                         expr: Expr::Unit(Term(vec![Factor {
