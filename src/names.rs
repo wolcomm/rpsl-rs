@@ -20,7 +20,7 @@ use crate::{
 #[cfg(any(test, feature = "arbitrary"))]
 use crate::primitive::{
     arbitrary::{impl_free_form_arbitrary, impl_rpsl_name_arbitrary, prop_filter_keywords},
-    SetNameCompName,
+    DnsName, SetNameCompName,
 };
 
 /// RPSL `mntner` name. See [RFC2622].
@@ -367,7 +367,7 @@ impl Arbitrary for InetRtr {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        prop_filter_keywords(r"[A-Za-z][0-9A-Za-z_-]*(\.[A-Za-z][0-9A-Za-z_-]*)*")
+        prop_filter_keywords(any::<DnsName>().prop_map(|dns_name| dns_name.to_string()))
             .prop_map(Self)
             .boxed()
     }

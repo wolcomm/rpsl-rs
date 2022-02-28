@@ -448,8 +448,8 @@ peer_expr               = { protocol_name ~ peer_spec ~ ( peer_opts )? }
     peer_spec           = _{ ipv4_addr | rtr_set | peering_set | inet_rtr }
     peer_opts           = { peer_opt ~ ( "," ~ peer_opt )* }
         peer_opt        = ${ peer_opt_key ~ "(" ~ peer_opt_val? ~ ")" }
-            peer_opt_key    = @{ extchar+ }
-            peer_opt_val    = @{ extchar+ }
+            peer_opt_key    = @{ basic_name }
+            peer_opt_val    = @{ ( !( ")" | ";" ) ~ ANY )+ }
 mp_peer_expr            = { protocol_name ~ mp_peer_spec ~ ( peer_opts )? }
     mp_peer_spec        = _{ ip_addr_choice | rtr_set | peering_set | inet_rtr }
 

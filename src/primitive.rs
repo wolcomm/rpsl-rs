@@ -18,7 +18,7 @@ use crate::{
 };
 
 #[cfg(any(test, feature = "arbitrary"))]
-use self::arbitrary::{impl_free_form_arbitrary, prop_filter_keywords};
+use self::arbitrary::{impl_free_form_arbitrary, impl_rpsl_name_arbitrary, prop_filter_keywords};
 
 /// IP address literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -362,6 +362,8 @@ impl_free_form_arbitrary!(ObjectDescr);
 #[derive(Clone, Debug)]
 pub struct NicHdl(String);
 impl_case_insensitive_str_primitive!(ParserRule::nic_hdl => NicHdl);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_rpsl_name_arbitrary!(NicHdl);
 
 /// RPSL `remarks` attribute string.
 /// See [RFC2622].
@@ -370,6 +372,8 @@ impl_case_insensitive_str_primitive!(ParserRule::nic_hdl => NicHdl);
 #[derive(Clone, Debug)]
 pub struct Remarks(String);
 impl_case_insensitive_str_primitive!(ParserRule::remarks => Remarks);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_free_form_arbitrary!(Remarks);
 
 /// RPSL `registry-name`.
 /// See [RFC2622].
@@ -378,6 +382,8 @@ impl_case_insensitive_str_primitive!(ParserRule::remarks => Remarks);
 #[derive(Clone, Debug)]
 pub struct RegistryName(String);
 impl_case_insensitive_str_primitive!(ParserRule::registry_name => RegistryName);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_rpsl_name_arbitrary!(RegistryName);
 
 /// RPSL `address` attribute string.
 /// See [RFC2622].
@@ -386,6 +392,8 @@ impl_case_insensitive_str_primitive!(ParserRule::registry_name => RegistryName);
 #[derive(Clone, Debug)]
 pub struct Address(String);
 impl_case_insensitive_str_primitive!(ParserRule::address => Address);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_free_form_arbitrary!(Address);
 
 /// RPSL `email-address`.
 /// See [RFC2622].
@@ -395,6 +403,18 @@ impl_case_insensitive_str_primitive!(ParserRule::address => Address);
 pub struct EmailAddress(String);
 impl_case_insensitive_str_primitive!(ParserRule::email_addr => EmailAddress);
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for EmailAddress {
+    type Parameters = (ParamsFor<DnsName>, ParamsFor<DnsName>);
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        (any_with::<DnsName>(params.0), any_with::<DnsName>(params.1))
+            .prop_map(|(user, host)| format!("{}@{}", user, host))
+            .prop_map(Self)
+            .boxed()
+    }
+}
+
 /// RPSL `phone` or `fax-no` attribute string.
 /// See [RFC2622].
 ///
@@ -402,6 +422,15 @@ impl_case_insensitive_str_primitive!(ParserRule::email_addr => EmailAddress);
 #[derive(Clone, Debug)]
 pub struct TelNumber(String);
 impl_case_insensitive_str_primitive!(ParserRule::tel_number => TelNumber);
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for TelNumber {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        r"\+[0-9][0-9 ]*(ext\.[0-9]+)".prop_map(Self).boxed()
+    }
+}
 
 /// Email address regular expression used in the `MAIL-FROM` authentication
 /// scheme.
@@ -441,6 +470,8 @@ impl_free_form_arbitrary!(CryptHash);
 #[derive(Clone, Debug)]
 pub struct Trouble(String);
 impl_case_insensitive_str_primitive!(ParserRule::trouble => Trouble);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_free_form_arbitrary!(Trouble);
 
 /// RPSL `key-cert` object owner.
 /// See [RFC2726].
@@ -449,6 +480,8 @@ impl_case_insensitive_str_primitive!(ParserRule::trouble => Trouble);
 #[derive(Clone, Debug)]
 pub struct KeyOwner(String);
 impl_case_insensitive_str_primitive!(ParserRule::owner => KeyOwner);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_free_form_arbitrary!(KeyOwner);
 
 /// Key fingerprint appearing in an RPSL `key-cert` object.
 /// See [RFC2726].
@@ -458,6 +491,15 @@ impl_case_insensitive_str_primitive!(ParserRule::owner => KeyOwner);
 pub struct Fingerprint(String);
 impl_case_insensitive_str_primitive!(ParserRule::key_fingerprint => Fingerprint);
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Fingerprint {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        r"[0-9A-Fa-f]+".prop_map(Self).boxed()
+    }
+}
+
 /// ASCII armoured certificate appearing in an RPSL `key-cert` object.
 /// See [RFC2726].
 ///
@@ -465,6 +507,8 @@ impl_case_insensitive_str_primitive!(ParserRule::key_fingerprint => Fingerprint)
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Certificate(String);
 impl_str_primitive!(ParserRule::key_certif => Certificate);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_free_form_arbitrary!(Certificate);
 
 /// Autonomous system name, contained in the `as-name` RPSL attribute.
 /// See [RFC2622].
@@ -473,6 +517,8 @@ impl_str_primitive!(ParserRule::key_certif => Certificate);
 #[derive(Clone, Debug)]
 pub struct AsName(String);
 impl_case_insensitive_str_primitive!(ParserRule::as_name => AsName);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_rpsl_name_arbitrary!(AsName);
 
 /// IP network name, contained in the `netname` RIPE-81 attribute.
 /// See [RFC1786].
@@ -481,6 +527,8 @@ impl_case_insensitive_str_primitive!(ParserRule::as_name => AsName);
 #[derive(Clone, Debug)]
 pub struct Netname(String);
 impl_case_insensitive_str_primitive!(ParserRule::netname => Netname);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_rpsl_name_arbitrary!(Netname);
 
 /// [ISO-3166] two letter country code.
 ///
@@ -489,6 +537,15 @@ impl_case_insensitive_str_primitive!(ParserRule::netname => Netname);
 pub struct CountryCode(String);
 impl_case_insensitive_str_primitive!(ParserRule::country_code => CountryCode);
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for CountryCode {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        r"[A-Za-z]{2}".prop_map(Self).boxed()
+    }
+}
+
 /// RPSL `dns-name`.
 /// See [RFC2622].
 ///
@@ -496,6 +553,17 @@ impl_case_insensitive_str_primitive!(ParserRule::country_code => CountryCode);
 #[derive(Clone, Debug)]
 pub struct DnsName(String);
 impl_case_insensitive_str_primitive!(ParserRule::dns_name => DnsName);
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for DnsName {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_filter_keywords(r"[A-Za-z][0-9A-Za-z_-]*(\.[A-Za-z][0-9A-Za-z_-]*)*")
+            .prop_map(Self)
+            .boxed()
+    }
+}
 
 /// RPSL `date`.
 /// See [RFC2622].
@@ -535,6 +603,19 @@ impl fmt::Display for Date {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for Date {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        (0..=9999i32, 1..=12u32, 1..=31u32)
+            .prop_filter_map("date out-of-range", |(year, month, day)| {
+                NaiveDate::from_ymd_opt(year, month, day).map(Self)
+            })
+            .boxed()
+    }
+}
+
 /// RPSL `key-cert` object signing method.
 /// See [RFC2726].
 ///
@@ -569,7 +650,14 @@ impl fmt::Display for SigningMethod {
     }
 }
 
-// TODO: impl Arbitrary for SigningMethod
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for SigningMethod {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![Just(Self::Pgp), Just(Self::X509)].boxed()
+    }
+}
 
 /// RPSL `protocol` name.
 /// See [RFC2622].
@@ -682,17 +770,8 @@ impl Arbitrary for Protocol {
 #[derive(Clone, Debug)]
 pub struct UnknownProtocol(String);
 impl_case_insensitive_str_primitive!(ParserRule::protocol_unknown => UnknownProtocol);
-
 #[cfg(any(test, feature = "arbitrary"))]
-impl Arbitrary for UnknownProtocol {
-    type Parameters = ();
-    type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        r"[A-Za-z]([0-9A-Za-z_-]*[0-9A-Za-z])?"
-            .prop_map(Self)
-            .boxed()
-    }
-}
+impl_rpsl_name_arbitrary!(UnknownProtocol);
 
 /// RPSL `protocol` option name.
 /// See [RFC2622].
@@ -701,6 +780,8 @@ impl Arbitrary for UnknownProtocol {
 #[derive(Clone, Debug)]
 pub struct PeerOptKey(String);
 impl_case_insensitive_str_primitive!(ParserRule::peer_opt_key => PeerOptKey);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_rpsl_name_arbitrary!(PeerOptKey);
 
 /// RPSL `protocol` option value.
 /// See [RFC2622].
@@ -709,6 +790,15 @@ impl_case_insensitive_str_primitive!(ParserRule::peer_opt_key => PeerOptKey);
 #[derive(Clone, Debug)]
 pub struct PeerOptVal(String);
 impl_case_insensitive_str_primitive!(ParserRule::peer_opt_val => PeerOptVal);
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for PeerOptVal {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        r"[^\);\pC]*".prop_map(Self).boxed()
+    }
+}
 
 /// RPSL `afi` names.
 /// See [RFC4012].
