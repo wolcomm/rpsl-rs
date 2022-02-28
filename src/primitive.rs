@@ -17,6 +17,9 @@ use crate::{
     },
 };
 
+#[cfg(any(test, feature = "arbitrary"))]
+use self::arbitrary::impl_free_form_arbitrary;
+
 /// IP address literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct IpAddress<A: Afi>(A::Addr);
@@ -383,6 +386,8 @@ impl_case_insensitive_str_primitive!(ParserRule::tel_number => TelNumber);
 #[derive(Clone, Debug)]
 pub struct EmailAddressRegex(String);
 impl_case_insensitive_str_primitive!(ParserRule::email_addr_regexp => EmailAddressRegex);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_free_form_arbitrary!(EmailAddressRegex);
 
 /// PGP key fingerprint used in the `PGP-FROM` authentication scheme.
 /// See [RFC2725].
@@ -391,6 +396,8 @@ impl_case_insensitive_str_primitive!(ParserRule::email_addr_regexp => EmailAddre
 #[derive(Clone, Debug)]
 pub struct PgpFromFingerprint(String);
 impl_case_insensitive_str_primitive!(ParserRule::pgp_from_fingerpr => PgpFromFingerprint);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_free_form_arbitrary!(PgpFromFingerprint);
 
 /// UNIX crypt hash value used in the `CRYPT-PW` authentication scheme.
 /// See [RFC2622].
@@ -399,6 +406,8 @@ impl_case_insensitive_str_primitive!(ParserRule::pgp_from_fingerpr => PgpFromFin
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CryptHash(String);
 impl_str_primitive!(ParserRule::crypt_hash => CryptHash);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_free_form_arbitrary!(CryptHash);
 
 /// RPSL `trouble` attribute string.
 /// See [RFC2622].
@@ -880,4 +889,17 @@ pub mod arbitrary {
         };
     }
     pub(crate) use impl_rpsl_name_arbitrary;
+
+    macro_rules! impl_free_form_arbitrary {
+        ( $t:ty ) => {
+            impl Arbitrary for $t {
+                type Parameters = ();
+                type Strategy = BoxedStrategy<Self>;
+                fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+                    r"[\PC&&\S]\PC*".prop_map(Self).boxed()
+                }
+            }
+        };
+    }
+    pub(crate) use impl_free_form_arbitrary;
 }

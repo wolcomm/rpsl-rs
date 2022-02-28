@@ -18,7 +18,7 @@ use crate::{
 };
 
 #[cfg(any(test, feature = "arbitrary"))]
-use crate::primitive::arbitrary::impl_rpsl_name_arbitrary;
+use crate::primitive::arbitrary::{impl_free_form_arbitrary, impl_rpsl_name_arbitrary};
 
 /// RPSL `mntner` name. See [RFC2622].
 ///
@@ -36,6 +36,8 @@ impl_rpsl_name_arbitrary!(Mntner);
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Person(String);
 impl_str_primitive!(ParserRule::person => Person);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_free_form_arbitrary!(Person);
 
 /// RPSL `role` name. See [RFC2622].
 ///
@@ -43,6 +45,8 @@ impl_str_primitive!(ParserRule::person => Person);
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Role(String);
 impl_str_primitive!(ParserRule::role => Role);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_free_form_arbitrary!(Role);
 
 /// RPSL `key-cert` name. See [RFC2726].
 ///

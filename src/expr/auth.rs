@@ -10,6 +10,9 @@ use crate::{
     primitive::{CryptHash, EmailAddressRegex, PgpFromFingerprint},
 };
 
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::prelude::*;
+
 /// RPSL `auth` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
@@ -77,10 +80,32 @@ impl fmt::Display for AuthExpr {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for AuthExpr {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            Just(Self::None),
+            any::<EmailAddressRegex>().prop_map(Self::Mail),
+            any::<PgpFromFingerprint>().prop_map(Self::PgpFrom),
+            any::<CryptHash>().prop_map(Self::Crypt),
+            any::<KeyCert>().prop_map(Self::KeyCert),
+            any::<Person>().prop_map(Self::Person),
+            any::<Role>().prop_map(Self::Role),
+        ]
+        .boxed()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::compare_ast;
+    use crate::tests::{compare_ast, display_fmt_parses};
+
+    display_fmt_parses! {
+        AuthExpr,
+    }
 
     compare_ast! {
         AuthExpr {
