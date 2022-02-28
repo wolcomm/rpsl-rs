@@ -6,7 +6,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use ipnet::{Ipv4Net, Ipv6Net};
 
 #[cfg(any(test, feature = "arbitrary"))]
-use proptest::{arbitrary::ParamsFor, collection::size_range, prelude::*};
+use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
     error::{ParseError, ParseResult},
@@ -18,7 +18,10 @@ use crate::{
 };
 
 #[cfg(any(test, feature = "arbitrary"))]
-use crate::primitive::arbitrary::{impl_free_form_arbitrary, impl_rpsl_name_arbitrary};
+use crate::primitive::{
+    arbitrary::{impl_free_form_arbitrary, impl_rpsl_name_arbitrary, prop_filter_keywords},
+    SetNameCompName,
+};
 
 /// RPSL `mntner` name. See [RFC2622].
 ///
@@ -364,7 +367,7 @@ impl Arbitrary for InetRtr {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        r"[A-Za-z][0-9A-Za-z_-]*(\.[A-Za-z][0-9A-Za-z_-]*)*"
+        prop_filter_keywords(r"[A-Za-z][0-9A-Za-z_-]*(\.[A-Za-z][0-9A-Za-z_-]*)*")
             .prop_map(Self)
             .boxed()
     }
@@ -457,8 +460,8 @@ macro_rules! impl_set_arbitrary {
             fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
                 const SET_NAME: &str = $pattern;
                 (
-                    SET_NAME.prop_map(|name| SetNameComp::Name(name.as_str().into())),
-                    any_with::<Vec<SetNameComp>>((size_range(0..5), (SET_NAME,))),
+                    any_with::<SetNameCompName>(SET_NAME.into()).prop_map(SetNameComp::Name),
+                    proptest::collection::vec(any_with::<SetNameComp>(SET_NAME.into()), 0..5),
                 )
                     .prop_map(|(named, mut components)| {
                         components.push(named);

@@ -8,10 +8,11 @@ extchar         = { char | "_" | "-" }
 num             = @{ ASCII_DIGIT+ }
 
 // ** RPSL keywords **
-keyword         = { any_fltr | any_as | any_rs | peeras
-                  | and | or | not
-                  | atomic | from | to | at | action | accept | announce | except | refine
-                  | networks | into | inbound | outbound }
+keyword         = { ( any_fltr | any_as | any_rs | peeras
+                    | and | or | not
+                    | atomic | from | to | at | action | accept | announce | except | refine
+                    | networks | into | inbound | outbound )
+                  ~ !( extchar | ".") }
     // Special names
     any_fltr    = @{ ^"ANY" }
     any_as      = @{ ^"AS-ANY" }
@@ -38,7 +39,7 @@ keyword         = { any_fltr | any_as | any_rs | peeras
 
 
 // ** RPSL object names **
-basic_name          = @{ !( keyword ~ WHITESPACE ) ~ ( char ~ extchar* ) }
+basic_name          = @{ !keyword ~ ( char ~ extchar* ) }
 // special object names
 special_name        = _{ as_set_name | route_set_name | rtr_set_name
                        | filter_set_name | peering_set_name }
@@ -47,22 +48,22 @@ special_name        = _{ as_set_name | route_set_name | rtr_set_name
     // set names
     set_comp        = _{ aut_num | peeras }
     as_set          = ${ ( set_comp ~ ":" )* ~ as_set_name ~ ( ":" ~ ( set_comp | as_set_name ) )* }
-        as_set_name         = @{ ^"AS-" ~ extchar+ }
+        as_set_name         = @{ !keyword ~ ^"AS-" ~ extchar+ }
     route_set       = ${ ( set_comp ~ ":" )* ~ route_set_name ~ ( ":" ~ ( set_comp | route_set_name ) )* }
-        route_set_name      = @{ ^"RS-" ~ extchar+ }
+        route_set_name      = @{ !keyword ~ ^"RS-" ~ extchar+ }
     rtr_set         = ${ ( set_comp ~ ":" )* ~ rtr_set_name ~ ( ":" ~ ( set_comp | rtr_set_name ) )* }
-        rtr_set_name        = @{ ^"RTRS-" ~ extchar+ }
+        rtr_set_name        = @{ !keyword ~ ^"RTRS-" ~ extchar+ }
     filter_set      = ${ ( set_comp ~ ":" )* ~ filter_set_name ~ ( ":" ~ ( set_comp | filter_set_name ) )* }
-        filter_set_name     = @{ ^"FLTR-" ~ extchar+ }
+        filter_set_name     = @{ !keyword ~ ^"FLTR-" ~ extchar+ }
     peering_set     = ${ ( set_comp ~ ":" )* ~ peering_set_name ~ ( ":" ~ ( set_comp | peering_set_name ) )* }
-        peering_set_name    = @{ ^"PRNG-" ~ extchar+ }
+        peering_set_name    = @{ !keyword ~ ^"PRNG-" ~ extchar+ }
 // general object names
 general_object_name = @{ !special_name ~ basic_name }
 mntner_name         = @{ general_object_name }
 person              = @{ free_form }
 role                = @{ free_form }
 dictionary          = @{ general_object_name }
-inet_rtr            = @{ !( keyword ~ WHITESPACE) ~ dns_name }
+inet_rtr            = @{ !keyword ~ dns_name }
 key_cert            = _{ key_cert_pgp | key_cert_x509 }
     key_cert_pgp    = @{ ^"PGPKEY-" ~ ASCII_HEX_DIGIT+ }
     key_cert_x509   = @{ ^"X509-" ~ num }
@@ -121,8 +122,8 @@ date                    = ${ year ~ month ~ day }
                            | ( "3"      ~ '0'..'1' ) }
 dns_name                = @{ ASCII_ALPHA ~ ( ASCII_ALPHANUMERIC | "-" | "_")* ~ ( "." ~ dns_name )? }
 email_addr              = @{ dns_name ~ "@" ~ dns_name }
-nic_hdl                 = @{ char ~ extchar* }
-registry_name           = @{ char ~ extchar* }
+nic_hdl                 = @{ general_object_name }
+registry_name           = @{ general_object_name }
 as_name                 = @{ general_object_name }
 netname                 = @{ general_object_name }
 tel_number              = @{ "+" ~ ASCII_DIGIT ~ ( ASCII_DIGIT | " " )* ~ ( ^"ext. " ~ ASCII_DIGIT+ )? }
@@ -161,7 +162,7 @@ afi_safi                = ${ afi ~ ( "." ~ safi )? }
     safi                = _{ safi_unicast | safi_multicast }
         safi_unicast    = @{ ^"unicast" }
         safi_multicast  = @{ ^"multicast" }
-named_route_set_member  = _{ any_as | any_rs | route_set | as_set | aut_num }
+named_route_set_member  = _{ route_set | as_set | any_as | any_rs | aut_num }
 email_addr_regexp   = @{ free_form }
 pgp_from_fingerpr   = @{ free_form }
 crypt_hash          = @{ free_form }
@@ -289,7 +290,7 @@ components6_expr        = { atomic? ~ mp_filter_expr? ~ components6_proto_term }
     components6_proto_terms = { components6_proto_term* }
         components6_proto_term  = { ^"protocol" ~ protocol_name ~ mp_filter_expr }
 
-named_prefix_set        = { any_as | any_rs | route_set | as_set | aut_num | peeras }
+named_prefix_set        = { route_set | as_set | any_as | any_rs | aut_num | peeras }
 
 as_path_regexpr         = { "<" ~ as_path_regexpr_soi? ~ as_path_regexpr_elem* ~ as_path_regexpr_eoi? ~ ">" }
     as_path_regexpr_soi     = @{ "^" }
@@ -365,7 +366,7 @@ as_expr                 = _{ as_expr_and | as_expr_or | as_expr_except | as_expr
     as_expr_or          = { as_expr_term ~ or ~ as_expr }
     as_expr_except      = { as_expr_term ~ except ~ as_expr }
     as_expr_unit        = { as_expr_term }
-        as_expr_term    = _{ any_as | as_set | aut_num | "(" ~ as_expr ~ ")" }
+        as_expr_term    = _{ as_set | any_as | aut_num | "(" ~ as_expr ~ ")" }
 
 rtr_expr                = _{ rtr_expr_and | rtr_expr_or | rtr_expr_except | rtr_expr_unit }
     rtr_expr_and        = { rtr_expr_term ~ and ~ rtr_expr }

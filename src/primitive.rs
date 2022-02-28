@@ -18,7 +18,7 @@ use crate::{
 };
 
 #[cfg(any(test, feature = "arbitrary"))]
-use self::arbitrary::impl_free_form_arbitrary;
+use self::arbitrary::{impl_free_form_arbitrary, prop_filter_keywords};
 
 /// IP address literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -94,7 +94,19 @@ impl<A: Afi> fmt::Display for Prefix<A> {
     }
 }
 
-// TODO: impl Arbitrary for Prefix
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A> Arbitrary for Prefix<A>
+where
+    A: Afi + fmt::Debug + 'static,
+    A::Net: Arbitrary,
+    <A::Net as Arbitrary>::Strategy: 'static,
+{
+    type Parameters = ParamsFor<A::Net>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        any_with::<A::Net>(params).prop_map(Self).boxed()
+    }
+}
 
 /// IP prefix range literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -296,13 +308,13 @@ impl fmt::Display for SetNameComp {
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for SetNameComp {
-    type Parameters = (&'static str,);
+    type Parameters = ParamsFor<SetNameCompName>;
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
         prop_oneof![
             any::<AutNum>().prop_map(Self::AutNum),
             Just(Self::PeerAs),
-            args.0.prop_map(|name| Self::Name(name.as_str().into()))
+            any_with::<SetNameCompName>(params).prop_map(Self::Name),
         ]
         .boxed()
     }
@@ -322,6 +334,17 @@ impl_case_insensitive_str_primitive!(
      | ParserRule::peering_set_name => SetNameCompName
 );
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for SetNameCompName {
+    type Parameters = ParamsFor<String>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        prop_filter_keywords(any_with::<String>(params))
+            .prop_map(Self)
+            .boxed()
+    }
+}
+
 /// RPSL `descr` attribute string.
 /// See [RFC2622].
 ///
@@ -329,6 +352,8 @@ impl_case_insensitive_str_primitive!(
 #[derive(Clone, Debug)]
 pub struct ObjectDescr(String);
 impl_case_insensitive_str_primitive!(ParserRule::object_descr => ObjectDescr);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_free_form_arbitrary!(ObjectDescr);
 
 /// RPSL `nic-hanndle`.
 /// See [RFC2622].
@@ -836,6 +861,7 @@ pub mod arbitrary {
         addr_family::{afi, LiteralPrefixSetAfi},
         list::ListOf,
     };
+    use regex::RegexSetBuilder;
 
     pub trait AfiSafiList: LiteralPrefixSetAfi {
         fn any_afis(
@@ -859,6 +885,40 @@ pub mod arbitrary {
         }
     }
 
+    pub fn prop_filter_keywords<S>(strategy: S) -> impl Strategy<Value = String>
+    where
+        S: Strategy<Value = String>,
+    {
+        let keywords = RegexSetBuilder::new(&[
+            "^ANY$",
+            "^AS-ANY$",
+            "^RS-ANY$",
+            "^PeerAS$",
+            "^AND$",
+            "^OR$",
+            "^NOT$",
+            "^ATOMIC$",
+            "^FROM$",
+            "^TO$",
+            "^AT$",
+            "^ACTION$",
+            "^ACCEPT$",
+            "^ANNOUNCE$",
+            "^EXCEPT$",
+            "^REFINE$",
+            "^NETWORKS$",
+            "^INTO$",
+            "^INBOUND$",
+            "^OUTBOUND$",
+        ])
+        .case_insensitive(true)
+        .build()
+        .unwrap();
+        strategy.prop_filter("names cannot collide with rpsl keywords", move |s| {
+            !keywords.is_match(s)
+        })
+    }
+
     macro_rules! impl_rpsl_name_arbitrary {
         ( $t:ty ) => {
             impl proptest::arbitrary::Arbitrary for $t {
@@ -867,15 +927,7 @@ pub mod arbitrary {
                 fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
                     let reserved =
                         regex::Regex::new(r"^(?i)AS\d|AS-|RS-|FLTR-|RTRS-|PRNG-").unwrap();
-                    let keywords = [
-                        "ANY", "AS-ANY", "RS-ANY", "PeerAS", "AND", "OR", "NOT", "ATOMIC", "FROM",
-                        "TO", "AT", "ACTION", "ACCEPT", "ANNOUNCE", "EXCEPT", "REFINE", "NETWORKS",
-                        "INTO", "INBOUND", "OUTBOUND",
-                    ];
-                    "[A-Za-z][A-Za-z0-9_-]+"
-                        .prop_filter("names cannot collide with rpsl keywords", move |s| {
-                            keywords.iter().all(|keyword| s != keyword)
-                        })
+                    $crate::primitive::arbitrary::prop_filter_keywords("[A-Za-z][A-Za-z0-9_-]+")
                         .prop_filter_map("names cannot begin with a reserved sequence", move |s| {
                             if reserved.is_match(&s) {
                                 None
@@ -896,7 +948,7 @@ pub mod arbitrary {
                 type Parameters = ();
                 type Strategy = BoxedStrategy<Self>;
                 fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-                    r"[\PC&&\S]\PC*".prop_map(Self).boxed()
+                    r"([^#\pC\s][^#\pC]*)?".prop_map(Self).boxed()
                 }
             }
         };
