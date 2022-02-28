@@ -6,8 +6,11 @@ use crate::{
     error::{ParseError, ParseResult},
     names::{AsSet, AutNum, InetRtr, RouteSet, RtrSet},
     parser::{debug_construction, next_into_or, rule_mismatch, ParserRule, TokenPair},
-    primitive::RangeOperator,
+    primitive::{IpAddress, Prefix, RangeOperator},
 };
+
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::{arbitrary::ParamsFor, prelude::*};
 
 /// Names that can appear in the `members` attribute of an `as-set` object.
 /// See [RFC2622].
@@ -43,7 +46,18 @@ impl fmt::Display for AsSetMember {
     }
 }
 
-// TODO: impl Arbitrary for AsSetMember
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for AsSetMember {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            any::<AutNum>().prop_map(Self::AutNum),
+            any::<AsSet>().prop_map(Self::AsSet),
+        ]
+        .boxed()
+    }
+}
 
 /// Elements that can appear in the `members` or `mp-members` attribute of a
 /// `route-set` object.
@@ -90,7 +104,24 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for RouteSetMember<A> {
     }
 }
 
-// TODO: impl Arbitrary for RouteSetMember
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A: LiteralPrefixSetAfi> Arbitrary for RouteSetMember<A>
+where
+    A: fmt::Debug + Clone + 'static,
+    A::Net: Arbitrary,
+    <A::Net as Arbitrary>::Strategy: 'static,
+{
+    type Parameters = ParamsFor<RangeOperator>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        (
+            any::<RouteSetMemberElem<A>>(),
+            any_with::<RangeOperator>(params),
+        )
+            .prop_map(|(base, op)| Self { base, op })
+            .boxed()
+    }
+}
 
 /// RPSL names that can appear as the base of a member element in the `members`
 /// or `mp-members` attribute of a `route-set` object.
@@ -101,7 +132,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for RouteSetMember<A> {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum RouteSetMemberElem<A: LiteralPrefixSetAfi> {
     /// A `route-set` member wrapping literal IP prefix.
-    Prefix(A::Net),
+    Prefix(Prefix<A>),
     /// A `route-set` member wrapping the `RS-ANY` token.
     RsAny,
     /// A `route-set` member wrapping the `AS-ANY` token.
@@ -120,7 +151,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for RouteSetMemberElem<A> {
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
         debug_construction!(pair => RouteSetMemberElem);
         match pair.as_rule() {
-            rule if rule == A::LITERAL_PREFIX_RULE => Ok(Self::Prefix(pair.as_str().parse()?)),
+            rule if rule == A::LITERAL_PREFIX_RULE => Ok(Self::Prefix(pair.try_into()?)),
             ParserRule::any_rs => Ok(Self::RsAny),
             ParserRule::any_as => Ok(Self::AsAny),
             ParserRule::route_set => Ok(Self::RouteSet(pair.try_into()?)),
@@ -144,6 +175,28 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for RouteSetMemberElem<A> {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A: LiteralPrefixSetAfi> Arbitrary for RouteSetMemberElem<A>
+where
+    A: fmt::Debug + Clone + 'static,
+    A::Net: Arbitrary,
+    <A::Net as Arbitrary>::Strategy: 'static,
+{
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            any::<Prefix<A>>().prop_map(Self::Prefix),
+            Just(Self::RsAny),
+            Just(Self::AsAny),
+            any::<RouteSet>().prop_map(Self::RouteSet),
+            any::<AsSet>().prop_map(Self::AsSet),
+            any::<AutNum>().prop_map(Self::AutNum),
+        ]
+        .boxed()
+    }
+}
+
 /// RPSL names that can appear in the `members` or `mp-members` attribute of an
 /// `rtr-set` object.
 /// See [RFC2622] and [RFC4012].
@@ -153,7 +206,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for RouteSetMemberElem<A> {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum RtrSetMember<A: LiteralPrefixSetAfi> {
     /// An `rtr-set` member wrapping a literal IP address.
-    Addr(A::Addr),
+    Addr(IpAddress<A>),
     /// An `rtr-set` member wrapping an `inet-rtr` name.
     InetRtr(InetRtr),
     /// An `rtr-set` member wrapping an `rtr-set` name.
@@ -166,7 +219,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for RtrSetMember<A> {
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
         debug_construction!(pair => RtrSetMember);
         match pair.as_rule() {
-            rule if rule == A::LITERAL_ADDR_RULE => Ok(Self::Addr(pair.as_str().parse()?)),
+            rule if rule == A::LITERAL_ADDR_RULE => Ok(Self::Addr(pair.try_into()?)),
             ParserRule::inet_rtr => Ok(Self::InetRtr(pair.try_into()?)),
             ParserRule::rtr_set => Ok(Self::RtrSet(pair.try_into()?)),
             _ => Err(rule_mismatch!(pair => "rtr-set member")),
@@ -184,4 +237,20 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for RtrSetMember<A> {
     }
 }
 
-// TODO: impl Arbitrary for RtrSetMember
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A: LiteralPrefixSetAfi> Arbitrary for RtrSetMember<A>
+where
+    A: fmt::Debug + Clone + 'static,
+    A::Addr: Arbitrary,
+{
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            any::<IpAddress<A>>().prop_map(Self::Addr),
+            any::<InetRtr>().prop_map(Self::InetRtr),
+            any::<RtrSet>().prop_map(Self::RtrSet),
+        ]
+        .boxed()
+    }
+}

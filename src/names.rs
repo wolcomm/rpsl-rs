@@ -379,6 +379,9 @@ impl Arbitrary for InetRtr {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Dictionary(String);
 impl_str_primitive!(ParserRule::dictionary => Dictionary);
+impl_from_str!(ParserRule::dictionary => Dictionary);
+#[cfg(any(test, feature = "arbitrary"))]
+impl_rpsl_name_arbitrary!(Dictionary);
 
 macro_rules! impl_set_try_from {
     ( $rule:pat => $t:ty ) => {
@@ -565,5 +568,6 @@ mod tests {
         FilterSet,
         RtrSet,
         PeeringSet,
+        Dictionary,
     }
 }
