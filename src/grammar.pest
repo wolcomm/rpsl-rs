@@ -116,7 +116,7 @@ free_form               = @{ ( !attr_sep ~ ANY )* }
 date                    = ${ year ~ month ~ day }
     year                = @{ ASCII_DIGIT{4} }
     month               = @{ ( "0" ~ '1'..'9' )
-                           | ( "1" ~ '1'..'2' ) }
+                           | ( "1" ~ '0'..'2' ) }
     day                 = @{ ( "0"      ~ '1'..'9' )
                            | ( '1'..'2' ~ '0'..'9' )
                            | ( "3"      ~ '0'..'1' ) }
@@ -286,7 +286,7 @@ components_expr         = { atomic? ~ filter_expr? ~ components_proto_terms }
     components_proto_terms  = { components_proto_term* }
         components_proto_term   = { ^"protocol" ~ protocol_name ~ filter_expr }
 
-components6_expr        = { atomic? ~ mp_filter_expr? ~ components6_proto_term }
+components6_expr        = { atomic? ~ mp_filter_expr? ~ components6_proto_terms }
     components6_proto_terms = { components6_proto_term* }
         components6_proto_term  = { ^"protocol" ~ protocol_name ~ mp_filter_expr }
 

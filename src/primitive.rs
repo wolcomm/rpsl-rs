@@ -796,7 +796,7 @@ impl Arbitrary for PeerOptVal {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        r"[^\);\pC]*".prop_map(Self).boxed()
+        r"[^\);\pC]+".prop_map(Self).boxed()
     }
 }
 

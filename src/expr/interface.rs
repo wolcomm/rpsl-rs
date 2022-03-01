@@ -1,5 +1,6 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
+use std::hash;
 
 use crate::{
     addr_family::{afi, Afi},
@@ -8,9 +9,13 @@ use crate::{
         debug_construction, impl_from_str, next_into_or, next_parse_or, rule_mismatch, ParserRule,
         TokenPair,
     },
+    primitive::IpAddress,
 };
 
 use super::ActionExpr;
+
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::{arbitrary::ParamsFor, prelude::*};
 
 /// RPSL `ifaddr` expression. See [RFC2622].
 ///
@@ -23,6 +28,49 @@ impl_from_str!(ParserRule::just_ifaddr_expr => IfaddrExpr);
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.5
 pub type InterfaceExpr = Expr<afi::Any>;
 impl_from_str!(ParserRule::just_interface_expr => InterfaceExpr);
+
+pub trait TunnelEndpointAfi: Afi {
+    type Tunnel: fmt::Display
+        + for<'a> TryFrom<TokenPair<'a>, Error = ParseError>
+        + Clone
+        + fmt::Debug
+        + hash::Hash
+        + PartialEq
+        + Eq;
+
+    const INTERFACE_EXPR_RULE: ParserRule;
+
+    #[cfg(any(test, feature = "arbitrary"))]
+    fn arbitrary_tunnel(
+        params: ParamsFor<Option<Self::Tunnel>>,
+    ) -> BoxedStrategy<Option<Self::Tunnel>>
+    where
+        Self::Tunnel: Arbitrary;
+}
+
+impl TunnelEndpointAfi for afi::Ipv4 {
+    type Tunnel = NeverTunnel;
+
+    const INTERFACE_EXPR_RULE: ParserRule = ParserRule::ifaddr_expr;
+
+    #[cfg(any(test, feature = "arbitrary"))]
+    fn arbitrary_tunnel(_: ParamsFor<Option<Self::Tunnel>>) -> BoxedStrategy<Option<Self::Tunnel>> {
+        Just(None).boxed()
+    }
+}
+
+impl TunnelEndpointAfi for afi::Any {
+    type Tunnel = TunnelInterface<Self>;
+
+    const INTERFACE_EXPR_RULE: ParserRule = ParserRule::interface_expr;
+
+    #[cfg(any(test, feature = "arbitrary"))]
+    fn arbitrary_tunnel(
+        params: ParamsFor<Option<Self::Tunnel>>,
+    ) -> BoxedStrategy<Option<Self::Tunnel>> {
+        any_with::<Option<Self::Tunnel>>(params).boxed()
+    }
+}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Expr<A: TunnelEndpointAfi> {
@@ -38,7 +86,7 @@ impl<A: TunnelEndpointAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
-            ParserRule::ifaddr_expr => {
+            rule if rule == A::INTERFACE_EXPR_RULE => {
                 let mut pairs = pair.into_inner().peekable();
                 let addr = next_parse_or!(pairs => "failed to get interface address")?;
                 let masklen = next_parse_or!(pairs => "failed to get mask legth")?;
@@ -64,7 +112,7 @@ impl<A: TunnelEndpointAfi> TryFrom<TokenPair<'_>> for Expr<A> {
                     tunnel,
                 })
             }
-            _ => Err(rule_mismatch!(pair => "ifaddr expression")),
+            _ => Err(rule_mismatch!(pair => "ifaddr or interface expression")),
         }
     }
 }
@@ -82,12 +130,38 @@ impl<A: TunnelEndpointAfi> fmt::Display for Expr<A> {
     }
 }
 
-pub trait TunnelEndpointAfi
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A: TunnelEndpointAfi> Arbitrary for Expr<A>
 where
-    Self: Afi,
-    Self::Tunnel: fmt::Display + for<'a> TryFrom<TokenPair<'a>, Error = ParseError>,
+    A: fmt::Debug,
+    A::Addr: Arbitrary,
+    <A::Addr as Arbitrary>::Strategy: 'static,
+    A::Tunnel: Arbitrary + 'static,
+    <A::Tunnel as Arbitrary>::Strategy: 'static,
 {
-    type Tunnel;
+    type Parameters = (
+        ParamsFor<A::Addr>,
+        ParamsFor<Option<ActionExpr>>,
+        ParamsFor<Option<A::Tunnel>>,
+    );
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        (
+            any_with::<A::Addr>(params.0).prop_flat_map(|addr| {
+                let masklen = 0..=A::max_len(&addr);
+                (Just(addr), masklen)
+            }),
+            any_with::<Option<ActionExpr>>(params.1),
+            A::arbitrary_tunnel(params.2),
+        )
+            .prop_map(|((addr, masklen), action, tunnel)| Self {
+                addr,
+                masklen,
+                action,
+                tunnel,
+            })
+            .boxed()
+    }
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -109,9 +183,18 @@ impl fmt::Display for NeverTunnel {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for NeverTunnel {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        panic!("Tried to construct a NeverTunnel")
+    }
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TunnelInterface<A: Afi> {
-    endpoint: A::Addr,
+    endpoint: IpAddress<A>,
     encapsulation: TunnelEncaps,
 }
 
@@ -123,7 +206,7 @@ impl<A: TunnelEndpointAfi> TryFrom<TokenPair<'_>> for TunnelInterface<A> {
         match pair.as_rule() {
             ParserRule::tunnel_spec => {
                 let mut pairs = pair.into_inner();
-                let endpoint = next_parse_or!(pairs => "failed to get tunnel endpoint address")?;
+                let endpoint = next_into_or!(pairs => "failed to get tunnel endpoint address")?;
                 let encapsulation = next_into_or!(pairs => "failed to get tunnel encapsulation")?;
                 Ok(Self {
                     endpoint,
@@ -138,6 +221,24 @@ impl<A: TunnelEndpointAfi> TryFrom<TokenPair<'_>> for TunnelInterface<A> {
 impl<A: TunnelEndpointAfi> fmt::Display for TunnelInterface<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "tunnel {}, {}", self.endpoint, self.encapsulation)
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A: Afi> Arbitrary for TunnelInterface<A>
+where
+    A: fmt::Debug + 'static,
+    A::Addr: Arbitrary,
+{
+    type Parameters = ParamsFor<IpAddress<A>>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        (any_with::<IpAddress<A>>(params), any::<TunnelEncaps>())
+            .prop_map(|(endpoint, encapsulation)| Self {
+                endpoint,
+                encapsulation,
+            })
+            .boxed()
     }
 }
 
@@ -169,18 +270,24 @@ impl fmt::Display for TunnelEncaps {
     }
 }
 
-impl TunnelEndpointAfi for afi::Ipv4 {
-    type Tunnel = NeverTunnel;
-}
-
-impl TunnelEndpointAfi for afi::Any {
-    type Tunnel = TunnelInterface<Self>;
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for TunnelEncaps {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![Just(Self::Gre), Just(Self::IpInIp),].boxed()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::compare_ast;
+    use crate::tests::{compare_ast, display_fmt_parses};
+
+    display_fmt_parses! {
+        IfaddrExpr,
+        InterfaceExpr,
+    }
 
     compare_ast! {
         IfaddrExpr {

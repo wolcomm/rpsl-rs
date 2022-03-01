@@ -9,8 +9,11 @@ use crate::{
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
-    primitive::{PeerOptKey, PeerOptVal, Protocol},
+    primitive::{IpAddress, PeerOptKey, PeerOptVal, Protocol},
 };
+
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::{arbitrary::ParamsFor, prelude::*};
 
 /// RPSL `peer` expression. See [RFC2622].
 ///
@@ -67,9 +70,33 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A: LiteralPrefixSetAfi> Arbitrary for Expr<A>
+where
+    A: fmt::Debug + 'static,
+    A::Addr: Arbitrary,
+    <A::Addr as Arbitrary>::Strategy: 'static,
+{
+    type Parameters = ParamsFor<Option<ListOf<PeerOpt>>>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        (
+            any::<Protocol>(),
+            any::<PeerSpec<A>>(),
+            any_with::<Option<ListOf<PeerOpt>>>(params),
+        )
+            .prop_map(|(protocol, peer, opts)| Self {
+                protocol,
+                peer,
+                opts,
+            })
+            .boxed()
+    }
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PeerSpec<A: LiteralPrefixSetAfi> {
-    Addr(A::Addr),
+    Addr(IpAddress<A>),
     InetRtr(InetRtr),
     RtrSet(RtrSet),
     PeeringSet(PeeringSet),
@@ -81,7 +108,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for PeerSpec<A> {
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
         debug_construction!(pair => PeerSpec);
         match pair.as_rule() {
-            rule if rule == A::LITERAL_ADDR_RULE => Ok(Self::Addr(pair.as_str().parse()?)),
+            rule if rule == A::LITERAL_ADDR_RULE => Ok(Self::Addr(pair.try_into()?)),
             ParserRule::inet_rtr => Ok(Self::InetRtr(pair.try_into()?)),
             ParserRule::rtr_set => Ok(Self::RtrSet(pair.try_into()?)),
             ParserRule::peering_set => Ok(Self::PeeringSet(pair.try_into()?)),
@@ -98,6 +125,26 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for PeerSpec<A> {
             Self::RtrSet(rtr_set) => rtr_set.fmt(f),
             Self::PeeringSet(peering_set) => peering_set.fmt(f),
         }
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl<A: LiteralPrefixSetAfi> Arbitrary for PeerSpec<A>
+where
+    A: fmt::Debug + 'static,
+    A::Addr: Arbitrary,
+    <A::Addr as Arbitrary>::Strategy: 'static,
+{
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            any::<IpAddress<A>>().prop_map(Self::Addr),
+            any::<InetRtr>().prop_map(Self::InetRtr),
+            any::<RtrSet>().prop_map(Self::RtrSet),
+            any::<PeeringSet>().prop_map(Self::PeeringSet),
+        ]
+        .boxed()
     }
 }
 
@@ -139,10 +186,26 @@ impl fmt::Display for PeerOpt {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for PeerOpt {
+    type Parameters = ParamsFor<Option<PeerOptVal>>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        (any::<PeerOptKey>(), any_with::<Option<PeerOptVal>>(params))
+            .prop_map(|(key, val)| Self { key, val })
+            .boxed()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::compare_ast;
+    use crate::tests::{compare_ast, display_fmt_parses};
+
+    display_fmt_parses! {
+        PeerExpr,
+        MpPeerExpr,
+    }
 
     compare_ast! {
         PeerExpr {

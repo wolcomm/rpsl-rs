@@ -1,9 +1,10 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
+use std::hash;
 use std::iter::FromIterator;
 
 use crate::{
-    addr_family::{afi, LiteralPrefixSetAfi},
+    addr_family::{afi, Afi, LiteralPrefixSetAfi},
     error::{ParseError, ParseResult},
     list::ListOf,
     parser::{
@@ -14,6 +15,9 @@ use crate::{
 
 use super::{action, autnum, filter, rtr};
 
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::{arbitrary::ParamsFor, prelude::*};
+
 /// RPSL `inject` expression for `route` objects. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-8.1
@@ -23,20 +27,92 @@ impl_from_str!(ParserRule::just_inject_expr => InjectExpr);
 /// RPSL `inject` expression for `route6` objects. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-3
-pub type Inject6Expr = inject::Expr<afi::Any>;
+pub type Inject6Expr = inject::Expr<afi::Ipv6>;
 impl_from_str!(ParserRule::just_inject6_expr => Inject6Expr);
+
+pub trait RouteAttrAfi: Afi {
+    type LiteralPrefixSetAfi: LiteralPrefixSetAfi + fmt::Debug + Clone + hash::Hash + PartialEq + Eq;
+
+    /// Address family specific [`ParserRule`] for inject expressions.
+    const INJECT_EXPR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for unit inject expressions.
+    const INJECT_COND_UNIT_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for conjunctive inject expressions.
+    const INJECT_COND_AND_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for disjunctive inject expressions.
+    const INJECT_COND_OR_RULE: ParserRule;
+    /// Array of address family specific [`ParserRule`] for inject expressions.
+    const INJECT_COND_RULES: [ParserRule; 3] = [
+        Self::INJECT_COND_UNIT_RULE,
+        Self::INJECT_COND_AND_RULE,
+        Self::INJECT_COND_OR_RULE,
+    ];
+    /// Check whether a [`ParserRule`] variant is an `inject` expression for
+    /// this address family.
+    fn match_inject_condition_rule(rule: ParserRule) -> bool {
+        Self::INJECT_COND_RULES
+            .iter()
+            .any(|inject_cond_rule| &rule == inject_cond_rule)
+    }
+    /// Address family specific [`ParserRule`] for inject `have-components`
+    /// condition term.
+    const INJECT_COND_TERM_HAVE_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for inject `exclude` condition
+    /// term.
+    const INJECT_COND_TERM_EXCLUDE_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for inject `static` condition
+    /// term.
+    const INJECT_COND_TERM_STATIC_RULE: ParserRule;
+
+    /// Address family specific [`ParserRule`] for components expressions.
+    const COMPONENTS_EXPR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for components protocol terms.
+    const COMPONENTS_PROTO_TERMS_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for components protocol term.
+    const COMPONENTS_PROTO_TERM_RULE: ParserRule;
+}
+
+impl RouteAttrAfi for afi::Ipv4 {
+    type LiteralPrefixSetAfi = afi::Ipv4;
+    const INJECT_EXPR_RULE: ParserRule = ParserRule::inject_expr;
+    const INJECT_COND_UNIT_RULE: ParserRule = ParserRule::inject_cond_unit;
+    const INJECT_COND_AND_RULE: ParserRule = ParserRule::inject_cond_and;
+    const INJECT_COND_OR_RULE: ParserRule = ParserRule::inject_cond_or;
+    const INJECT_COND_TERM_HAVE_RULE: ParserRule = ParserRule::inject_cond_term_have;
+    const INJECT_COND_TERM_EXCLUDE_RULE: ParserRule = ParserRule::inject_cond_term_excl;
+    const INJECT_COND_TERM_STATIC_RULE: ParserRule = ParserRule::inject_cond_term_stat;
+
+    const COMPONENTS_EXPR_RULE: ParserRule = ParserRule::components_expr;
+    const COMPONENTS_PROTO_TERMS_RULE: ParserRule = ParserRule::components_proto_terms;
+    const COMPONENTS_PROTO_TERM_RULE: ParserRule = ParserRule::components_proto_term;
+}
+
+impl RouteAttrAfi for afi::Ipv6 {
+    type LiteralPrefixSetAfi = afi::Any;
+    const INJECT_EXPR_RULE: ParserRule = ParserRule::inject6_expr;
+    const INJECT_COND_UNIT_RULE: ParserRule = ParserRule::inject6_cond_unit;
+    const INJECT_COND_AND_RULE: ParserRule = ParserRule::inject6_cond_and;
+    const INJECT_COND_OR_RULE: ParserRule = ParserRule::inject6_cond_or;
+    const INJECT_COND_TERM_HAVE_RULE: ParserRule = ParserRule::inject6_cond_term_have;
+    const INJECT_COND_TERM_EXCLUDE_RULE: ParserRule = ParserRule::inject6_cond_term_excl;
+    const INJECT_COND_TERM_STATIC_RULE: ParserRule = ParserRule::inject6_cond_term_stat;
+
+    const COMPONENTS_EXPR_RULE: ParserRule = ParserRule::components6_expr;
+    const COMPONENTS_PROTO_TERMS_RULE: ParserRule = ParserRule::components6_proto_terms;
+    const COMPONENTS_PROTO_TERM_RULE: ParserRule = ParserRule::components6_proto_term;
+}
 
 mod inject {
     use super::*;
 
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-    pub struct Expr<A: LiteralPrefixSetAfi> {
-        at: Option<rtr::Expr<A>>,
+    pub struct Expr<A: RouteAttrAfi> {
+        at: Option<rtr::Expr<A::LiteralPrefixSetAfi>>,
         action: Option<action::Expr>,
         condition: Option<Condition<A>>,
     }
 
-    impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
+    impl<A: RouteAttrAfi> TryFrom<TokenPair<'_>> for Expr<A> {
         type Error = ParseError;
 
         fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -46,7 +122,7 @@ mod inject {
                     let (mut at, mut action, mut condition) = (None, None, None);
                     for inner_pair in pair.into_inner() {
                         match inner_pair.as_rule() {
-                            rule if A::match_rtr_expr_rule(rule) => {
+                            rule if A::LiteralPrefixSetAfi::match_rtr_expr_rule(rule) => {
                                 at = Some(inner_pair.try_into()?);
                             }
                             ParserRule::action_expr => {
@@ -73,7 +149,7 @@ mod inject {
         }
     }
 
-    impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
+    impl<A: RouteAttrAfi> fmt::Display for Expr<A> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             let mut statements = Vec::new();
             if let Some(rtr_expr) = &self.at {
@@ -89,14 +165,44 @@ mod inject {
         }
     }
 
+    #[cfg(any(test, feature = "arbitrary"))]
+    impl<A: RouteAttrAfi> Arbitrary for Expr<A>
+    where
+        A: fmt::Debug + Clone + 'static,
+        A::Addr: Arbitrary,
+        A::LiteralPrefixSetAfi: fmt::Debug + Clone,
+        <A::LiteralPrefixSetAfi as Afi>::Addr: Arbitrary,
+        <<A::LiteralPrefixSetAfi as Afi>::Addr as Arbitrary>::Parameters: Clone,
+    {
+        type Parameters = (
+            ParamsFor<Option<rtr::Expr<A::LiteralPrefixSetAfi>>>,
+            ParamsFor<Option<action::Expr>>,
+            ParamsFor<Option<Condition<A>>>,
+        );
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+            (
+                any_with::<Option<rtr::Expr<A::LiteralPrefixSetAfi>>>(params.0),
+                any_with::<Option<action::Expr>>(params.1),
+                any_with::<Option<Condition<A>>>(params.2),
+            )
+                .prop_map(|(at, action, condition)| Self {
+                    at,
+                    action,
+                    condition,
+                })
+                .boxed()
+        }
+    }
+
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-    pub enum Condition<A: LiteralPrefixSetAfi> {
+    pub enum Condition<A: RouteAttrAfi> {
         Unit(Term<A>),
         And(Term<A>, Term<A>),
         Or(Term<A>, Term<A>),
     }
 
-    impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Condition<A> {
+    impl<A: RouteAttrAfi> TryFrom<TokenPair<'_>> for Condition<A> {
         type Error = ParseError;
 
         fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -124,7 +230,7 @@ mod inject {
         }
     }
 
-    impl<A: LiteralPrefixSetAfi> fmt::Display for Condition<A> {
+    impl<A: RouteAttrAfi> fmt::Display for Condition<A> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             match self {
                 Self::Unit(term) => term.fmt(f),
@@ -134,14 +240,33 @@ mod inject {
         }
     }
 
+    #[cfg(any(test, feature = "arbitrary"))]
+    impl<A: RouteAttrAfi> Arbitrary for Condition<A>
+    where
+        A: fmt::Debug + Clone + 'static,
+        A::Addr: Arbitrary,
+    {
+        type Parameters = ParamsFor<Term<A>>;
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+            let term = any_with::<Term<A>>(params);
+            prop_oneof![
+                term.clone().prop_map(Self::Unit),
+                (term.clone(), term.clone()).prop_map(|(lhs, rhs)| Self::And(lhs, rhs)),
+                (term.clone(), term.clone()).prop_map(|(lhs, rhs)| Self::Or(lhs, rhs)),
+            ]
+            .boxed()
+        }
+    }
+
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-    pub enum Term<A: LiteralPrefixSetAfi> {
+    pub enum Term<A: RouteAttrAfi> {
         HaveComps(ListOf<PrefixRange<A>>),
         Exclude(ListOf<PrefixRange<A>>),
         Static,
     }
 
-    impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Term<A> {
+    impl<A: RouteAttrAfi> TryFrom<TokenPair<'_>> for Term<A> {
         type Error = ParseError;
 
         fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -159,20 +284,47 @@ mod inject {
         }
     }
 
-    impl<A: LiteralPrefixSetAfi> fmt::Display for Term<A> {
+    impl<A: RouteAttrAfi> fmt::Display for Term<A> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             match self {
-                Self::HaveComps(prefixes) => write!(f, "have-components {}", prefixes),
-                Self::Exclude(prefixes) => write!(f, "exclude {}", prefixes),
+                Self::HaveComps(prefixes) => write!(f, "have-components {{{}}}", prefixes),
+                Self::Exclude(prefixes) => write!(f, "exclude {{{}}}", prefixes),
                 Self::Static => write!(f, "static"),
             }
+        }
+    }
+
+    #[cfg(any(test, feature = "arbitrary"))]
+    impl<A: RouteAttrAfi> Arbitrary for Term<A>
+    where
+        A: fmt::Debug + Clone + 'static,
+        A::Addr: Arbitrary,
+    {
+        type Parameters = ParamsFor<ListOf<PrefixRange<A>>>;
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+            let prefix_range_list = any_with::<ListOf<PrefixRange<A>>>(params);
+            prop_oneof![
+                prefix_range_list.clone().prop_map(Self::HaveComps),
+                prefix_range_list.clone().prop_map(Self::Exclude),
+                Just(Self::Static),
+            ]
+            .boxed()
         }
     }
 
     #[cfg(test)]
     mod tests {
         use super::*;
-        use crate::{primitive::RangeOperator, tests::compare_ast};
+        use crate::{
+            primitive::RangeOperator,
+            tests::{compare_ast, display_fmt_parses},
+        };
+
+        display_fmt_parses! {
+            InjectExpr,
+            Inject6Expr,
+        }
 
         compare_ast! {
             InjectExpr {
@@ -228,20 +380,20 @@ impl_from_str!(ParserRule::just_components_expr => ComponentsExpr);
 /// RPSL `components` expression for `route6` objects. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-3
-pub type Components6Expr = components::Expr<afi::Any>;
+pub type Components6Expr = components::Expr<afi::Ipv6>;
 impl_from_str!(ParserRule::just_components6_expr => Components6Expr);
 
 mod components {
     use super::*;
 
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-    pub struct Expr<A: LiteralPrefixSetAfi> {
+    pub struct Expr<A: RouteAttrAfi> {
         atomic: bool,
-        filter: Option<filter::Expr<A>>,
+        filter: Option<filter::Expr<A::LiteralPrefixSetAfi>>,
         proto_terms: ProtocolTerms<A>,
     }
 
-    impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
+    impl<A: RouteAttrAfi> TryFrom<TokenPair<'_>> for Expr<A> {
         type Error = ParseError;
 
         fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -255,7 +407,7 @@ mod components {
                             ParserRule::atomic => {
                                 atomic = true;
                             }
-                            rule if A::match_filter_expr_rule(rule) => {
+                            rule if A::LiteralPrefixSetAfi::match_filter_expr_rule(rule) => {
                                 filter = Some(inner_pair.try_into()?);
                             }
                             rule if rule == A::COMPONENTS_PROTO_TERMS_RULE => {
@@ -279,7 +431,7 @@ mod components {
         }
     }
 
-    impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
+    impl<A: RouteAttrAfi> fmt::Display for Expr<A> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             let mut statements = Vec::new();
             if self.atomic {
@@ -293,16 +445,45 @@ mod components {
         }
     }
 
-    #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-    pub struct ProtocolTerms<A: LiteralPrefixSetAfi>(Vec<ProtocolTerm<A>>);
+    #[cfg(any(test, feature = "arbitrary"))]
+    impl<A: RouteAttrAfi> Arbitrary for Expr<A>
+    where
+        A: fmt::Debug + 'static,
+        A::Addr: Arbitrary,
+        A::LiteralPrefixSetAfi: fmt::Debug + Clone + 'static,
+        <A::LiteralPrefixSetAfi as Afi>::Addr: Arbitrary,
+        <<A::LiteralPrefixSetAfi as Afi>::Addr as Arbitrary>::Parameters: Clone,
+    {
+        type Parameters = (
+            ParamsFor<Option<filter::Expr<A::LiteralPrefixSetAfi>>>,
+            ParamsFor<ProtocolTerms<A>>,
+        );
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+            (
+                any::<bool>(),
+                any_with::<Option<filter::Expr<A::LiteralPrefixSetAfi>>>(params.0),
+                any_with::<ProtocolTerms<A>>(params.1),
+            )
+                .prop_map(|(atomic, filter, proto_terms)| Self {
+                    atomic,
+                    filter,
+                    proto_terms,
+                })
+                .boxed()
+        }
+    }
 
-    impl<A: LiteralPrefixSetAfi> Default for ProtocolTerms<A> {
+    #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+    pub struct ProtocolTerms<A: RouteAttrAfi>(Vec<ProtocolTerm<A>>);
+
+    impl<A: RouteAttrAfi> Default for ProtocolTerms<A> {
         fn default() -> Self {
             Self(Vec::default())
         }
     }
 
-    impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for ProtocolTerms<A> {
+    impl<A: RouteAttrAfi> TryFrom<TokenPair<'_>> for ProtocolTerms<A> {
         type Error = ParseError;
 
         fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -318,7 +499,7 @@ mod components {
         }
     }
 
-    impl<A: LiteralPrefixSetAfi> fmt::Display for ProtocolTerms<A> {
+    impl<A: RouteAttrAfi> fmt::Display for ProtocolTerms<A> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             self.0
                 .iter()
@@ -329,7 +510,7 @@ mod components {
         }
     }
 
-    impl<A: LiteralPrefixSetAfi> FromIterator<ProtocolTerm<A>> for ProtocolTerms<A> {
+    impl<A: RouteAttrAfi> FromIterator<ProtocolTerm<A>> for ProtocolTerms<A> {
         fn from_iter<I>(iter: I) -> Self
         where
             I: IntoIterator<Item = ProtocolTerm<A>>,
@@ -338,13 +519,30 @@ mod components {
         }
     }
 
-    #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-    pub struct ProtocolTerm<A: LiteralPrefixSetAfi> {
-        protocol: Protocol,
-        filter: filter::Expr<A>,
+    #[cfg(any(test, feature = "arbitrary"))]
+    impl<A: RouteAttrAfi> Arbitrary for ProtocolTerms<A>
+    where
+        A: fmt::Debug + 'static,
+        A::LiteralPrefixSetAfi: fmt::Debug + Clone + 'static,
+        <A::LiteralPrefixSetAfi as Afi>::Addr: Arbitrary,
+        <<A::LiteralPrefixSetAfi as Afi>::Addr as Arbitrary>::Parameters: Clone,
+    {
+        type Parameters = ParamsFor<ProtocolTerm<A>>;
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+            proptest::collection::vec(any_with::<ProtocolTerm<A>>(params), 0..4)
+                .prop_map(Self)
+                .boxed()
+        }
     }
 
-    impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for ProtocolTerm<A> {
+    #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+    pub struct ProtocolTerm<A: RouteAttrAfi> {
+        protocol: Protocol,
+        filter: filter::Expr<A::LiteralPrefixSetAfi>,
+    }
+
+    impl<A: RouteAttrAfi> TryFrom<TokenPair<'_>> for ProtocolTerm<A> {
         type Error = ParseError;
 
         fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -361,16 +559,41 @@ mod components {
         }
     }
 
-    impl<A: LiteralPrefixSetAfi> fmt::Display for ProtocolTerm<A> {
+    impl<A: RouteAttrAfi> fmt::Display for ProtocolTerm<A> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "protocol {} {}", self.protocol, self.filter)
+        }
+    }
+
+    #[cfg(any(test, feature = "arbitrary"))]
+    impl<A: RouteAttrAfi> Arbitrary for ProtocolTerm<A>
+    where
+        A: fmt::Debug,
+        A::LiteralPrefixSetAfi: fmt::Debug + Clone + 'static,
+        <A::LiteralPrefixSetAfi as Afi>::Addr: Arbitrary,
+        <<A::LiteralPrefixSetAfi as Afi>::Addr as Arbitrary>::Parameters: Clone,
+    {
+        type Parameters = ParamsFor<filter::Expr<A::LiteralPrefixSetAfi>>;
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+            (
+                any::<Protocol>(),
+                any_with::<filter::Expr<A::LiteralPrefixSetAfi>>(params),
+            )
+                .prop_map(|(protocol, filter)| Self { protocol, filter })
+                .boxed()
         }
     }
 
     #[cfg(test)]
     mod tests {
         use super::*;
-        use crate::tests::compare_ast;
+        use crate::tests::{compare_ast, display_fmt_parses};
+
+        display_fmt_parses! {
+            ComponentsExpr,
+            Components6Expr,
+        }
 
         compare_ast! {
             ComponentsExpr {
@@ -410,6 +633,25 @@ mod components {
                     ComponentsExpr {
                         atomic: false,
                         filter: Some("{128.8.0.0/16, 128.9.0.0/16}".parse().unwrap()),
+                        proto_terms: Default::default(),
+                    }
+                }
+                regression1: "" => {
+                    ComponentsExpr {
+                        atomic: false,
+                        filter: None,
+                        proto_terms: Default::default(),
+                    }
+                }
+            }
+        }
+
+        compare_ast! {
+            Components6Expr {
+                regression1: "" => {
+                    Components6Expr {
+                        atomic: false,
+                        filter: None,
                         proto_terms: Default::default(),
                     }
                 }
@@ -466,10 +708,27 @@ mod aggr_mtd {
         }
     }
 
+    #[cfg(any(test, feature = "arbitrary"))]
+    impl Arbitrary for AggrMtdExpr {
+        type Parameters = ParamsFor<Option<autnum::Expr>>;
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+            prop_oneof![
+                Just(Self::Inbound),
+                any_with::<Option<autnum::Expr>>(params).prop_map(Self::Outbound),
+            ]
+            .boxed()
+        }
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
-        use crate::tests::compare_ast;
+        use crate::tests::{compare_ast, display_fmt_parses};
+
+        display_fmt_parses! {
+            AggrMtdExpr,
+        }
 
         compare_ast! {
             AggrMtdExpr {

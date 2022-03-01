@@ -9,6 +9,9 @@ use crate::{
     primitive::{Date, EmailAddress},
 };
 
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::{arbitrary::ParamsFor, prelude::*};
+
 /// RPSL `changed` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
@@ -51,10 +54,25 @@ impl fmt::Display for ChangedExpr {
     }
 }
 
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for ChangedExpr {
+    type Parameters = ParamsFor<EmailAddress>;
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        (any_with::<EmailAddress>(params), any::<Date>())
+            .prop_map(|(by, on)| Self { by, on })
+            .boxed()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::compare_ast;
+    use crate::tests::{compare_ast, display_fmt_parses};
+
+    display_fmt_parses! {
+        ChangedExpr,
+    }
 
     compare_ast! {
         ChangedExpr {
