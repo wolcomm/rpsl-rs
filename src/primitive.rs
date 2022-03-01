@@ -949,6 +949,7 @@ impl Arbitrary for SafiName {
     }
 }
 
+/// Traits and helpers for implementing [`Arbitrary`] for primitive types.
 #[cfg(any(test, feature = "arbitrary"))]
 pub mod arbitrary {
     use super::*;
@@ -958,7 +959,11 @@ pub mod arbitrary {
     };
     use regex::RegexSetBuilder;
 
+    /// Helper trait extending [`LiteralPrefixSetAfi`].
     pub trait AfiSafiList: LiteralPrefixSetAfi {
+        /// Return a [`Strategy`] that yields values of
+        /// [`Option<ListOf<AfiSafi>>`] as appropriate to the expression
+        /// being generated.
         fn any_afis(
             params: ParamsFor<Option<ListOf<AfiSafi>>>,
         ) -> BoxedStrategy<Option<ListOf<AfiSafi>>>;
@@ -980,6 +985,8 @@ pub mod arbitrary {
         }
     }
 
+    /// Filter the values yielded by a [`Strategy<Value = String>`] for
+    /// reserved RPSL keywords.
     pub fn prop_filter_keywords<S>(strategy: S) -> impl Strategy<Value = String>
     where
         S: Strategy<Value = String>,

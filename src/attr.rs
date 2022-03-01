@@ -554,6 +554,7 @@ macro_rules! arbitrary_variants {
         paste::paste! {
             impl RpslAttribute {
 
+                /// Return a [`Strategy`] that yields a single attribute type.
                 pub fn arbitrary_variant(attr_type: AttributeType) -> BoxedStrategy<Self> {
                     match attr_type {
                         $( AttributeType::$variant => Self::[<arbitrary_ $variant:snake>](), )*
