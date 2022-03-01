@@ -222,7 +222,7 @@ auth_expr               = _{ auth_expr_none | auth_expr_mail
 action_expr             = { ( action_stmt ~ ";" )+ }
     action_stmt         = _{ action_stmt_oper | action_stmt_meth }
         action_stmt_oper    = { action_prop ~ action_op ~ action_val }
-        action_stmt_meth    = ${ action_prop ~ ( "." ~ action_meth )? ~ "(" ~ action_val ~ ")" }
+        action_stmt_meth    = ${ action_prop ~ ( "." ~ action_meth )? ~ "(" ~ action_val_list ~ ")" }
             action_prop     = _{ rp_pref | rp_med | rp_dpa | rp_aspath
                                | rp_community | rp_next_hop | rp_cost
                                | rp_unknown }
@@ -259,7 +259,10 @@ action_expr             = { ( action_stmt ~ ";" )+ }
                 action_op_ge            = @{ ">=" }
                 action_op_lt            = @{ "<" }
                 action_op_gt            = @{ ">" }
-            action_val      = @{ ( !( ")" | ";" ) ~ ANY )* }
+            action_val_list = !{ action_val? ~ ( "," ~ action_val )* }
+                action_val      = _{ action_val_nested | action_val_unit }
+                    action_val_nested   =  { "{" ~ action_val_list ~ "}" }
+                    action_val_unit     = @{ ( !( "}" | "," | ")" | ";" | WHITESPACE | NEWLINE ) ~ ANY )+ }
             action_meth     = @{ basic_name }
 
 inject_expr             = { ( at ~ rtr_expr )? ~ ( action ~ action_expr )? ~ ( ^"upon" ~ inject_cond )? }

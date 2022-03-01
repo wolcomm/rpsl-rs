@@ -278,14 +278,15 @@ where
     type Parameters = (
         ParamsFor<(PrefixSetExpr<A>, RangeOperator)>,
         ParamsFor<AsPathRegexp>,
+        ParamsFor<action::Stmt>,
     );
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        // TODO: AttrMatch variants
         prop_oneof![
             any_with::<(PrefixSetExpr<A>, RangeOperator)>(args.0)
                 .prop_map(|(set, op)| Self::PrefixSet(set, op)),
             any_with::<AsPathRegexp>(args.1).prop_map(Self::AsPath),
+            any_with::<action::Stmt>(args.2).prop_map(Self::AttrMatch),
         ]
         .boxed()
     }

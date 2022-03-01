@@ -2,10 +2,14 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 #[cfg(any(test, feature = "arbitrary"))]
+use std::iter::FromIterator;
+
+#[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
     error::{ParseError, ParseResult},
+    list::ListOf,
     parser::{
         debug_construction, impl_case_insensitive_str_primitive, impl_from_str, next_into_or,
         rule_mismatch, ParserRule, TokenPair,
@@ -152,7 +156,7 @@ impl Arbitrary for OperatorStmt {
 pub struct MethodStmt {
     prop: Property,
     method: Option<Method>,
-    val: Value,
+    vals: ListOf<Value>,
 }
 
 impl TryFrom<TokenPair<'_>> for MethodStmt {
@@ -171,8 +175,8 @@ impl TryFrom<TokenPair<'_>> for MethodStmt {
                 } else {
                     None
                 };
-                let val = next_into_or!(pairs => "failed to get action operand")?;
-                Ok(Self { prop, method, val })
+                let vals = next_into_or!(pairs => "failed to get action operands")?;
+                Ok(Self { prop, method, vals })
             }
             _ => Err(rule_mismatch!(pair => "action expression method statement")),
         }
@@ -185,7 +189,7 @@ impl fmt::Display for MethodStmt {
         if let Some(method) = &self.method {
             write!(f, ".{}", method)?;
         }
-        write!(f, "({})", self.val)
+        write!(f, "({})", self.vals)
     }
 }
 
@@ -197,9 +201,9 @@ impl Arbitrary for MethodStmt {
         (
             any::<Property>(),
             any_with::<Option<Method>>(params),
-            any::<Value>(),
+            any::<ListOf<Value>>(),
         )
-            .prop_map(|(prop, method, val)| Self { prop, method, val })
+            .prop_map(|(prop, method, vals)| Self { prop, method, vals })
             .boxed()
     }
 }
@@ -370,16 +374,49 @@ impl_case_insensitive_str_primitive!(ParserRule::action_meth => Method);
 #[cfg(any(test, feature = "arbitrary"))]
 impl_rpsl_name_arbitrary!(Method);
 
-#[derive(Clone, Debug)]
-pub struct Value(String);
-impl_case_insensitive_str_primitive!(ParserRule::action_val => Value);
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum Value {
+    Unit(String),
+    List(Box<ListOf<Value>>),
+}
+
+impl TryFrom<TokenPair<'_>> for Value {
+    type Error = ParseError;
+
+    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        debug_construction!(pair => Value);
+        match pair.as_rule() {
+            ParserRule::action_val_nested => Ok(Self::List(Box::new(
+                next_into_or!(pair.into_inner() => "failed to get inner action operand list")?,
+            ))),
+            ParserRule::action_val_unit => Ok(Self::Unit(pair.as_str().to_string())),
+            _ => Err(rule_mismatch!(pair => "action operand")),
+        }
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::List(val_list) => write!(f, "{{{}}}", val_list),
+            Self::Unit(val) => val.fmt(f),
+        }
+    }
+}
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for Value {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        r"[0-9A-Za-z]+".prop_map(Self).boxed()
+        let leaf = r"[0-9A-Za-z]+".prop_map(Self::Unit);
+        leaf.prop_recursive(1, 4, 4, |unit| {
+            proptest::collection::vec(unit, 0..4)
+                .prop_map(ListOf::from_iter)
+                .prop_map(Box::new)
+                .prop_map(Self::List)
+        })
+        .boxed()
     }
 }
 
@@ -474,7 +511,7 @@ mod tests {
                 Expr(vec![Stmt::Operator(OperatorStmt {
                     prop: Property::Pref,
                     op: Operator::Assign,
-                    val: Value("1".into()),
+                    val: Value::Unit("1".into()),
                 })])
             }
             rfc2622_sect6_autnum_example2: "\
@@ -483,17 +520,20 @@ mod tests {
                     Stmt::Operator(OperatorStmt {
                         prop: Property::Pref,
                         op: Operator::Assign,
-                        val: Value("10".into()),
+                        val: Value::Unit("10".into()),
                     }),
                     Stmt::Operator(OperatorStmt {
                         prop: Property::Med,
                         op: Operator::Assign,
-                        val: Value("0".into()),
+                        val: Value::Unit("0".into()),
                     }),
                     Stmt::Method(MethodStmt {
                         prop: Property::Community,
                         method: Some("append".into()),
-                        val: Value("10250, 3561:10".into())
+                        vals: vec![
+                            Value::Unit("10250".into()),
+                            Value::Unit("3561:10".into()),
+                        ].into_iter().collect()
                     })
                 ])
             }
@@ -501,21 +541,35 @@ mod tests {
                 Expr(vec![Stmt::Method(MethodStmt {
                     prop: Property::Pref,
                     method: Some("RS-a".into()),
-                    val: Value("a".into()),
+                    vals: vec![Value::Unit("a".into())].into_iter().collect(),
                 })])
             }
             regression2: "meD0 = a;" => {
                 Expr(vec![Stmt::Operator(OperatorStmt {
                     prop: Property::Unknown("meD0".into()),
                     op: Operator::Assign,
-                    val: Value("a".into()),
+                    val: Value::Unit("a".into()),
                 })])
             }
             regression3: "meD0(a);" => {
                 Expr(vec![Stmt::Method(MethodStmt {
                     prop: Property::Unknown("meD0".into()),
                     method: None,
-                    val: Value("a".into()),
+                    vals: vec![Value::Unit("a".into())].into_iter().collect(),
+                })])
+            }
+            regression4: "community .= { 70 };" => {
+                Expr(vec![Stmt::Operator(OperatorStmt {
+                    prop: Property::Community,
+                    op: Operator::Append,
+                    val: Value::List(Box::new(vec![Value::Unit("70".into())].into_iter().collect())),
+                })])
+            }
+            regression5: "pref = { };" => {
+                Expr(vec![Stmt::Operator(OperatorStmt {
+                    prop: Property::Pref,
+                    op: Operator::Assign,
+                    val: Value::List(Box::new(vec![].into_iter().collect())),
                 })])
             }
         }

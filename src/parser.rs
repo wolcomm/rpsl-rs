@@ -456,6 +456,26 @@ mod tests {
         }
     }
 
+    #[test]
+    fn empty_action_val_nested_list() {
+        parses_to! {
+            parser: RpslParser,
+            input: "pref = {};",
+            rule: Rule::action_expr,
+            tokens: [
+                action_expr(0, 10, [
+                    action_stmt_oper(0, 9, [
+                        rp_pref(0, 4),
+                        action_op_assign(5, 6),
+                        action_val_nested(7, 9, [
+                            action_val_list(8, 8)
+                        ]),
+                    ])
+                ])
+            ]
+        }
+    }
+
     macro_rules! parse_filter {
         ( $( $name:ident: $filter:expr => [ $( $names:ident $calls:tt ),* $(,)* ] ),* $(,)? ) => {
             paste! {
