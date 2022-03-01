@@ -2,7 +2,7 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::str::FromStr;
 
-use chrono::NaiveDate;
+use time::{format_description::FormatItem, macros::format_description};
 
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
@@ -410,10 +410,10 @@ impl_case_insensitive_str_primitive!(ParserRule::email_addr => EmailAddress);
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for EmailAddress {
-    type Parameters = (ParamsFor<DnsName>, ParamsFor<DnsName>);
+    type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
-        (any_with::<DnsName>(params.0), any_with::<DnsName>(params.1))
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        (any::<DnsName>(), any::<DnsName>())
             .prop_map(|(user, host)| format!("{}@{}", user, host))
             .prop_map(Self)
             .boxed()
@@ -575,10 +575,12 @@ impl Arbitrary for DnsName {
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-2
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct Date(NaiveDate);
+pub struct Date(time::Date);
 
-impl AsRef<NaiveDate> for Date {
-    fn as_ref(&self) -> &NaiveDate {
+const DATE_FMT: &[FormatItem] = format_description!("[year][month][day]");
+
+impl AsRef<time::Date> for Date {
+    fn as_ref(&self) -> &time::Date {
         &self.0
     }
 }
@@ -586,7 +588,7 @@ impl AsRef<NaiveDate> for Date {
 impl FromStr for Date {
     type Err = ParseError;
     fn from_str(s: &str) -> ParseResult<Self> {
-        Ok(Self(NaiveDate::parse_from_str(s, "%Y%m%d")?))
+        Ok(Self(time::Date::parse(s, DATE_FMT)?))
     }
 }
 
@@ -604,7 +606,7 @@ impl TryFrom<TokenPair<'_>> for Date {
 
 impl fmt::Display for Date {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0.format("%Y%m%d"))
+        write!(f, "{}", self.0.format(DATE_FMT).map_err(|_| fmt::Error)?)
     }
 }
 
@@ -613,10 +615,8 @@ impl Arbitrary for Date {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        (0..=9999i32, 1..=12u32, 1..=31u32)
-            .prop_filter_map("date out-of-range", |(year, month, day)| {
-                NaiveDate::from_ymd_opt(year, month, day).map(Self)
-            })
+        (time::macros::date!(0000 - 01 - 01).to_julian_day()..time::Date::MAX.to_julian_day())
+            .prop_map(|day| Self(time::Date::from_julian_day(day).unwrap()))
             .boxed()
     }
 }

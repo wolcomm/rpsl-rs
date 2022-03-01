@@ -97,8 +97,8 @@ impl From<ipnet::PrefixLenError> for ParseError {
     }
 }
 
-impl From<chrono::ParseError> for ParseError {
-    fn from(err: chrono::ParseError) -> Self {
+impl From<time::error::Parse> for ParseError {
+    fn from(err: time::error::Parse) -> Self {
         Self::new("failed to parse date string", Some(err))
     }
 }
