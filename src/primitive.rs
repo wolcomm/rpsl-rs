@@ -291,12 +291,7 @@ impl TryFrom<TokenPair<'_>> for SetNameComp {
             | ParserRule::as_set_name
             | ParserRule::rtr_set_name
             | ParserRule::peering_set_name => Ok(Self::Name(pair.try_into()?)),
-            // TODO: use rule_mismatch!
-            _ => Err(err!(
-                "expected a set name component, got {:?}: {}",
-                pair.as_rule(),
-                pair.as_str()
-            )),
+            _ => Err(rule_mismatch!(pair => "set name component")),
         }
     }
 }
