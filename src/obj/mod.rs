@@ -9,6 +9,9 @@ use crate::{
     parser::{debug_construction, impl_from_str, rule_mismatch, ParserRule, TokenPair},
 };
 
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::prelude::*;
+
 mod macros;
 
 use self::macros::rpsl_object_class;
@@ -82,7 +85,62 @@ impl TryFrom<TokenPair<'_>> for RpslObject {
 
 impl_from_str!(ParserRule::just_rpsl_object => RpslObject);
 
-struct AttributeRule {
+impl fmt::Display for RpslObject {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Mntner(obj) => obj.fmt(f),
+            Self::Person(obj) => obj.fmt(f),
+            Self::Role(obj) => obj.fmt(f),
+            Self::KeyCert(obj) => obj.fmt(f),
+            Self::AsBlock(obj) => obj.fmt(f),
+            Self::AutNum(obj) => obj.fmt(f),
+            Self::InetNum(obj) => obj.fmt(f),
+            Self::Inet6Num(obj) => obj.fmt(f),
+            Self::Route(obj) => obj.fmt(f),
+            Self::Route6(obj) => obj.fmt(f),
+            Self::AsSet(obj) => obj.fmt(f),
+            Self::RouteSet(obj) => obj.fmt(f),
+            Self::FilterSet(obj) => obj.fmt(f),
+            Self::RtrSet(obj) => obj.fmt(f),
+            Self::PeeringSet(obj) => obj.fmt(f),
+            Self::InetRtr(obj) => obj.fmt(f),
+            Self::Dictionary(obj) => obj.fmt(f),
+        }
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for RpslObject {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            any::<Mntner>().prop_map(Self::Mntner),
+            any::<Person>().prop_map(Self::Person),
+            any::<Role>().prop_map(Self::Role),
+            any::<KeyCert>().prop_map(Self::KeyCert),
+            any::<AsBlock>().prop_map(Self::AsBlock),
+            any::<AutNum>().prop_map(Self::AutNum),
+            any::<InetNum>().prop_map(Self::InetNum),
+            any::<Inet6Num>().prop_map(Self::Inet6Num),
+            any::<Route>().prop_map(Self::Route),
+            any::<Route6>().prop_map(Self::Route6),
+            any::<AsSet>().prop_map(Self::AsSet),
+            any::<RouteSet>().prop_map(Self::RouteSet),
+            any::<FilterSet>().prop_map(Self::FilterSet),
+            any::<RtrSet>().prop_map(Self::RtrSet),
+            any::<PeeringSet>().prop_map(Self::PeeringSet),
+            any::<InetRtr>().prop_map(Self::InetRtr),
+            any::<Dictionary>().prop_map(Self::Dictionary),
+        ]
+        .boxed()
+    }
+}
+
+/// Object validation rule indicating whether a given RPSL attribute type is
+/// permitted in a given RSPL object, and if so whether it is mandatory
+/// and/or multivalued.
+pub struct AttributeRule {
     attr: AttributeType,
     mandatory: bool,
     multivalued: bool,
@@ -98,19 +156,30 @@ impl AttributeRule {
     }
 }
 
-trait RpslObjectClass: Sized {
+/// Interface for RSPL object types.
+pub trait RpslObjectClass: Sized {
+    /// The name of the RPSL class.
     const CLASS: &'static str;
+    /// The set of rules governing the ocurrence of attributes in this object
+    /// class.
     const ATTRS: &'static [AttributeRule];
+    /// The type of the  eponymous attribute of the RPSL object class.
     type Name;
 
+    /// Create a new instance of [`Self`], validating its attributes in the
+    /// process.
     fn new<I>(name: Self::Name, iter: I) -> ValidationResult<Self>
     where
         I: IntoIterator<Item = RpslAttribute>;
 
+    /// Get the attribute for which the class is named.
     fn name(&self) -> &Self::Name;
 
+    /// Get the attributes of the object.
     fn attrs(&self) -> &AttributeSeq;
 
+    /// Validate that an interator of [`RpslAttribute`]s yields can be used to
+    /// construct a valid instance of [`Self`].
     fn validate<I>(attrs: I) -> ValidationResult<AttributeSeq>
     where
         I: IntoIterator<Item = RpslAttribute>,
@@ -380,7 +449,7 @@ rpsl_object_class! {
     /// The `inetnum` object is not defined in the RPSL RFCs.
     /// See [RIPE-81] and [RIPE-181] for details.
     InetNum {
-        class: "inet-num",
+        class: "inetnum",
         name: names::InetNum,
         parser_rule: ParserRule::inetnum_obj,
         attributes: [
@@ -412,7 +481,7 @@ rpsl_object_class! {
     ///
     /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-5
     Inet6Num {
-        class: "inet6-num",
+        class: "inet6num",
         name: names::Inet6Num,
         parser_rule: ParserRule::inet6num_obj,
         attributes: [

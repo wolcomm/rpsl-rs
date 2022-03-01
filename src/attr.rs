@@ -24,6 +24,9 @@ use crate::{
     },
 };
 
+#[cfg(any(test, feature = "arbitrary"))]
+use proptest::prelude::*;
+
 /// Enumeration of RPSL attribute types.
 #[derive(Clone, Debug, EnumDiscriminants, Hash, PartialEq, Eq)]
 #[strum_discriminants(name(AttributeType))]
@@ -545,7 +548,113 @@ impl fmt::Display for RpslAttribute {
     }
 }
 
-// TODO: impl Arbitrary for RpslAttribute
+#[cfg(any(test, feature = "arbitrary"))]
+macro_rules! arbitrary_variants {
+    ( $( $variant:ident($contents:ty) );* $(;)? ) => {
+        paste::paste! {
+            impl RpslAttribute {
+
+                pub fn arbitrary_variant(attr_type: AttributeType) -> BoxedStrategy<Self> {
+                    match attr_type {
+                        $( AttributeType::$variant => Self::[<arbitrary_ $variant:snake>](), )*
+                    }
+                }
+
+                $( fn [<arbitrary_ $variant:snake>]() -> BoxedStrategy<Self> {
+                        any::<$contents>().prop_map(Self::$variant).boxed()
+                })*
+
+                fn any_arbitrary_variant() -> BoxedStrategy<Self> {
+                    prop_oneof![
+                        $( Self::[<arbitrary_ $variant:snake>](), )*
+                    ].boxed()
+                }
+            }
+        }
+    }
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+arbitrary_variants! {
+    Descr(ObjectDescr);
+    TechC(NicHdl);
+    AdminC(NicHdl);
+    Remarks(Remarks);
+    Notify(EmailAddress);
+    MntBy(ListOf<names::Mntner>);
+    Changed(ChangedExpr);
+    Source(RegistryName);
+    MntRoutes(MntRoutesExpr);
+    MntLower(ListOf<names::Mntner>);
+    Reclaim(ReclaimExpr);
+    NoReclaim(ReclaimExpr);
+    ReferralBy(names::Mntner);
+    AuthOverride(Date);
+    NicHdl(NicHdl);
+    Address(Address);
+    Phone(TelNumber);
+    FaxNo(TelNumber);
+    EMail(EmailAddress);
+    MbrsByRef(ListOf<names::Mntner>);
+    Auth(AuthExpr);
+    UpdTo(EmailAddress);
+    MntNfy(EmailAddress);
+    Trouble(Trouble);
+    Method(SigningMethod);
+    Owner(KeyOwner);
+    Fingerpr(Fingerprint);
+    Certif(Certificate);
+    AsName(AsName);
+    AutNumMemberOf(ListOf<names::AsSet>);
+    Import(ImportExpr);
+    MpImport(MpImportExpr);
+    Export(ExportExpr);
+    MpExport(MpExportExpr);
+    Default(DefaultExpr);
+    MpDefault(MpDefaultExpr);
+    Netname(Netname);
+    Country(CountryCode);
+    Origin(names::AutNum);
+    RouteMemberOf(ListOf<names::RouteSet>);
+    Inject(InjectExpr);
+    Inject6(Inject6Expr);
+    Components(ComponentsExpr);
+    Components6(Components6Expr);
+    AggrBndry(AsExpr);
+    AggrMtd(AggrMtdExpr);
+    ExportComps(FilterExpr);
+    ExportComps6(MpFilterExpr);
+    Holes(ListOf<Prefix<afi::Ipv4>>);
+    Holes6(ListOf<Prefix<afi::Ipv6>>);
+    Pingable4(IpAddress<afi::Ipv4>);
+    Pingable6(IpAddress<afi::Ipv6>);
+    PingHdl(NicHdl);
+    AsSetMembers(ListOf<AsSetMember>);
+    RouteSetMembers(ListOf<RouteSetMember<afi::Ipv4>>);
+    RouteSetMpMembers(ListOf<RouteSetMember<afi::Any>>);
+    Filter(FilterExpr);
+    MpFilter(MpFilterExpr);
+    RtrSetMembers(ListOf<RtrSetMember<afi::Ipv4>>);
+    RtrSetMpMembers(ListOf<RtrSetMember<afi::Any>>);
+    Peering(PeeringExpr);
+    MpPeering(MpPeeringExpr);
+    Alias(DnsName);
+    LocalAs(names::AutNum);
+    Ifaddr(IfaddrExpr);
+    Interface(InterfaceExpr);
+    Peer(PeerExpr);
+    MpPeer(MpPeerExpr);
+    InetRtrMemberOf(ListOf<names::RtrSet>);
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+impl Arbitrary for RpslAttribute {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        Self::any_arbitrary_variant()
+    }
+}
 
 /// An ordered sequence of RPSL attributes.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -573,5 +682,3 @@ impl fmt::Display for AttributeSeq {
         self.0.iter().try_for_each(|attr| writeln!(f, "{}", attr))
     }
 }
-
-// TODO: impl Arbitrary for AttributeSeq

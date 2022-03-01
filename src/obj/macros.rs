@@ -85,6 +85,36 @@ macro_rules! rpsl_object_class {
                 write!(f, "{}", self.attrs)
             }
         }
+
+        #[cfg(any(test, feature = "arbitrary"))]
+        impl proptest::arbitrary::Arbitrary for $obj
+        where
+            Self: RpslObjectClass,
+            <Self as RpslObjectClass>::Name: proptest::arbitrary::Arbitrary,
+        {
+            type Parameters = proptest::arbitrary::ParamsFor<<Self as RpslObjectClass>::Name>;
+            type Strategy = proptest::strategy::BoxedStrategy<Self>;
+            fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+                use proptest::strategy::Strategy;
+                let name = <Self as RpslObjectClass>::Name::arbitrary_with(params);
+                let attrs = <Self as RpslObjectClass>::ATTRS
+                    .iter()
+                    .map(|rule| {
+                        let attr = RpslAttribute::arbitrary_variant(rule.attr);
+                        let lower = if !rule.mandatory {0} else {1};
+                        let upper = if !rule.multivalued {1} else {4};
+                        proptest::collection::vec(attr, lower..=upper)
+                    })
+                    .collect::<Vec<_>>();
+                // let attrs = proptest::collection::vec(RpslAttribute::arbitrary(), 0..8);
+                (name, attrs)
+                    .prop_map(|(name, attrs)| {
+                        <Self as RpslObjectClass>::new(name, attrs.into_iter().flatten())
+                            .unwrap()
+                    })
+                    .boxed()
+            }
+        }
     }
 }
 pub(crate) use rpsl_object_class;

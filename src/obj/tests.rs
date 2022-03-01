@@ -5,8 +5,12 @@ use crate::{
     expr::{AuthExpr, ChangedExpr},
     members::{AsSetMember, RouteSetMember, RouteSetMemberElem, RtrSetMember},
     primitive::{RangeOperator, SigningMethod},
-    tests::compare_ast,
+    tests::{compare_ast, display_fmt_parses},
 };
+
+display_fmt_parses! {
+    RpslObject,
+}
 
 compare_ast! {
     RpslObject {

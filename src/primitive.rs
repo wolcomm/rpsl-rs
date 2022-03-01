@@ -98,13 +98,18 @@ impl<A: Afi> fmt::Display for Prefix<A> {
 impl<A> Arbitrary for Prefix<A>
 where
     A: Afi + fmt::Debug + 'static,
-    A::Net: Arbitrary,
-    <A::Net as Arbitrary>::Strategy: 'static,
+    A::Addr: Arbitrary,
 {
-    type Parameters = ParamsFor<A::Net>;
+    type Parameters = ParamsFor<A::Addr>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
-        any_with::<A::Net>(params).prop_map(Self).boxed()
+        any_with::<A::Addr>(params)
+            .prop_flat_map(|addr| {
+                let len = 0..=A::max_len(&addr);
+                (Just(addr), len)
+            })
+            .prop_map(|(addr, len)| Self(A::addr_to_net(addr, len)))
+            .boxed()
     }
 }
 
@@ -428,7 +433,7 @@ impl Arbitrary for TelNumber {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        r"\+[0-9][0-9 ]*(ext\.[0-9]+)".prop_map(Self).boxed()
+        r"\+[0-9][0-9 ]*( ext\. [0-9]+)?".prop_map(Self).boxed()
     }
 }
 

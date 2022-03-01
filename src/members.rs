@@ -108,8 +108,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for RouteSetMember<A> {
 impl<A: LiteralPrefixSetAfi> Arbitrary for RouteSetMember<A>
 where
     A: fmt::Debug + Clone + 'static,
-    A::Net: Arbitrary,
-    <A::Net as Arbitrary>::Strategy: 'static,
+    A::Addr: Arbitrary,
 {
     type Parameters = ParamsFor<RangeOperator>;
     type Strategy = BoxedStrategy<Self>;
@@ -179,8 +178,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for RouteSetMemberElem<A> {
 impl<A: LiteralPrefixSetAfi> Arbitrary for RouteSetMemberElem<A>
 where
     A: fmt::Debug + Clone + 'static,
-    A::Net: Arbitrary,
-    <A::Net as Arbitrary>::Strategy: 'static,
+    A::Addr: Arbitrary,
 {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;

@@ -39,6 +39,9 @@ where
     /// Get the maximum prefix length for IP address `addr`.
     fn max_len(addr: &Self::Addr) -> u8;
     /// Construct a [`Self::Net`] from `addr` and `len`.
+    ///
+    /// # Panic
+    /// This method may panic if `len` is out of range.
     fn addr_to_net(addr: Self::Addr, len: u8) -> Self::Net;
     /// Check that `len` is a valid prefix length for address `addr`.
     fn check_addr_len(addr: Self::Addr, len: u8) -> Result<(), PrefixLenError>;
@@ -120,44 +123,6 @@ pub trait LiteralPrefixSetAfi: Afi {
             .iter()
             .any(|peering_expr_rule| &rule == peering_expr_rule)
     }
-
-    /// Address family specific [`ParserRule`] for inject expressions.
-    const INJECT_EXPR_RULE: ParserRule;
-    /// Address family specific [`ParserRule`] for unit inject expressions.
-    const INJECT_COND_UNIT_RULE: ParserRule;
-    /// Address family specific [`ParserRule`] for conjunctive inject expressions.
-    const INJECT_COND_AND_RULE: ParserRule;
-    /// Address family specific [`ParserRule`] for disjunctive inject expressions.
-    const INJECT_COND_OR_RULE: ParserRule;
-    /// Array of address family specific [`ParserRule`] for inject expressions.
-    const INJECT_COND_RULES: [ParserRule; 3] = [
-        Self::INJECT_COND_UNIT_RULE,
-        Self::INJECT_COND_AND_RULE,
-        Self::INJECT_COND_OR_RULE,
-    ];
-    /// Check whether a [`ParserRule`] variant is an `inject` expression for
-    /// this address family.
-    fn match_inject_condition_rule(rule: ParserRule) -> bool {
-        Self::INJECT_COND_RULES
-            .iter()
-            .any(|inject_cond_rule| &rule == inject_cond_rule)
-    }
-    /// Address family specific [`ParserRule`] for inject `have-components`
-    /// condition term.
-    const INJECT_COND_TERM_HAVE_RULE: ParserRule;
-    /// Address family specific [`ParserRule`] for inject `exclude` condition
-    /// term.
-    const INJECT_COND_TERM_EXCLUDE_RULE: ParserRule;
-    /// Address family specific [`ParserRule`] for inject `static` condition
-    /// term.
-    const INJECT_COND_TERM_STATIC_RULE: ParserRule;
-
-    /// Address family specific [`ParserRule`] for components expressions.
-    const COMPONENTS_EXPR_RULE: ParserRule;
-    /// Address family specific [`ParserRule`] for components protocol terms.
-    const COMPONENTS_PROTO_TERMS_RULE: ParserRule;
-    /// Address family specific [`ParserRule`] for components protocol term.
-    const COMPONENTS_PROTO_TERM_RULE: ParserRule;
 
     /// Address family specific [`ParserRule`] for peer expressions.
     const PEER_EXPR_RULE: ParserRule;
@@ -249,18 +214,6 @@ pub mod afi {
         const LOCAL_RTR_EXPR_RULE: ParserRule = ParserRule::local_rtr_expr;
         const PEERING_EXPR_LITERAL_RULE: ParserRule = ParserRule::peering_expr_literal;
         const PEERING_EXPR_NAMED_RULE: ParserRule = ParserRule::peering_expr_named;
-
-        const INJECT_EXPR_RULE: ParserRule = ParserRule::inject_expr;
-        const INJECT_COND_UNIT_RULE: ParserRule = ParserRule::inject_cond_unit;
-        const INJECT_COND_AND_RULE: ParserRule = ParserRule::inject_cond_and;
-        const INJECT_COND_OR_RULE: ParserRule = ParserRule::inject_cond_or;
-        const INJECT_COND_TERM_HAVE_RULE: ParserRule = ParserRule::inject_cond_term_have;
-        const INJECT_COND_TERM_EXCLUDE_RULE: ParserRule = ParserRule::inject_cond_term_excl;
-        const INJECT_COND_TERM_STATIC_RULE: ParserRule = ParserRule::inject_cond_term_stat;
-
-        const COMPONENTS_EXPR_RULE: ParserRule = ParserRule::components_expr;
-        const COMPONENTS_PROTO_TERMS_RULE: ParserRule = ParserRule::components_proto_terms;
-        const COMPONENTS_PROTO_TERM_RULE: ParserRule = ParserRule::components_proto_term;
 
         const PEER_EXPR_RULE: ParserRule = ParserRule::peer_expr;
         const PEER_SPEC_RULE: ParserRule = ParserRule::peer_spec;
@@ -380,18 +333,6 @@ pub mod afi {
         const LOCAL_RTR_EXPR_RULE: ParserRule = ParserRule::local_mp_rtr_expr;
         const PEERING_EXPR_LITERAL_RULE: ParserRule = ParserRule::mp_peering_expr_literal;
         const PEERING_EXPR_NAMED_RULE: ParserRule = ParserRule::mp_peering_expr_named;
-
-        const INJECT_EXPR_RULE: ParserRule = ParserRule::inject6_expr;
-        const INJECT_COND_UNIT_RULE: ParserRule = ParserRule::inject6_cond_unit;
-        const INJECT_COND_AND_RULE: ParserRule = ParserRule::inject6_cond_and;
-        const INJECT_COND_OR_RULE: ParserRule = ParserRule::inject6_cond_or;
-        const INJECT_COND_TERM_HAVE_RULE: ParserRule = ParserRule::inject6_cond_term_have;
-        const INJECT_COND_TERM_EXCLUDE_RULE: ParserRule = ParserRule::inject6_cond_term_excl;
-        const INJECT_COND_TERM_STATIC_RULE: ParserRule = ParserRule::inject6_cond_term_stat;
-
-        const COMPONENTS_EXPR_RULE: ParserRule = ParserRule::components6_expr;
-        const COMPONENTS_PROTO_TERMS_RULE: ParserRule = ParserRule::components6_proto_terms;
-        const COMPONENTS_PROTO_TERM_RULE: ParserRule = ParserRule::components6_proto_term;
 
         const PEER_EXPR_RULE: ParserRule = ParserRule::mp_peer_expr;
         const PEER_SPEC_RULE: ParserRule = ParserRule::mp_peer_spec;

@@ -112,7 +112,7 @@ ipv6_prefix_range       = ${ ipv6_prefix ~ range_op? }
 
 // ** RPSL miscellaneous syntax types **
 free_form               = @{ ( !attr_sep ~ ANY )* }
-    attr_sep            = @{ NEWLINE ~ ( !line_cont ~ ANY ) }
+    attr_sep            = @{ NEWLINE ~ ( !line_cont ~ ( ANY | EOI ) ) }
 date                    = ${ year ~ month ~ day }
     year                = @{ ASCII_DIGIT{4} }
     month               = @{ ( "0" ~ '1'..'9' )
@@ -181,11 +181,11 @@ country_code        = @{ ASCII_ALPHA{2} }
 ip_addr_choice              = @{ ipv4_addr | ipv6_addr }
 ip_prefix_choice            = @{ ipv4_prefix | ipv6_prefix }
 ip_prefix_range_choice      = _{ ipv4_prefix_range | ipv6_prefix_range }
-as_set_member_choice        = _{ aut_num | as_set }
+as_set_member_choice        = _{ as_set | aut_num }
 route_set_member_choice     = ${ ( ipv4_prefix | named_route_set_member ) ~ range_op? }
 route_set_mp_member_choice  = ${ ( ip_prefix_choice | named_route_set_member ) ~ range_op? }
-rtr_set_member_choice       = _{ rtr_set | inet_rtr | ipv4_addr }
-rtr_set_mp_member_choice    = _{ rtr_set | inet_rtr | ip_addr_choice }
+rtr_set_member_choice       = _{ rtr_set | ipv4_addr | inet_rtr }
+rtr_set_mp_member_choice    = _{ rtr_set | ip_addr_choice | inet_rtr }
 
 // lists
 mntner_name_list            =  { mntner_name                 ~ ( "," ~ mntner_name )* }
@@ -477,7 +477,7 @@ common_attrs                = _{ descr_attr | tech_c_attr | admin_c_attr | remar
     source_attr             = !{ ^"source:"          ~ registry_name }
 // contact attributes
 contact_attrs               = _{ nic_hdl_attr | address_attr | phone_attr
-                               | fax_no_attr | e_mail_attr }
+                               | fax_no_attr | e_mail_attr | auth_attr }
     nic_hdl_attr            = !{ ^"nic-hdl:"         ~ nic_hdl }
     address_attr            = !{ ^"address:"         ~ address }
     phone_attr              = !{ ^"phone:"           ~ tel_number }
@@ -503,6 +503,7 @@ inetnum_attrs               = _{ netname_attr | country_attr
     netname_attr            = !{ ^"netname:"            ~ netname }
     country_attr            = !{ ^"country:"            ~ country_code }
 // special attributes
+auth_attr                   = !{ ^"auth:"               ~ auth_expr }
 mnt_routes_attr             = !{ ^"mnt-routes:"         ~ mnt_routes_expr }
 mnt_lower_attr              = !{ ^"mnt-lower:"          ~ mntner_name_list }
 reclaim_attr                = !{ ^"reclaim:"            ~ reclaim_expr }
@@ -523,7 +524,6 @@ mntner_obj                      =  { mntner_class_attr      ~ ( mntner_attr )+ }
                                    ( common_attrs | auth_attr
                                    | upd_to_attr | mnt_nfy_attr
                                    | referral_by_attr | auth_override_attr ) }
-        auth_attr               = !{ ^"auth:"               ~ auth_expr }
         upd_to_attr             = !{ ^"upd-to:"             ~ email_addr }
         mnt_nfy_attr            = !{ ^"mnt-nfy:"            ~ email_addr }
         referral_by_attr        = !{ ^"referral-by:"        ~ mntner_name }
@@ -676,7 +676,7 @@ key_cert_obj                    =  { key_cert_class_attr    ~ ( key_cert_attr )+
         certif_attr             = !{ ^"certif:"             ~ key_certif }
 
 // ** standalone parsers **
-just_rpsl_object                = _{ SOI ~ rpsl_object ~ EOI }
+just_rpsl_object                = _{ SOI ~ rpsl_object ~ NEWLINE? ~ EOI }
 just_rpsl_object_key            = _{ SOI ~ rpsl_object_key ~ EOI }
 // expressions
 just_import_stmt                = _{ SOI ~ import_stmt ~ EOI }
