@@ -66,9 +66,9 @@ where
 
 /// IP prefix literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct Prefix<A: Afi>(A::Net);
+pub struct IpPrefix<A: Afi>(A::Net);
 
-impl<A: Afi> FromStr for Prefix<A> {
+impl<A: Afi> FromStr for IpPrefix<A> {
     type Err = <A::Net as FromStr>::Err;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -76,7 +76,7 @@ impl<A: Afi> FromStr for Prefix<A> {
     }
 }
 
-impl<A: Afi> TryFrom<TokenPair<'_>> for Prefix<A> {
+impl<A: Afi> TryFrom<TokenPair<'_>> for IpPrefix<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -88,14 +88,14 @@ impl<A: Afi> TryFrom<TokenPair<'_>> for Prefix<A> {
     }
 }
 
-impl<A: Afi> fmt::Display for Prefix<A> {
+impl<A: Afi> fmt::Display for IpPrefix<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A> Arbitrary for Prefix<A>
+impl<A> Arbitrary for IpPrefix<A>
 where
     A: Afi + fmt::Debug + 'static,
     A::Addr: Arbitrary,
@@ -115,12 +115,12 @@ where
 
 /// IP prefix range literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct PrefixRange<A: Afi> {
+pub struct IpPrefixRange<A: Afi> {
     prefix: A::Net,
     op: RangeOperator,
 }
 
-impl<A: Afi> PrefixRange<A> {
+impl<A: Afi> IpPrefixRange<A> {
     /// Construct a new [`PrefixRange<T>`].
     pub fn new(prefix: A::Net, op: RangeOperator) -> Self {
         Self { prefix, op }
@@ -137,7 +137,7 @@ impl<A: Afi> PrefixRange<A> {
     }
 }
 
-impl<A: Afi> TryFrom<TokenPair<'_>> for PrefixRange<A> {
+impl<A: Afi> TryFrom<TokenPair<'_>> for IpPrefixRange<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -153,14 +153,14 @@ impl<A: Afi> TryFrom<TokenPair<'_>> for PrefixRange<A> {
     }
 }
 
-impl<A: Afi> fmt::Display for PrefixRange<A> {
+impl<A: Afi> fmt::Display for IpPrefixRange<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.prefix, self.op)
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: Afi> Arbitrary for PrefixRange<A>
+impl<A: Afi> Arbitrary for IpPrefixRange<A>
 where
     A: fmt::Debug,
     A::Addr: Arbitrary + Clone,

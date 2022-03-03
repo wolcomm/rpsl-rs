@@ -6,7 +6,7 @@ use crate::{
     error::{ParseError, ParseResult},
     names::{AsSet, AutNum, InetRtr, RouteSet, RtrSet},
     parser::{debug_construction, next_into_or, rule_mismatch, ParserRule, TokenPair},
-    primitive::{IpAddress, Prefix, RangeOperator},
+    primitive::{IpAddress, IpPrefix, RangeOperator},
 };
 
 #[cfg(any(test, feature = "arbitrary"))]
@@ -131,7 +131,7 @@ where
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum RouteSetMemberElem<A: LiteralPrefixSetAfi> {
     /// A `route-set` member wrapping literal IP prefix.
-    Prefix(Prefix<A>),
+    Prefix(IpPrefix<A>),
     /// A `route-set` member wrapping the `RS-ANY` token.
     RsAny,
     /// A `route-set` member wrapping the `AS-ANY` token.
@@ -184,7 +184,7 @@ where
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
         prop_oneof![
-            any::<Prefix<A>>().prop_map(Self::Prefix),
+            any::<IpPrefix<A>>().prop_map(Self::Prefix),
             Just(Self::RsAny),
             Just(Self::AsAny),
             any::<RouteSet>().prop_map(Self::RouteSet),

@@ -12,7 +12,7 @@ use crate::{
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
-    primitive::PrefixRange,
+    primitive::IpPrefixRange,
 };
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -73,7 +73,7 @@ impl Arbitrary for MntRoutesExpr {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum MntRoutesExprQualifier {
-    Prefixes(ListOf<PrefixRange<afi::Any>>),
+    Prefixes(ListOf<IpPrefixRange<afi::Any>>),
     Any,
 }
 
@@ -103,12 +103,12 @@ impl fmt::Display for MntRoutesExprQualifier {
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for MntRoutesExprQualifier {
-    type Parameters = ParamsFor<ListOf<PrefixRange<afi::Any>>>;
+    type Parameters = ParamsFor<ListOf<IpPrefixRange<afi::Any>>>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
         prop_oneof![
             Just(Self::Any),
-            any_with::<ListOf<PrefixRange<afi::Any>>>(params).prop_map(Self::Prefixes),
+            any_with::<ListOf<IpPrefixRange<afi::Any>>>(params).prop_map(Self::Prefixes),
         ]
         .boxed()
     }
@@ -132,7 +132,7 @@ mod tests {
                 MntRoutesExpr {
                     mntners: vec!["EBG-COM".parse().unwrap()].into_iter().collect(),
                     qualifier: Some(MntRoutesExprQualifier::Prefixes(vec![
-                        PrefixRange::new(
+                        IpPrefixRange::new(
                             "192.168.144.0/23".parse().unwrap(),
                             RangeOperator::None,
                         ),
@@ -143,11 +143,11 @@ mod tests {
                 MntRoutesExpr {
                     mntners: vec!["MAINT-AS65001".parse().unwrap()].into_iter().collect(),
                     qualifier: Some(MntRoutesExprQualifier::Prefixes(vec![
-                        PrefixRange::new(
+                        IpPrefixRange::new(
                             "2001:0DB8::/32".parse().unwrap(),
                             RangeOperator::LessIncl,
                         ),
-                        PrefixRange::new(
+                        IpPrefixRange::new(
                             "192.0.2.0/24".parse().unwrap(),
                             RangeOperator::LessIncl,
                         ),

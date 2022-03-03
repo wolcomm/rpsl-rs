@@ -13,7 +13,7 @@ use crate::{
         debug_construction, impl_from_str, next_into_or, next_parse_or, rule_mismatch, ParserRule,
         TokenPair,
     },
-    primitive::{PrefixRange, RangeOperator},
+    primitive::{IpPrefixRange, RangeOperator},
 };
 
 use super::action;
@@ -259,7 +259,7 @@ where
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PrefixSetExpr<A: LiteralPrefixSetAfi> {
     /// A literal IP prefix list.
-    Literal(Vec<PrefixRange<A>>),
+    Literal(Vec<IpPrefixRange<A>>),
     /// A named RSPL object that can be evaluated as a `route-set`.
     Named(NamedPrefixSet),
 }
@@ -304,14 +304,14 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for PrefixSetExpr<A> {
 impl<A: LiteralPrefixSetAfi> Arbitrary for PrefixSetExpr<A>
 where
     A: fmt::Debug + 'static,
-    PrefixRange<A>: Arbitrary,
-    <PrefixRange<A> as Arbitrary>::Strategy: 'static,
+    IpPrefixRange<A>: Arbitrary,
+    <IpPrefixRange<A> as Arbitrary>::Strategy: 'static,
 {
-    type Parameters = ParamsFor<Vec<PrefixRange<A>>>;
+    type Parameters = ParamsFor<Vec<IpPrefixRange<A>>>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
         prop_oneof![
-            any_with::<Vec<PrefixRange<A>>>(args).prop_map(Self::Literal),
+            any_with::<Vec<IpPrefixRange<A>>>(args).prop_map(Self::Literal),
             any::<NamedPrefixSet>().prop_map(Self::Named),
         ]
         .boxed()
@@ -886,7 +886,7 @@ mod tests {
         single_literal_prefix_set: "{ 192.0.2.0/24^- }" => FilterExpr:
             FilterExpr::Unit(Term::Literal(Literal::PrefixSet(
                 PrefixSetExpr::Literal(vec![
-                    PrefixRange::new(
+                    IpPrefixRange::new(
                         "192.0.2.0/24".parse().unwrap(),
                         RangeOperator::LessExcl,
                     ),
@@ -896,15 +896,15 @@ mod tests {
         multi_literal_prefix_set: "{ 192.0.2.0/25^+, 192.0.2.128/26^27, 2001:db8::/32^48-56 }" => MpFilterExpr:
             MpFilterExpr::Unit(Term::Literal(Literal::PrefixSet(
                 PrefixSetExpr::Literal(vec![
-                    PrefixRange::new(
+                    IpPrefixRange::new(
                         IpNet::V4("192.0.2.0/25".parse().unwrap()),
                         RangeOperator::LessIncl,
                     ),
-                    PrefixRange::new(
+                    IpPrefixRange::new(
                         IpNet::V4("192.0.2.128/26".parse().unwrap()),
                         RangeOperator::Exact(27),
                     ),
-                    PrefixRange::new(
+                    IpPrefixRange::new(
                         IpNet::V6("2001:db8::/32".parse().unwrap()),
                         RangeOperator::Range(48, 56),
                     ),
@@ -956,7 +956,7 @@ mod tests {
             MpFilterExpr::Unit(Term::Expr(Box::new(
                 Expr::Unit(Term::Literal(Literal::PrefixSet(
                     PrefixSetExpr::Literal(vec![
-                        PrefixRange::new(
+                        IpPrefixRange::new(
                             IpNet::V4("192.0.2.0/24".parse().unwrap()),
                             RangeOperator::LessExcl,
                         ),
@@ -968,15 +968,15 @@ mod tests {
             MpFilterExpr::Unit(Term::Expr(Box::new(
                 Expr::Unit(Term::Literal(Literal::PrefixSet(
                     PrefixSetExpr::Literal(vec![
-                        PrefixRange::new(
+                        IpPrefixRange::new(
                             IpNet::V4("192.0.2.0/25".parse().unwrap()),
                             RangeOperator::LessIncl,
                         ),
-                        PrefixRange::new(
+                        IpPrefixRange::new(
                             IpNet::V4("192.0.2.128/26".parse().unwrap()),
                             RangeOperator::Exact(27),
                         ),
-                        PrefixRange::new(
+                        IpPrefixRange::new(
                             IpNet::V6("2001:db8::/32".parse().unwrap()),
                             RangeOperator::Range(48, 56),
                         ),
@@ -1096,7 +1096,7 @@ mod tests {
             rfc2622_sect6_autnum_example1: "{ 128.9.0.0/16 }" => {
                 FilterExpr::Unit(Term::Literal(Literal::PrefixSet(
                     PrefixSetExpr::Literal(vec![
-                        PrefixRange::new("128.9.0.0/16".parse().unwrap(), RangeOperator::None)
+                        IpPrefixRange::new("128.9.0.0/16".parse().unwrap(), RangeOperator::None)
                     ]),
                     RangeOperator::None,
                 )))
@@ -1104,8 +1104,8 @@ mod tests {
             rfc2622_sect5_example1: "{ 5.0.0.0/8, 6.0.0.0/8 }" => {
                 FilterExpr::Unit(Term::Literal(Literal::PrefixSet(
                     PrefixSetExpr::Literal(vec![
-                        PrefixRange::new("5.0.0.0/8".parse().unwrap(), RangeOperator::None),
-                        PrefixRange::new("6.0.0.0/8".parse().unwrap(), RangeOperator::None),
+                        IpPrefixRange::new("5.0.0.0/8".parse().unwrap(), RangeOperator::None),
+                        IpPrefixRange::new("6.0.0.0/8".parse().unwrap(), RangeOperator::None),
                     ]),
                     RangeOperator::None,
                 )))
@@ -1134,7 +1134,7 @@ mod tests {
             rfc2622_sect5_example3: "{ 0.0.0.0/0 }" => {
                 FilterExpr::Unit(Term::Literal(Literal::PrefixSet(
                     PrefixSetExpr::Literal(vec![
-                        PrefixRange::new("0.0.0.0/0".parse().unwrap(), RangeOperator::None),
+                        IpPrefixRange::new("0.0.0.0/0".parse().unwrap(), RangeOperator::None),
                     ]),
                     RangeOperator::None,
                 )))
@@ -1142,10 +1142,10 @@ mod tests {
             rfc2622_sect5_example4: "{ 128.9.0.0/16, 128.8.0.0/16, 128.7.128.0/17, 5.0.0.0/8 }" => {
                 FilterExpr::Unit(Term::Literal(Literal::PrefixSet(
                     PrefixSetExpr::Literal(vec![
-                        PrefixRange::new("128.9.0.0/16".parse().unwrap(), RangeOperator::None),
-                        PrefixRange::new("128.8.0.0/16".parse().unwrap(), RangeOperator::None),
-                        PrefixRange::new("128.7.128.0/17".parse().unwrap(), RangeOperator::None),
-                        PrefixRange::new("5.0.0.0/8".parse().unwrap(), RangeOperator::None),
+                        IpPrefixRange::new("128.9.0.0/16".parse().unwrap(), RangeOperator::None),
+                        IpPrefixRange::new("128.8.0.0/16".parse().unwrap(), RangeOperator::None),
+                        IpPrefixRange::new("128.7.128.0/17".parse().unwrap(), RangeOperator::None),
+                        IpPrefixRange::new("5.0.0.0/8".parse().unwrap(), RangeOperator::None),
                     ]),
                     RangeOperator::None,
                 )))
@@ -1159,10 +1159,10 @@ mod tests {
             rfc2622_sect5_example6: "{ 5.0.0.0/8^+, 128.9.0.0/16^-, 30.0.0.0/8^16, 30.0.0.0/8^24-32 }" => {
                 FilterExpr::Unit(Term::Literal(Literal::PrefixSet(
                     PrefixSetExpr::Literal(vec![
-                        PrefixRange::new("5.0.0.0/8".parse().unwrap(), RangeOperator::LessIncl),
-                        PrefixRange::new("128.9.0.0/16".parse().unwrap(), RangeOperator::LessExcl),
-                        PrefixRange::new("30.0.0.0/8".parse().unwrap(), RangeOperator::Exact(16)),
-                        PrefixRange::new("30.0.0.0/8".parse().unwrap(), RangeOperator::Range(24, 32)),
+                        IpPrefixRange::new("5.0.0.0/8".parse().unwrap(), RangeOperator::LessIncl),
+                        IpPrefixRange::new("128.9.0.0/16".parse().unwrap(), RangeOperator::LessExcl),
+                        IpPrefixRange::new("30.0.0.0/8".parse().unwrap(), RangeOperator::Exact(16)),
+                        IpPrefixRange::new("30.0.0.0/8".parse().unwrap(), RangeOperator::Range(24, 32)),
                     ]),
                     RangeOperator::None,
                 )))
@@ -1247,11 +1247,11 @@ mod tests {
                 FilterExpr::Not(Box::new(Expr::Unit(Term::Literal(Literal::PrefixSet(
                     PrefixSetExpr::Literal(
                         vec![
-                            PrefixRange::new(
+                            IpPrefixRange::new(
                                 "128.9.0.0/16".parse().unwrap(),
                                 RangeOperator::None,
                             ),
-                            PrefixRange::new(
+                            IpPrefixRange::new(
                                 "128.8.0.0/16".parse().unwrap(),
                                 RangeOperator::None,
                             )
@@ -1288,7 +1288,7 @@ mod tests {
                         Term::Literal(Literal::PrefixSet(
                             PrefixSetExpr::Literal(
                                 vec![
-                                    PrefixRange::new(
+                                    IpPrefixRange::new(
                                         "128.9.0.0/16".parse().unwrap(),
                                         RangeOperator::None,
                                     )
@@ -1308,7 +1308,7 @@ mod tests {
                     Box::new(Expr::Unit(Term::Literal(Literal::PrefixSet(
                         PrefixSetExpr::Literal(
                             vec![
-                                PrefixRange::new(
+                                IpPrefixRange::new(
                                     "0.0.0.0/0".parse().unwrap(),
                                     RangeOperator::Range(0, 18),
                                 )

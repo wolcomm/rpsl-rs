@@ -10,7 +10,7 @@ use crate::{
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
-    primitive::{PrefixRange, Protocol},
+    primitive::{IpPrefixRange, Protocol},
 };
 
 use super::{action, autnum, filter, rtr};
@@ -261,8 +261,8 @@ mod inject {
 
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
     pub enum Term<A: RouteAttrAfi> {
-        HaveComps(ListOf<PrefixRange<A>>),
-        Exclude(ListOf<PrefixRange<A>>),
+        HaveComps(ListOf<IpPrefixRange<A>>),
+        Exclude(ListOf<IpPrefixRange<A>>),
         Static,
     }
 
@@ -300,10 +300,10 @@ mod inject {
         A: fmt::Debug + Clone + 'static,
         A::Addr: Arbitrary,
     {
-        type Parameters = ParamsFor<ListOf<PrefixRange<A>>>;
+        type Parameters = ParamsFor<ListOf<IpPrefixRange<A>>>;
         type Strategy = BoxedStrategy<Self>;
         fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
-            let prefix_range_list = any_with::<ListOf<PrefixRange<A>>>(params);
+            let prefix_range_list = any_with::<ListOf<IpPrefixRange<A>>>(params);
             prop_oneof![
                 prefix_range_list.clone().prop_map(Self::HaveComps),
                 prefix_range_list.clone().prop_map(Self::Exclude),
@@ -347,8 +347,8 @@ mod inject {
                         at: None,
                         action: None,
                         condition: Some(Condition::Unit(Term::HaveComps(vec![
-                            PrefixRange::new("128.8.0.0/16".parse().unwrap(), RangeOperator::None),
-                            PrefixRange::new("128.9.0.0/16".parse().unwrap(), RangeOperator::None),
+                            IpPrefixRange::new("128.8.0.0/16".parse().unwrap(), RangeOperator::None),
+                            IpPrefixRange::new("128.9.0.0/16".parse().unwrap(), RangeOperator::None),
                         ].into_iter().collect())))
                     }
                 }
