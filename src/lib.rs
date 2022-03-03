@@ -49,8 +49,6 @@ pub mod names;
 pub mod obj;
 /// Primitive RPSL syntax types.
 pub mod primitive;
-/// traits for performing value substitution on RPSL expressions.
-pub mod subst;
 
 #[cfg(test)]
 mod tests;

@@ -7,14 +7,13 @@ use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
     addr_family::{afi, LiteralPrefixSetAfi},
-    error::{ParseError, ParseResult, SubstitutionError, SubstitutionResult},
+    error::{ParseError, ParseResult},
     names::{AsSet, AutNum, FilterSet, RouteSet},
     parser::{
         debug_construction, impl_from_str, next_into_or, next_parse_or, rule_mismatch, ParserRule,
         TokenPair,
     },
     primitive::{PrefixRange, RangeOperator},
-    subst::{debug_substitution, PeerAs, Substitute},
 };
 
 use super::action;
@@ -115,26 +114,6 @@ where
     }
 }
 
-impl<P, A> Substitute<P> for Expr<A>
-where
-    P: PeerAs,
-    A: LiteralPrefixSetAfi,
-{
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
-        log::info!(
-            "trying to substitute 'PeerAS' tokens in filter expression '{}'",
-            self
-        );
-        debug_substitution!(Expr: self);
-        match self {
-            Self::Unit(term) => Ok(Self::Unit(term.substitute(p)?)),
-            Self::Not(expr) => Ok(Self::Not(Box::new(expr.substitute(p)?))),
-            Self::And(lhs, rhs) => Ok(Self::And(lhs.substitute(p)?, Box::new(rhs.substitute(p)?))),
-            Self::Or(lhs, rhs) => Ok(Self::Or(lhs.substitute(p)?, Box::new(rhs.substitute(p)?))),
-        }
-    }
-}
-
 /// A term in an RPSL `mp-filter` expression.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Term<A: LiteralPrefixSetAfi> {
@@ -210,22 +189,6 @@ where
     }
 }
 
-impl<P, A> Substitute<P> for Term<A>
-where
-    P: PeerAs,
-    A: LiteralPrefixSetAfi,
-{
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
-        debug_substitution!(Term: self);
-        match self {
-            Self::Literal(fltr_literal) => Ok(Self::Literal(fltr_literal.substitute(p)?)),
-            Self::Named(fltr_set_expr) => Ok(Self::Named(fltr_set_expr.substitute(p)?)),
-            Self::Expr(expr) => Ok(Self::Expr(Box::new(expr.substitute(p)?))),
-            any @ Self::Any => Ok(any),
-        }
-    }
-}
-
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Literal<A: LiteralPrefixSetAfi> {
     PrefixSet(PrefixSetExpr<A>, RangeOperator),
@@ -292,21 +255,6 @@ where
     }
 }
 
-impl<P, A> Substitute<P> for Literal<A>
-where
-    P: PeerAs,
-    A: LiteralPrefixSetAfi,
-{
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
-        debug_substitution!(Literal: self);
-        match self {
-            Self::PrefixSet(set_expr, op) => Ok(Self::PrefixSet(set_expr.substitute(p)?, op)),
-            Self::AsPath(_) => unimplemented!("as-path filter literals not yet implemented"),
-            attr_match @ Self::AttrMatch(_) => Ok(attr_match),
-        }
-    }
-}
-
 /// An RPSL sub-expression representing a set of IP prefixes.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PrefixSetExpr<A: LiteralPrefixSetAfi> {
@@ -367,20 +315,6 @@ where
             any::<NamedPrefixSet>().prop_map(Self::Named),
         ]
         .boxed()
-    }
-}
-
-impl<P, A> Substitute<P> for PrefixSetExpr<A>
-where
-    P: PeerAs,
-    A: LiteralPrefixSetAfi,
-{
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
-        debug_substitution!(PrefixSetExpr: self);
-        match self {
-            literal @ Self::Literal(_) => Ok(literal),
-            Self::Named(set) => Ok(Self::Named(set.substitute(p)?)),
-        }
     }
 }
 
@@ -448,24 +382,6 @@ impl Arbitrary for NamedPrefixSet {
             any::<AutNum>().prop_map(Self::AutNum),
         ]
         .boxed()
-    }
-}
-
-impl<P: PeerAs> Substitute<P> for NamedPrefixSet {
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
-        debug_substitution!(NamedPrefixSet: self);
-        match self {
-            Self::PeerAs => {
-                if let Some(peeras) = p.peeras() {
-                    Ok(Self::AutNum(*peeras))
-                } else {
-                    Err(SubstitutionError::PeerAs)
-                }
-            }
-            Self::RouteSet(set_expr) => Ok(Self::RouteSet(set_expr.substitute(p)?)),
-            Self::AsSet(set_expr) => Ok(Self::AsSet(set_expr.substitute(p)?)),
-            _ => Ok(self),
-        }
     }
 }
 
