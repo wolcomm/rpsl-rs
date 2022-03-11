@@ -8,13 +8,13 @@ use crate::{
     addr_family::afi,
     error::{ParseError, ParseResult},
     expr::{
-        AggrMtdExpr, AsExpr, AuthExpr, ChangedExpr, Components6Expr, ComponentsExpr, DefaultExpr,
-        ExportExpr, FilterExpr, IfaddrExpr, ImportExpr, Inject6Expr, InjectExpr, InterfaceExpr,
-        MntRoutesExpr, MpDefaultExpr, MpExportExpr, MpFilterExpr, MpImportExpr, MpPeerExpr,
-        MpPeeringExpr, PeerExpr, PeeringExpr, ReclaimExpr,
+        AggrMtdExpr, AsExpr, AsSetMember, AuthExpr, ChangedExpr, Components6Expr, ComponentsExpr,
+        DefaultExpr, ExportExpr, FilterExpr, IfaddrExpr, ImportExpr, Inject6Expr, InjectExpr,
+        InterfaceExpr, MntRoutesExpr, MpDefaultExpr, MpExportExpr, MpFilterExpr, MpImportExpr,
+        MpPeerExpr, MpPeeringExpr, PeerExpr, PeeringExpr, ReclaimExpr, RouteSetMember,
+        RouteSetMpMember, RtrSetMember, RtrSetMpMember,
     },
     list::ListOf,
-    members::{AsSetMember, RouteSetMember, RtrSetMember},
     names,
     parser::{debug_construction, next_into_or, rule_mismatch, ParserRule, TokenPair},
     primitive::{
@@ -219,10 +219,10 @@ pub enum RpslAttribute {
     // route-set attributes
     /// RPSL `members` attribute for `route-set` objects.
     #[strum_discriminants(strum(to_string = "members"))]
-    RouteSetMembers(ListOf<RouteSetMember<afi::Ipv4>>),
+    RouteSetMembers(ListOf<RouteSetMember>),
     /// RPSL `mp-members` attribute for `route-set` objects.
     #[strum_discriminants(strum(to_string = "mp-members"))]
-    RouteSetMpMembers(ListOf<RouteSetMember<afi::Any>>),
+    RouteSetMpMembers(ListOf<RouteSetMpMember>),
 
     // filter-set attributes
     /// RPSL `filter` attribute.
@@ -235,10 +235,10 @@ pub enum RpslAttribute {
     // rtr-set attributes
     /// RPSL `members` attribute for `rtr-set` objects.
     #[strum_discriminants(strum(to_string = "members"))]
-    RtrSetMembers(ListOf<RtrSetMember<afi::Ipv4>>),
+    RtrSetMembers(ListOf<RtrSetMember>),
     /// RPSL `mp-members` attribute for `rtr-set` objects.
     #[strum_discriminants(strum(to_string = "mp-members"))]
-    RtrSetMpMembers(ListOf<RtrSetMember<afi::Any>>),
+    RtrSetMpMembers(ListOf<RtrSetMpMember>),
 
     // peering-set attributes
     /// RPSL `peering` attribute.
@@ -631,12 +631,12 @@ arbitrary_variants! {
     Pingable6(IpAddress<afi::Ipv6>);
     PingHdl(NicHdl);
     AsSetMembers(ListOf<AsSetMember>);
-    RouteSetMembers(ListOf<RouteSetMember<afi::Ipv4>>);
-    RouteSetMpMembers(ListOf<RouteSetMember<afi::Any>>);
+    RouteSetMembers(ListOf<RouteSetMember>);
+    RouteSetMpMembers(ListOf<RouteSetMpMember>);
     Filter(FilterExpr);
     MpFilter(MpFilterExpr);
-    RtrSetMembers(ListOf<RtrSetMember<afi::Ipv4>>);
-    RtrSetMpMembers(ListOf<RtrSetMember<afi::Any>>);
+    RtrSetMembers(ListOf<RtrSetMember>);
+    RtrSetMpMembers(ListOf<RtrSetMpMember>);
     Peering(PeeringExpr);
     MpPeering(MpPeeringExpr);
     Alias(DnsName);

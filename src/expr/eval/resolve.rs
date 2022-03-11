@@ -1,88 +1,22 @@
-use std::iter::{Extend, FromIterator};
-use std::ops::{BitAnd, BitOr, Not};
+use std::convert::TryInto;
+use std::iter::zip;
 
 use num::{One, Zero};
 
 use crate::{
-    addr_family::{afi, Afi, LiteralPrefixSetAfi},
-    error::ResolutionError,
+    addr_family::{afi, Afi, AfiClass},
     expr::filter,
     names::{AsSet, AutNum, RouteSet},
-    primitive::PrefixRange,
+    primitive::{IpPrefixRange, RangeOperator},
 };
 
-trait ExpressionAfi: LiteralPrefixSetAfi + Sized {
-    fn partition_range<Ipv4Elem, Ipv6Elem>(
-        range: PrefixRange<Self>,
-    ) -> IpPrefixRange<Ipv4Elem, Ipv6Elem>;
-}
-
-impl ExpressionAfi for afi::Ipv4 {
-    fn partition_range<Ipv4Elem, Ipv6Elem>(
-        range: PrefixRange<Self>,
-    ) -> IpPrefixRange<Ipv4Elem, Ipv6Elem> {
-        IpPrefixRange::Ipv4(range.into())
-    }
-}
-
-impl ExpressionAfi for afi::Any {
-    fn partition_range<Ipv4Elem, Ipv6Elem>(
-        range: PrefixRange<Self>,
-    ) -> IpPrefixRange<Ipv4Elem, Ipv6Elem> {
-        match range.prefix() {
-            Self::Net::V4(prefix) => IpPrefixRange::Ipv4(range.into()),
-            Self::Net::V6(prefix) => IpPrefixRange::Ipv6(range.into()),
-        }
-    }
-}
-
-trait IpPrefixAfi: Afi {}
-
-impl IpPrefixAfi for afi::Ipv4 {}
-impl IpPrefixAfi for afi::Ipv6 {}
-
-struct Ipv4PrefixRange {
-    prefix: ipnet::Ipv4Net,
-    lower: u8,
-    upper: u8,
-}
-
-struct Ipv6PrefixRange {
-    prefix: ipnet::Ipv6Net,
-    lower: u8,
-    upper: u8,
-}
-
-enum IpPrefixRange<Ipv4Elem = Ipv4PrefixRange, Ipv6Elem = Ipv6PrefixRange> {
-    Ipv4(Ipv4Elem),
-    Ipv6(Ipv6Elem),
-}
-
-pub trait Resolver<Ipv4Elem = Ipv4PrefixRange, Ipv6Elem = Ipv6PrefixRange> {
-    type Ipv4PrefixSet: Default + One + Zero + Not + BitAnd + BitOr + Extend<Ipv4Elem>;
-    type Ipv6PrefixSet: Default + One + Zero + Not + BitAnd + BitOr + Extend<Ipv6Elem>;
-    type AsPathRegexp;
-
-    type Error: ResolverError;
-
-    fn resolve_route_set(&mut self, route_set: RouteSet) -> ResolveFilterResult<Self>;
-    fn resolve_as_set_as_route_set(&mut self, as_set: AsSet) -> ResolveFilterResult<Self>;
-    fn resolve_aut_num_as_route_set(&mut self, aut_num: AutNum) -> ResolveFilterResult<Self>;
-}
-
-pub trait ResolverError: std::error::Error + Send + Sync + 'static {}
-
-impl<E: ResolverError> From<E> for ResolutionError {
-    fn from(err: E) -> Self {
-        Self::new("expression resolution error", Some(err))
-    }
-}
-
-pub type ResolveFilterOutput<R> = (
-    Option<<R as Resolver>::Ipv4PrefixSet>,
-    Option<<R as Resolver>::Ipv6PrefixSet>,
-);
-pub type ResolveFilterResult<R> = Result<ResolveFilterOutput<R>, <R as Resolver>::Error>;
+use super::{
+    apply::Apply,
+    data::IpPrefixRangeEnum,
+    error::{EvaluationError, EvaluationResult},
+    resolver::{Resolver, ResolverOutput},
+    state, Evaluation,
+};
 
 macro_rules! debug_resolution {
     ( $node:ty: $ex:expr ) => {
@@ -94,167 +28,187 @@ macro_rules! debug_resolution {
 }
 
 macro_rules! err {
-    ( $msg:literal $(,)? ) => {
-        $crate::error::ResolutionError::from_msg($msg)
-    };
-    ( $fmt:expr, $( $arg:tt )* ) => {
-        $crate::error::ResolutionError::from_msg(format!($fmt, $($arg)*))
+    ( $( $arg:tt )* ) => {
+        super::error::err!(
+            super::error::EvaluationErrorKind::Resolution,
+            $($arg)*
+        )
     };
 }
 
-/// Custom [`Result<T, E>`] containing a possible [`SubstitutionError`].
-type ResolutionResult<T> = Result<T, ResolutionError>;
-
-trait Resolve<R: Resolver>: Sized {
+pub trait Resolve<R: Resolver>: Sized {
     type Output;
-    fn resolve(self, resolver: &mut R) -> ResolutionResult<Self::Output>;
+    fn resolve(self, resolver: &mut R) -> EvaluationResult<Self::Output>;
 }
 
-impl<R: Resolver, A: LiteralPrefixSetAfi> Resolve<R> for filter::Expr<A> {
-    type Output = (Option<R::Ipv4PrefixSet>, Option<R::Ipv6PrefixSet>);
+impl<R, T, O> Resolve<R> for Evaluation<T, state::Ready>
+where
+    R: Resolver,
+    T: Resolve<R, Output = O>,
+{
+    type Output = O;
 
-    fn resolve(self, resolver: &mut R) -> ResolutionResult<Self::Output> {
+    fn resolve(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
+        self.into_inner().resolve(resolver)
+    }
+}
+
+// impl<R: Resolver, A: filter::ExprAfi> Resolve<R> for filter::Expr<A> {
+//     type Output = (Option<R::Ipv4PrefixSet>, Option<R::Ipv6PrefixSet>);
+
+//     fn resolve(self, resolver: &mut R) -> ResolutionResult<Self::Output> {
+//         debug_resolution!(filter::Expr: self);
+//         match self {
+//             Self::Unit(term) => term.resolve(resolver),
+//             Self::Not(term) => {
+//                 let (ipv4, ipv6) = term.resolve(resolver)?;
+//                 Ok((ipv4.map(|set| !set), ipv6.map(|set| !set)))
+//             }
+//             Self::And(lhs, rhs) => {
+//                 let (lhs_ipv4, lhs_ipv6) = lhs.resolve(resolver)?;
+//                 let (rhs_ipv4, rhs_ipv6) = rhs.resolve(resolver)?;
+//                 let ipv4 = match (lhs_ipv4, rhs_ipv4) {
+//                     (Some(lhs), Some(rhs)) => Some(lhs & rhs),
+//                     (None, None) => None,
+//                     _ => return Err(err!("failed to take intersection of sets")),
+//                 };
+//                 let ipv6 = match (lhs_ipv6, rhs_ipv6) {
+//                     (Some(lhs), Some(rhs)) => Some(lhs & rhs),
+//                     (None, None) => None,
+//                     _ => return Err(err!("failed to take intersection of sets")),
+//                 };
+//                 Ok((ipv4, ipv6))
+//             }
+//             Self::Or(lhs, rhs) => {
+//                 let (lhs_ipv4, lhs_ipv6) = lhs.resolve(resolver)?;
+//                 let (rhs_ipv4, rhs_ipv6) = rhs.resolve(resolver)?;
+//                 let ipv4 = match (lhs_ipv4, rhs_ipv4) {
+//                     (Some(lhs), Some(rhs)) => Some(lhs | rhs),
+//                     (None, None) => None,
+//                     _ => return Err(err!("failed to take union of sets")),
+//                 };
+//                 let ipv6 = match (lhs_ipv6, rhs_ipv6) {
+//                     (Some(lhs), Some(rhs)) => Some(lhs | rhs),
+//                     (None, None) => None,
+//                     _ => return Err(err!("failed to take union of sets")),
+//                 };
+//                 Ok((ipv4, ipv6))
+//             }
+//         }
+//     }
+// }
+
+impl<R: Resolver, A: filter::ExprAfi> Resolve<R> for filter::Expr<A>
+where
+    IpPrefixRange<A>: TryInto<IpPrefixRangeEnum, Error = EvaluationError>,
+{
+    type Output = ResolverOutput<R>;
+
+    fn resolve(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
         debug_resolution!(filter::Expr: self);
         match self {
             Self::Unit(term) => term.resolve(resolver),
             Self::Not(term) => {
-                let (ipv4, ipv6) = term.resolve(resolver)?;
-                Ok((ipv4.map(|set| !set), ipv6.map(|set| !set)))
+                let (mut ipv4_set, mut ipv6_set) = term.resolve(resolver)?;
+                ipv4_set = ipv4_set.map(|set| !set);
+                ipv6_set = ipv6_set.map(|set| !set);
+                Ok((ipv4_set, ipv6_set))
             }
-            Self::And(lhs, rhs) => {
-                let (lhs_ipv4, lhs_ipv6) = lhs.resolve(resolver)?;
-                let (rhs_ipv4, rhs_ipv6) = rhs.resolve(resolver)?;
-                let ipv4 = match (lhs_ipv4, rhs_ipv4) {
-                    (Some(lhs), Some(rhs)) => Some(lhs & rhs),
-                    (None, None) => None,
-                    _ => return Err(err!("failed to take intersection of sets")),
-                };
-                let ipv6 = match (lhs_ipv6, rhs_ipv6) {
-                    (Some(lhs), Some(rhs)) => Some(lhs & rhs),
-                    (None, None) => None,
-                    _ => return Err(err!("failed to take intersection of sets")),
-                };
-                Ok((ipv4, ipv6))
-            }
-            Self::Or(lhs, rhs) => {
-                let (lhs_ipv4, lhs_ipv6) = lhs.resolve(resolver)?;
-                let (rhs_ipv4, rhs_ipv6) = rhs.resolve(resolver)?;
-                let ipv4 = match (lhs_ipv4, rhs_ipv4) {
-                    (Some(lhs), Some(rhs)) => Some(lhs | rhs),
-                    (None, None) => None,
-                    _ => return Err(err!("failed to take union of sets")),
-                };
-                let ipv6 = match (lhs_ipv6, rhs_ipv6) {
-                    (Some(lhs), Some(rhs)) => Some(lhs | rhs),
-                    (None, None) => None,
-                    _ => return Err(err!("failed to take union of sets")),
-                };
-                Ok((ipv4, ipv6))
-            }
+            // TODO
+            Self::And(lhs, rhs) => unimplemented!(),
+            Self::Or(lhs, rhs) => unimplemented!(),
+            _ => unimplemented!(),
         }
     }
 }
 
-impl<R: Resolver, A: LiteralPrefixSetAfi> Resolve<R> for filter::Term<A> {
-    type Output = (Option<R::Ipv4PrefixSet>, Option<R::Ipv6PrefixSet>);
+impl<R: Resolver, A: filter::ExprAfi> Resolve<R> for filter::Term<A>
+where
+    IpPrefixRange<A>: TryInto<IpPrefixRangeEnum, Error = EvaluationError>,
+{
+    type Output = ResolverOutput<R>;
 
-    fn resolve(self, resolver: &mut R) -> ResolutionResult<Self::Output> {
+    fn resolve(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
         debug_resolution!(filter::Term: self);
         match self {
-            Self::Literal(set_expr, op) => Ok(op.apply(set_expr.eval(resolver)?)),
+            Self::Any => Ok((Some(R::Ipv4PrefixSet::one()), Some(R::Ipv6PrefixSet::one()))),
+            Self::Literal(literal) => literal.resolve(resolver),
             // TODO
-            Self::Named(_) => unimplemented!(),
+            Self::Named(filter_name) => unimplemented!(),
             Self::Expr(expr) => expr.resolve(resolver),
         }
     }
 }
 
-// impl PrefixSetOp {
-//     fn apply(&self, pair: PrefixSetPair) -> PrefixSetPair {
-//         let (ipv4, ipv6) = pair;
-//         (
-//             ipv4.map(|set| self.apply_map(set)),
-//             ipv6.map(|set| self.apply_map(set)),
-//         )
-//     }
+impl<R: Resolver, A: filter::ExprAfi> Resolve<R> for filter::Literal<A>
+where
+    IpPrefixRange<A>: TryInto<IpPrefixRangeEnum, Error = EvaluationError>,
+{
+    type Output = ResolverOutput<R>;
 
-//     fn apply_map<P: IpPrefix>(&self, set: PrefixSet<P>) -> PrefixSet<P> {
-//         set.ranges()
-//             .filter_map(|range| {
-//                 self.apply_each(range)
-//                     .map_err(|err| log::warn!("failed to apply prefix range operator: {}", err))
-//                     .ok()
-//             })
-//             .collect()
-//     }
+    fn resolve(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
+        debug_resolution!(filter::Literal: self);
+        match self {
+            Self::PrefixSet(prefix_set_expr, op) => {
+                let (mut ipv4_set, mut ipv6_set) = prefix_set_expr.resolve(resolver)?;
+                ipv4_set = ipv4_set
+                    .map(|set| op.apply(set))
+                    .transpose()?
+                    .map(|apply_map| apply_map.collect());
+                ipv6_set = ipv6_set
+                    .map(|set| op.apply(set))
+                    .transpose()?
+                    .map(|apply_map| apply_map.collect());
+                Ok((ipv4_set, ipv6_set))
+            }
+            // TODO
+            Self::AsPath(_) => unimplemented!(),
+            Self::AttrMatch(_) => unimplemented!(),
+        }
+    }
+}
 
-//     fn apply_each<P: IpPrefix>(
-//         &self,
-//         range: IpPrefixRange<P>,
-//     ) -> Result<IpPrefixRange<P>, prefixset::Error> {
-//         let lower = match self {
-//             Self::None => return Ok(range),
-//             Self::LessExcl => *range.range().start() + 1,
-//             Self::LessIncl => *range.range().start(),
-//         };
-//         let upper = P::MAX_LENGTH;
-//         IpPrefixRange::new(*range.base(), lower, upper)
-//     }
-// }
+impl<R: Resolver, A: filter::ExprAfi> Resolve<R> for filter::PrefixSetExpr<A>
+where
+    IpPrefixRange<A>: TryInto<IpPrefixRangeEnum, Error = EvaluationError>,
+{
+    type Output = ResolverOutput<R>;
 
-impl<R: Resolver, A: LiteralPrefixSetAfi> Resolve<R> for filter::PrefixSetExpr<A> {
-    type Output = ResolveFilterOutput<R>;
-
-    fn resolve(self, resolver: &mut R) -> ResolutionResult<Self::Output> {
+    fn resolve(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
         debug_resolution!(filter::PrefixSetExpr: self);
         match self {
             Self::Literal(entries) => {
-                let sets = entries
+                let (mut ipv4_set, mut ipv6_set) =
+                    (R::Ipv4PrefixSet::default(), R::Ipv6PrefixSet::default());
+                entries
                     .into_iter()
-                    .filter_map(|entry| {
-                        entry
-                            .into_prefix_range()
+                    .filter_map(|prefix_range| {
+                        prefix_range
+                            .try_into()
                             .map_err(|err| {
                                 log::warn!("failed to apply prefix range operator: {}", err)
                             })
                             .ok()
                     })
-                    .partition_map(|range| range);
-                Ok(resolver.filter_pair(sets))
+                    .for_each(|prefix_range_enum| match prefix_range_enum {
+                        IpPrefixRangeEnum::Ipv4(prefix_range) => {
+                            ipv4_set.extend(Some(prefix_range))
+                        }
+                        IpPrefixRangeEnum::Ipv6(prefix_range) => {
+                            ipv6_set.extend(Some(prefix_range))
+                        }
+                    });
+                Ok((Some(ipv4_set), Some(ipv6_set)))
             }
             Self::Named(set) => set.resolve(resolver),
         }
     }
 }
 
-// impl LiteralPrefixSetEntry {
-//     fn into_prefix_range(
-//         self,
-//     ) -> Result<Either<IpPrefixRange<Ipv4Prefix>, IpPrefixRange<Ipv6Prefix>>> {
-//         match self.prefix {
-//             IpNet::V4(prefix) => Ok(Either::Left(self.op.apply(prefix.into())?)),
-//             IpNet::V6(prefix) => Ok(Either::Right(self.op.apply(prefix.into())?)),
-//         }
-//     }
-// }
-
-// impl PrefixOp {
-//     fn apply<P: IpPrefix>(&self, prefix: P) -> Result<IpPrefixRange<P>, prefixset::Error> {
-//         let (lower, upper) = match self {
-//             Self::None => (prefix.length(), prefix.length()),
-//             Self::LessExcl => (prefix.length() + 1, P::MAX_LENGTH),
-//             Self::LessIncl => (prefix.length(), P::MAX_LENGTH),
-//             Self::Exact(length) => (*length, *length),
-//             Self::Range(upper, lower) => (*upper, *lower),
-//         };
-//         IpPrefixRange::new(prefix, lower, upper)
-//     }
-// }
-
 impl<R: Resolver> Resolve<R> for filter::NamedPrefixSet {
-    type Output = ResolveFilterOutput<R>;
+    type Output = ResolverOutput<R>;
 
-    fn resolve(self, resolver: &mut R) -> ResolutionResult<Self::Output> {
+    fn resolve(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
         debug_resolution!(filter::NamedPrefixSet: self);
         match self {
             Self::RsAny | Self::AsAny => {

@@ -2,9 +2,8 @@ use super::*;
 
 use crate::{
     attr::RpslAttribute,
-    expr::{AuthExpr, ChangedExpr},
-    members::{AsSetMember, RouteSetMember, RouteSetMemberElem, RtrSetMember},
-    primitive::{RangeOperator, SigningMethod},
+    expr::{AsSetMember, AuthExpr, ChangedExpr, RtrSetMember},
+    primitive::SigningMethod,
     tests::{compare_ast, display_fmt_parses},
 };
 
@@ -324,14 +323,8 @@ source:         RIPE" => {
                 "rs-foo".parse().unwrap(),
                 vec![
                     RpslAttribute::RouteSetMembers(vec![
-                        RouteSetMember::new(
-                            RouteSetMemberElem::Prefix("128.9.0.0/16".parse().unwrap()),
-                            RangeOperator::None,
-                        ),
-                        RouteSetMember::new(
-                            RouteSetMemberElem::Prefix("128.9.0.0/24".parse().unwrap()),
-                            RangeOperator::None,
-                        ),
+                        "128.9.0.0/16".parse().unwrap(),
+                        "128.9.0.0/24".parse().unwrap(),
                     ].into_iter().collect()),
                     RpslAttribute::Descr("Example route-set".into()),
                     RpslAttribute::TechC("RW488-RIPE".into()),
@@ -356,14 +349,8 @@ source:         RIPE" => {
                 "rs-bar".parse().unwrap(),
                 vec![
                     RpslAttribute::RouteSetMembers(vec![
-                        RouteSetMember::new(
-                            RouteSetMemberElem::Prefix("128.7.0.0/16".parse().unwrap()),
-                            RangeOperator::None,
-                        ),
-                        RouteSetMember::new(
-                            RouteSetMemberElem::RouteSet("rs-foo".parse().unwrap()),
-                            RangeOperator::None,
-                        ),
+                        "128.7.0.0/16".parse().unwrap(),
+                        "rs-foo".parse().unwrap(),
                     ].into_iter().collect()),
                     RpslAttribute::Descr("Example route-set".into()),
                     RpslAttribute::TechC("RW488-RIPE".into()),
@@ -388,18 +375,9 @@ source:         RIPE" => {
                 "rs-bar".parse().unwrap(),
                 vec![
                     RpslAttribute::RouteSetMembers(vec![
-                        RouteSetMember::new(
-                            RouteSetMemberElem::Prefix("5.0.0.0/8".parse().unwrap()),
-                            RangeOperator::LessIncl,
-                        ),
-                        RouteSetMember::new(
-                            RouteSetMemberElem::Prefix("30.0.0.0/8".parse().unwrap()),
-                            RangeOperator::Range(24, 32),
-                        ),
-                        RouteSetMember::new(
-                            RouteSetMemberElem::RouteSet("rs-foo".parse().unwrap()),
-                            RangeOperator::LessIncl,
-                        ),
+                        "5.0.0.0/8^+".parse().unwrap(),
+                        "30.0.0.0/8^24-32".parse().unwrap(),
+                        "rs-foo^+".parse().unwrap(),
                     ].into_iter().collect()),
                     RpslAttribute::Descr("Example route-set".into()),
                     RpslAttribute::TechC("RW488-RIPE".into()),
@@ -451,10 +429,7 @@ source:         RIPE" => {
                 "rs-bar".parse().unwrap(),
                 vec![
                     RpslAttribute::RouteSetMembers(vec![
-                        RouteSetMember::new(
-                            RouteSetMemberElem::Prefix("128.7.0.0/16".parse().unwrap()),
-                            RangeOperator::None,
-                        ),
+                        "128.7.0.0/16".parse().unwrap(),
                     ].into_iter().collect()),
                     RpslAttribute::MbrsByRef(vec![
                         "MNTR-YOU".parse().unwrap(),
@@ -535,22 +510,10 @@ source:         RIPE" => {
                 "rs-special".parse().unwrap(),
                 vec![
                     RpslAttribute::RouteSetMembers(vec![
-                        RouteSetMember::new(
-                            RouteSetMemberElem::Prefix("128.9.0.0/16".parse().unwrap()),
-                            RangeOperator::None,
-                        ),
-                        RouteSetMember::new(
-                            RouteSetMemberElem::AutNum("AS1".parse().unwrap()),
-                            RangeOperator::None,
-                        ),
-                        RouteSetMember::new(
-                            RouteSetMemberElem::AutNum("AS2".parse().unwrap()),
-                            RangeOperator::None,
-                        ),
-                        RouteSetMember::new(
-                            RouteSetMemberElem::AsSet("AS-FOO".parse().unwrap()),
-                            RangeOperator::None,
-                        ),
+                        "128.9.0.0/16".parse().unwrap(),
+                        "AS1".parse().unwrap(),
+                        "AS2".parse().unwrap(),
+                        "AS-FOO".parse().unwrap(),
                     ].into_iter().collect()),
                     RpslAttribute::Descr("Example route-set".into()),
                     RpslAttribute::TechC("RW488-RIPE".into()),
@@ -2006,22 +1969,13 @@ source:         BAR" => {
                 "rs-foo".parse().unwrap(),
                 vec![
                     RpslAttribute::RouteSetMpMembers(vec![
-                        RouteSetMember::new(
-                            RouteSetMemberElem::RouteSet("rs-bar".parse().unwrap()),
-                            RangeOperator::None,
-                        ),
+                        "rs-bar".parse().unwrap(),
                     ].into_iter().collect()),
                     RpslAttribute::RouteSetMpMembers(vec![
-                        RouteSetMember::new(
-                            RouteSetMemberElem::Prefix("2001:0DB8::/32".parse().unwrap()),
-                            RangeOperator::None,
-                        ),
+                        "2001:0DB8::/32".parse().unwrap(),
                     ].into_iter().collect()),
                     RpslAttribute::RouteSetMpMembers(vec![
-                        RouteSetMember::new(
-                            RouteSetMemberElem::Prefix("192.0.2.0/24".parse().unwrap()),
-                            RangeOperator::None,
-                        ),
+                        "192.0.2.0/24".parse().unwrap(),
                     ].into_iter().collect()),
                     RpslAttribute::MntBy(vec!["EXAMPLE-MNT".parse().unwrap()].into_iter().collect()),
                     RpslAttribute::Changed(ChangedExpr::new(

@@ -5,7 +5,7 @@ use std::fmt;
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
-    addr_family::{afi, LiteralPrefixSetAfi},
+    addr_family::afi,
     error::{ParseError, ParseResult},
     names::PeeringSet,
     parser::{
@@ -14,6 +14,43 @@ use crate::{
 };
 
 use super::{rtr, AsExpr};
+
+pub trait ExprAfi: rtr::ExprAfi {
+    /// Address family specific [`ParserRule`] for remote router expressions.
+    const REMOTE_RTR_EXPR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for local router expressions.
+    const LOCAL_RTR_EXPR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for literal peering expressions.
+    const PEERING_EXPR_LITERAL_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for named peering expressions.
+    const PEERING_EXPR_NAMED_RULE: ParserRule;
+    /// Array of address family specific [`ParserRule`] for peering expressions.
+    const PEERING_EXPR_RULES: [ParserRule; 2] = [
+        Self::PEERING_EXPR_NAMED_RULE,
+        Self::PEERING_EXPR_LITERAL_RULE,
+    ];
+    /// Check whether a [`ParserRule`] variant is a `peering` expression for
+    /// this address family.
+    fn match_peering_expr_rule(rule: ParserRule) -> bool {
+        Self::PEERING_EXPR_RULES
+            .iter()
+            .any(|peering_expr_rule| &rule == peering_expr_rule)
+    }
+}
+
+impl ExprAfi for afi::Ipv4 {
+    const REMOTE_RTR_EXPR_RULE: ParserRule = ParserRule::remote_rtr_expr;
+    const LOCAL_RTR_EXPR_RULE: ParserRule = ParserRule::local_rtr_expr;
+    const PEERING_EXPR_LITERAL_RULE: ParserRule = ParserRule::peering_expr_literal;
+    const PEERING_EXPR_NAMED_RULE: ParserRule = ParserRule::peering_expr_named;
+}
+
+impl ExprAfi for afi::Any {
+    const REMOTE_RTR_EXPR_RULE: ParserRule = ParserRule::remote_mp_rtr_expr;
+    const LOCAL_RTR_EXPR_RULE: ParserRule = ParserRule::local_mp_rtr_expr;
+    const PEERING_EXPR_LITERAL_RULE: ParserRule = ParserRule::mp_peering_expr_literal;
+    const PEERING_EXPR_NAMED_RULE: ParserRule = ParserRule::mp_peering_expr_named;
+}
 
 /// RPSL `peering` expression. See [RFC2622].
 ///
@@ -28,12 +65,12 @@ pub type MpPeeringExpr = Expr<afi::Any>;
 impl_from_str!(ParserRule::just_mp_peering_expr => Expr<afi::Any>);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Expr<A: LiteralPrefixSetAfi> {
+pub enum Expr<A: ExprAfi> {
     Named(PeeringSet),
     Literal(LiteralPeering<A>),
 }
 
-impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
+impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -48,7 +85,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     }
 }
 
-impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
+impl<A: ExprAfi> fmt::Display for Expr<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Named(peering_set) => peering_set.fmt(f),
@@ -58,7 +95,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: LiteralPrefixSetAfi> Arbitrary for Expr<A>
+impl<A: ExprAfi> Arbitrary for Expr<A>
 where
     A: Clone + fmt::Debug + 'static,
     A::Addr: Arbitrary,
@@ -77,13 +114,13 @@ where
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct LiteralPeering<A: LiteralPrefixSetAfi> {
+pub struct LiteralPeering<A: ExprAfi> {
     as_expr: AsExpr,
     remote_rtr: Option<rtr::Expr<A>>,
     local_rtr: Option<rtr::Expr<A>>,
 }
 
-impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for LiteralPeering<A> {
+impl<A: ExprAfi> TryFrom<TokenPair<'_>> for LiteralPeering<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -119,7 +156,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for LiteralPeering<A> {
     }
 }
 
-impl<A: LiteralPrefixSetAfi> fmt::Display for LiteralPeering<A> {
+impl<A: ExprAfi> fmt::Display for LiteralPeering<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.as_expr)?;
         if let Some(rtr_expr) = &self.remote_rtr {
@@ -133,7 +170,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for LiteralPeering<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: LiteralPrefixSetAfi> Arbitrary for LiteralPeering<A>
+impl<A: ExprAfi> Arbitrary for LiteralPeering<A>
 where
     A: Clone + fmt::Debug + 'static,
     A::Addr: Arbitrary,

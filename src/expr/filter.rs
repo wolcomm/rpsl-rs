@@ -6,7 +6,7 @@ use std::string::ToString;
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
-    addr_family::{afi, LiteralPrefixSetAfi},
+    addr_family::{afi, AfiClass},
     error::{ParseError, ParseResult},
     names::{AsSet, AutNum, FilterSet, RouteSet},
     parser::{
@@ -17,6 +17,61 @@ use crate::{
 };
 
 use super::action;
+
+pub trait ExprAfi: AfiClass {
+    /// Address family specific [`ParserRule`] for IP prefix set literals.
+    const LITERAL_PREFIX_SET_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for ranged IP prefix set literals.
+    const LITERAL_RANGED_PREFIX_SET_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for literal filter terms.
+    const LITERAL_FILTER_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for named filter terms.
+    const NAMED_FILTER_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for unit filter expressions.
+    const FILTER_EXPR_UNIT_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for negated filter expressions.
+    const FILTER_EXPR_NOT_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for conjunctive filter expressions.
+    const FILTER_EXPR_AND_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for disjunctive filter expressions.
+    const FILTER_EXPR_OR_RULE: ParserRule;
+    /// Array of address family specific [`ParserRule`] for filter expressions.
+    const FILTER_EXPR_RULES: [ParserRule; 4] = [
+        Self::FILTER_EXPR_UNIT_RULE,
+        Self::FILTER_EXPR_NOT_RULE,
+        Self::FILTER_EXPR_AND_RULE,
+        Self::FILTER_EXPR_OR_RULE,
+    ];
+    /// Check whether a [`ParserRule`] variant is a `filter` expression for
+    /// this address family.
+    fn match_filter_expr_rule(rule: ParserRule) -> bool {
+        Self::FILTER_EXPR_RULES
+            .iter()
+            .any(|filter_expr_rule| &rule == filter_expr_rule)
+    }
+}
+
+impl ExprAfi for afi::Ipv4 {
+    const LITERAL_PREFIX_SET_RULE: ParserRule = ParserRule::literal_prefix_set;
+    const LITERAL_RANGED_PREFIX_SET_RULE: ParserRule = ParserRule::ranged_prefix_set;
+    const LITERAL_FILTER_RULE: ParserRule = ParserRule::literal_filter;
+    const NAMED_FILTER_RULE: ParserRule = ParserRule::named_filter;
+    const FILTER_EXPR_UNIT_RULE: ParserRule = ParserRule::filter_expr_unit;
+    const FILTER_EXPR_NOT_RULE: ParserRule = ParserRule::filter_expr_not;
+    const FILTER_EXPR_AND_RULE: ParserRule = ParserRule::filter_expr_and;
+    const FILTER_EXPR_OR_RULE: ParserRule = ParserRule::filter_expr_or;
+}
+
+impl ExprAfi for afi::Any {
+    const LITERAL_PREFIX_SET_RULE: ParserRule = ParserRule::mp_literal_prefix_set;
+    const LITERAL_RANGED_PREFIX_SET_RULE: ParserRule = ParserRule::mp_ranged_prefix_set;
+    const LITERAL_FILTER_RULE: ParserRule = ParserRule::mp_literal_filter;
+    const NAMED_FILTER_RULE: ParserRule = ParserRule::mp_named_filter;
+    const FILTER_EXPR_UNIT_RULE: ParserRule = ParserRule::mp_filter_expr_unit;
+    const FILTER_EXPR_NOT_RULE: ParserRule = ParserRule::mp_filter_expr_not;
+    const FILTER_EXPR_AND_RULE: ParserRule = ParserRule::mp_filter_expr_and;
+    const FILTER_EXPR_OR_RULE: ParserRule = ParserRule::mp_filter_expr_or;
+}
 
 /// RPSL `filter` expression. See [RFC2622].
 ///
@@ -31,7 +86,7 @@ pub type MpFilterExpr = Expr<afi::Any>;
 impl_from_str!(ParserRule::just_mp_filter_expr => Expr<afi::Any>);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Expr<A: LiteralPrefixSetAfi> {
+pub enum Expr<A: ExprAfi> {
     /// An expression containing a single [`Term`].
     Unit(Term<A>),
     /// An expression containing the negation (`NOT ...`) of a [`Term`].
@@ -44,7 +99,7 @@ pub enum Expr<A: LiteralPrefixSetAfi> {
     Or(Term<A>, Box<Expr<A>>),
 }
 
-impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
+impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -77,7 +132,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     }
 }
 
-impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
+impl<A: ExprAfi> fmt::Display for Expr<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Unit(term) => term.fmt(f),
@@ -89,7 +144,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: LiteralPrefixSetAfi> Arbitrary for Expr<A>
+impl<A: ExprAfi> Arbitrary for Expr<A>
 where
     A: fmt::Debug + Clone + 'static,
     Term<A>: Arbitrary,
@@ -116,7 +171,7 @@ where
 
 /// A term in an RPSL `mp-filter` expression.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Term<A: LiteralPrefixSetAfi> {
+pub enum Term<A: ExprAfi> {
     /// The `ANY` token.
     Any,
     /// A literal prefix set expression.
@@ -127,7 +182,7 @@ pub enum Term<A: LiteralPrefixSetAfi> {
     Expr(Box<Expr<A>>),
 }
 
-impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Term<A> {
+impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Term<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -146,7 +201,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Term<A> {
     }
 }
 
-impl<A: LiteralPrefixSetAfi> fmt::Display for Term<A> {
+impl<A: ExprAfi> fmt::Display for Term<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Any => write!(f, "ANY"),
@@ -158,7 +213,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Term<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: LiteralPrefixSetAfi> Arbitrary for Term<A>
+impl<A: ExprAfi> Arbitrary for Term<A>
 where
     A: Clone + fmt::Debug + 'static,
     PrefixSetExpr<A>: Arbitrary,
@@ -190,13 +245,13 @@ where
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Literal<A: LiteralPrefixSetAfi> {
+pub enum Literal<A: ExprAfi> {
     PrefixSet(PrefixSetExpr<A>, RangeOperator),
     AsPath(AsPathRegexp),
     AttrMatch(action::Stmt),
 }
 
-impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Literal<A> {
+impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Literal<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -221,7 +276,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Literal<A> {
     }
 }
 
-impl<A: LiteralPrefixSetAfi> fmt::Display for Literal<A> {
+impl<A: ExprAfi> fmt::Display for Literal<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::PrefixSet(set_expr, op) => write!(f, "{}{}", set_expr, op),
@@ -232,7 +287,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Literal<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: LiteralPrefixSetAfi> Arbitrary for Literal<A>
+impl<A: ExprAfi> Arbitrary for Literal<A>
 where
     A: Clone + fmt::Debug + 'static,
     PrefixSetExpr<A>: Arbitrary,
@@ -257,14 +312,14 @@ where
 
 /// An RPSL sub-expression representing a set of IP prefixes.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum PrefixSetExpr<A: LiteralPrefixSetAfi> {
+pub enum PrefixSetExpr<A: ExprAfi> {
     /// A literal IP prefix list.
     Literal(Vec<IpPrefixRange<A>>),
     /// A named RSPL object that can be evaluated as a `route-set`.
     Named(NamedPrefixSet),
 }
 
-impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for PrefixSetExpr<A> {
+impl<A: ExprAfi> TryFrom<TokenPair<'_>> for PrefixSetExpr<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -283,7 +338,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for PrefixSetExpr<A> {
     }
 }
 
-impl<A: LiteralPrefixSetAfi> fmt::Display for PrefixSetExpr<A> {
+impl<A: ExprAfi> fmt::Display for PrefixSetExpr<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Literal(entries) => write!(
@@ -301,7 +356,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for PrefixSetExpr<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: LiteralPrefixSetAfi> Arbitrary for PrefixSetExpr<A>
+impl<A: ExprAfi> Arbitrary for PrefixSetExpr<A>
 where
     A: fmt::Debug + 'static,
     IpPrefixRange<A>: Arbitrary,
@@ -897,15 +952,15 @@ mod tests {
             MpFilterExpr::Unit(Term::Literal(Literal::PrefixSet(
                 PrefixSetExpr::Literal(vec![
                     IpPrefixRange::new(
-                        IpNet::V4("192.0.2.0/25".parse().unwrap()),
+                        "192.0.2.0/25".parse().unwrap(),
                         RangeOperator::LessIncl,
                     ),
                     IpPrefixRange::new(
-                        IpNet::V4("192.0.2.128/26".parse().unwrap()),
+                        "192.0.2.128/26".parse().unwrap(),
                         RangeOperator::Exact(27),
                     ),
                     IpPrefixRange::new(
-                        IpNet::V6("2001:db8::/32".parse().unwrap()),
+                        "2001:db8::/32".parse().unwrap(),
                         RangeOperator::Range(48, 56),
                     ),
                 ]),
@@ -957,7 +1012,7 @@ mod tests {
                 Expr::Unit(Term::Literal(Literal::PrefixSet(
                     PrefixSetExpr::Literal(vec![
                         IpPrefixRange::new(
-                            IpNet::V4("192.0.2.0/24".parse().unwrap()),
+                            "192.0.2.0/24".parse().unwrap(),
                             RangeOperator::LessExcl,
                         ),
                     ]),
@@ -969,15 +1024,15 @@ mod tests {
                 Expr::Unit(Term::Literal(Literal::PrefixSet(
                     PrefixSetExpr::Literal(vec![
                         IpPrefixRange::new(
-                            IpNet::V4("192.0.2.0/25".parse().unwrap()),
+                            "192.0.2.0/25".parse().unwrap(),
                             RangeOperator::LessIncl,
                         ),
                         IpPrefixRange::new(
-                            IpNet::V4("192.0.2.128/26".parse().unwrap()),
+                            "192.0.2.128/26".parse().unwrap(),
                             RangeOperator::Exact(27),
                         ),
                         IpPrefixRange::new(
-                            IpNet::V6("2001:db8::/32".parse().unwrap()),
+                            "2001:db8::/32".parse().unwrap(),
                             RangeOperator::Range(48, 56),
                         ),
                     ]),

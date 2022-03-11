@@ -1,12 +1,15 @@
+use std::marker::PhantomData;
+
 use crate::{
-    addr_family::LiteralPrefixSetAfi,
-    error::SubstitutionError,
     expr::filter,
     names::{AsSet, AutNum, FilterSet, RouteSet},
     primitive::SetNameComp,
 };
 
-use super::{state, Evaluation};
+use super::{
+    error::{EvaluationError, EvaluationErrorKind, EvaluationResult},
+    state, Evaluation,
+};
 
 /// A type that can provide a value for substituting `PeerAS` tokens in RPSL
 /// expressions.
@@ -35,29 +38,44 @@ macro_rules! debug_substitution {
     };
 }
 
-/// Custom [`Result<T, E>`] containing a possible [`SubstitutionError`].
-type SubstitutionResult<T> = Result<T, SubstitutionError>;
+macro_rules! err {
+    ( $msg:literal $(,)? ) => {
+        EvaluationError::new(EvaluationErrorKind::Substitution, $msg)
+    };
+    ( $fmt:expr, $( $arg:tt )* ) => {
+        EvaluationError::new(EvaluationErrorKind::Substitution, format!($fmt, $($arg)*))
+    };
+}
 
 /// An RPSL expression in which `PeerAS` tokens may be substituted by
 /// [`AutNum`] values.
-trait Substitute<P: PeerAs>: Sized {
+pub trait Substitute<P: PeerAs>: Sized {
+    type Output;
     /// Substitute the `PeerAS` tokens appearing in the RPSL expression with
     /// the value provided by the given [`PeerAs`] object, wrapping the
     /// resulting value in [`Substituted<T>`].
-    fn substitute(self, p: &P) -> SubstitutionResult<Self>;
+    fn substitute(self, p: &P) -> EvaluationResult<Self::Output>;
 }
 
-impl<P: PeerAs, T: Substitute<P>> Substitute<P> for Evaluation<T, state::New> {
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+impl<P, T> Substitute<P> for Evaluation<T, state::New>
+where
+    P: PeerAs,
+    T: Substitute<P, Output = T>,
+{
+    type Output = Evaluation<T, state::Substituted>;
+
+    fn substitute(self, p: &P) -> EvaluationResult<Self::Output> {
         Ok(Evaluation {
             expr: self.into_inner().substitute(p)?,
-            state: state::New,
+            state: PhantomData,
         })
     }
 }
 
-impl<P: PeerAs, A: LiteralPrefixSetAfi> Substitute<P> for filter::Expr<A> {
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+impl<P: PeerAs, A: filter::ExprAfi> Substitute<P> for filter::Expr<A> {
+    type Output = Self;
+
+    fn substitute(self, p: &P) -> EvaluationResult<Self::Output> {
         debug_substitution!(Expr: self);
         match self {
             Self::Unit(term) => Ok(Self::Unit(term.substitute(p)?)),
@@ -68,8 +86,10 @@ impl<P: PeerAs, A: LiteralPrefixSetAfi> Substitute<P> for filter::Expr<A> {
     }
 }
 
-impl<P: PeerAs, A: LiteralPrefixSetAfi> Substitute<P> for filter::Term<A> {
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+impl<P: PeerAs, A: filter::ExprAfi> Substitute<P> for filter::Term<A> {
+    type Output = Self;
+
+    fn substitute(self, p: &P) -> EvaluationResult<Self::Output> {
         debug_substitution!(Term: self);
         match self {
             Self::Literal(fltr_literal) => Ok(Self::Literal(fltr_literal.substitute(p)?)),
@@ -80,8 +100,10 @@ impl<P: PeerAs, A: LiteralPrefixSetAfi> Substitute<P> for filter::Term<A> {
     }
 }
 
-impl<P: PeerAs, A: LiteralPrefixSetAfi> Substitute<P> for filter::Literal<A> {
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+impl<P: PeerAs, A: filter::ExprAfi> Substitute<P> for filter::Literal<A> {
+    type Output = Self;
+
+    fn substitute(self, p: &P) -> EvaluationResult<Self::Output> {
         debug_substitution!(Literal: self);
         match self {
             Self::PrefixSet(set_expr, op) => Ok(Self::PrefixSet(set_expr.substitute(p)?, op)),
@@ -91,8 +113,10 @@ impl<P: PeerAs, A: LiteralPrefixSetAfi> Substitute<P> for filter::Literal<A> {
     }
 }
 
-impl<P: PeerAs, A: LiteralPrefixSetAfi> Substitute<P> for filter::PrefixSetExpr<A> {
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+impl<P: PeerAs, A: filter::ExprAfi> Substitute<P> for filter::PrefixSetExpr<A> {
+    type Output = Self;
+
+    fn substitute(self, p: &P) -> EvaluationResult<Self::Output> {
         debug_substitution!(PrefixSetExpr: self);
         match self {
             literal @ Self::Literal(_) => Ok(literal),
@@ -102,14 +126,16 @@ impl<P: PeerAs, A: LiteralPrefixSetAfi> Substitute<P> for filter::PrefixSetExpr<
 }
 
 impl<P: PeerAs> Substitute<P> for filter::NamedPrefixSet {
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+    type Output = Self;
+
+    fn substitute(self, p: &P) -> EvaluationResult<Self::Output> {
         debug_substitution!(NamedPrefixSet: self);
         match self {
             Self::PeerAs => {
                 if let Some(peeras) = p.peeras() {
                     Ok(Self::AutNum(*peeras))
                 } else {
-                    Err(SubstitutionError::PeerAs)
+                    Err(err!("failed to substitute PeerAS token"))
                 }
             }
             Self::RouteSet(set_expr) => Ok(Self::RouteSet(set_expr.substitute(p)?)),
@@ -120,7 +146,9 @@ impl<P: PeerAs> Substitute<P> for filter::NamedPrefixSet {
 }
 
 impl<P: PeerAs> Substitute<P> for FilterSet {
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+    type Output = Self;
+
+    fn substitute(self, p: &P) -> EvaluationResult<Self::Output> {
         debug_substitution!(FilterSet: self);
         self.into_iter()
             .map(|component| component.substitute(p))
@@ -129,7 +157,9 @@ impl<P: PeerAs> Substitute<P> for FilterSet {
 }
 
 impl<P: PeerAs> Substitute<P> for RouteSet {
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+    type Output = Self;
+
+    fn substitute(self, p: &P) -> EvaluationResult<Self::Output> {
         debug_substitution!(RouteSetExpr: self);
         self.into_iter()
             .map(|component| component.substitute(p))
@@ -138,7 +168,9 @@ impl<P: PeerAs> Substitute<P> for RouteSet {
 }
 
 impl<P: PeerAs> Substitute<P> for AsSet {
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+    type Output = Self;
+
+    fn substitute(self, p: &P) -> EvaluationResult<Self::Output> {
         debug_substitution!(AsSetExpr: self);
         self.into_iter()
             .map(|component| component.substitute(p))
@@ -147,13 +179,14 @@ impl<P: PeerAs> Substitute<P> for AsSet {
 }
 
 impl<P: PeerAs> Substitute<P> for SetNameComp {
-    fn substitute(self, p: &P) -> SubstitutionResult<Self> {
+    type Output = Self;
+
+    fn substitute(self, p: &P) -> EvaluationResult<Self::Output> {
         debug_substitution!(SetNameComp: self);
         if let SetNameComp::PeerAs = self {
-            p.peeras()
-                .copied()
-                .map(SetNameComp::AutNum)
-                .ok_or(SubstitutionError::PeerAs)
+            p.peeras().copied().map(SetNameComp::AutNum).ok_or(err!(
+                "failed to substitute PeerAS token in a set name component"
+            ))
         } else {
             Ok(self)
         }

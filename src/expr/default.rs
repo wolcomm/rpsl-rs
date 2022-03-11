@@ -2,7 +2,7 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use crate::{
-    addr_family::{afi, LiteralPrefixSetAfi},
+    addr_family::afi,
     error::{ParseError, ParseResult},
     list::ListOf,
     parser::{
@@ -14,10 +14,23 @@ use crate::{
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
-#[cfg(any(test, feature = "arbitrary"))]
-use crate::primitive::arbitrary::AfiSafiList;
-
 use super::{filter, peering, ActionExpr};
+
+#[cfg(any(test, feature = "arbitrary"))]
+use super::arbitrary::AfiSafiList;
+
+pub trait ExprAfi: filter::ExprAfi + peering::ExprAfi {
+    /// Address family specific [`ParserRule`] for `default` expressions.
+    const DEFAULT_EXPR_RULE: ParserRule;
+}
+
+impl ExprAfi for afi::Ipv4 {
+    const DEFAULT_EXPR_RULE: ParserRule = ParserRule::default_expr;
+}
+
+impl ExprAfi for afi::Any {
+    const DEFAULT_EXPR_RULE: ParserRule = ParserRule::mp_default_expr;
+}
 
 /// RPSL `default` expression. See [RFC2622].
 ///
@@ -32,14 +45,14 @@ pub type MpDefaultExpr = Expr<afi::Any>;
 impl_from_str!(ParserRule::just_mp_default_expr => MpDefaultExpr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Expr<A: LiteralPrefixSetAfi> {
+pub struct Expr<A: ExprAfi> {
     afis: Option<ListOf<AfiSafi>>,
     peering: peering::Expr<A>,
     action: Option<ActionExpr>,
     networks: Option<filter::Expr<A>>,
 }
 
-impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
+impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -79,7 +92,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     }
 }
 
-impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
+impl<A: ExprAfi> fmt::Display for Expr<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(afis) = &self.afis {
             write!(f, "afi {} ", afis)?;

@@ -8,7 +8,7 @@ use time::{format_description::FormatItem, macros::format_description};
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
-    addr_family::Afi,
+    addr_family::AfiClass,
     error::{err, ParseError, ParseResult},
     names::AutNum,
     parser::{
@@ -22,9 +22,9 @@ use self::arbitrary::{impl_free_form_arbitrary, impl_rpsl_name_arbitrary, prop_f
 
 /// IP address literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct IpAddress<A: Afi>(A::Addr);
+pub struct IpAddress<A: AfiClass>(A::Addr);
 
-impl<A: Afi> FromStr for IpAddress<A> {
+impl<A: AfiClass> FromStr for IpAddress<A> {
     type Err = <A::Addr as FromStr>::Err;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -32,7 +32,13 @@ impl<A: Afi> FromStr for IpAddress<A> {
     }
 }
 
-impl<A: Afi> TryFrom<TokenPair<'_>> for IpAddress<A> {
+impl<A: AfiClass> AsRef<A::Addr> for IpAddress<A> {
+    fn as_ref(&self) -> &A::Addr {
+        &self.0
+    }
+}
+
+impl<A: AfiClass> TryFrom<TokenPair<'_>> for IpAddress<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -44,7 +50,7 @@ impl<A: Afi> TryFrom<TokenPair<'_>> for IpAddress<A> {
     }
 }
 
-impl<A: Afi> fmt::Display for IpAddress<A> {
+impl<A: AfiClass> fmt::Display for IpAddress<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
@@ -53,7 +59,7 @@ impl<A: Afi> fmt::Display for IpAddress<A> {
 #[cfg(any(test, feature = "arbitrary"))]
 impl<A> Arbitrary for IpAddress<A>
 where
-    A: Afi + fmt::Debug + 'static,
+    A: AfiClass + fmt::Debug + 'static,
     A::Addr: Arbitrary,
     <A::Addr as Arbitrary>::Strategy: 'static,
 {
@@ -66,9 +72,21 @@ where
 
 /// IP prefix literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct IpPrefix<A: Afi>(A::Net);
+pub struct IpPrefix<A: AfiClass>(A::Net);
 
-impl<A: Afi> FromStr for IpPrefix<A> {
+impl<A: AfiClass> IpPrefix<A> {
+    pub fn new(prefix: A::Net) -> Self {
+        Self(prefix)
+    }
+}
+
+impl<A: AfiClass> AsRef<A::Net> for IpPrefix<A> {
+    fn as_ref(&self) -> &A::Net {
+        &self.0
+    }
+}
+
+impl<A: AfiClass> FromStr for IpPrefix<A> {
     type Err = <A::Net as FromStr>::Err;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -76,7 +94,7 @@ impl<A: Afi> FromStr for IpPrefix<A> {
     }
 }
 
-impl<A: Afi> TryFrom<TokenPair<'_>> for IpPrefix<A> {
+impl<A: AfiClass> TryFrom<TokenPair<'_>> for IpPrefix<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -88,7 +106,7 @@ impl<A: Afi> TryFrom<TokenPair<'_>> for IpPrefix<A> {
     }
 }
 
-impl<A: Afi> fmt::Display for IpPrefix<A> {
+impl<A: AfiClass> fmt::Display for IpPrefix<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
@@ -97,7 +115,7 @@ impl<A: Afi> fmt::Display for IpPrefix<A> {
 #[cfg(any(test, feature = "arbitrary"))]
 impl<A> Arbitrary for IpPrefix<A>
 where
-    A: Afi + fmt::Debug + 'static,
+    A: AfiClass + fmt::Debug + 'static,
     A::Addr: Arbitrary,
 {
     type Parameters = ParamsFor<A::Addr>;
@@ -115,19 +133,19 @@ where
 
 /// IP prefix range literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct IpPrefixRange<A: Afi> {
-    prefix: A::Net,
+pub struct IpPrefixRange<A: AfiClass> {
+    prefix: IpPrefix<A>,
     op: RangeOperator,
 }
 
-impl<A: Afi> IpPrefixRange<A> {
+impl<A: AfiClass> IpPrefixRange<A> {
     /// Construct a new [`PrefixRange<T>`].
-    pub fn new(prefix: A::Net, op: RangeOperator) -> Self {
+    pub fn new(prefix: IpPrefix<A>, op: RangeOperator) -> Self {
         Self { prefix, op }
     }
 
     /// Get the IP prefix represented by this [`PrefixRange<T>`].
-    pub fn prefix(&self) -> &A::Net {
+    pub fn prefix(&self) -> &IpPrefix<A> {
         &self.prefix
     }
 
@@ -137,7 +155,7 @@ impl<A: Afi> IpPrefixRange<A> {
     }
 }
 
-impl<A: Afi> TryFrom<TokenPair<'_>> for IpPrefixRange<A> {
+impl<A: AfiClass> TryFrom<TokenPair<'_>> for IpPrefixRange<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -153,40 +171,48 @@ impl<A: Afi> TryFrom<TokenPair<'_>> for IpPrefixRange<A> {
     }
 }
 
-impl<A: Afi> fmt::Display for IpPrefixRange<A> {
+impl<A: AfiClass> fmt::Display for IpPrefixRange<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.prefix, self.op)
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: Afi> Arbitrary for IpPrefixRange<A>
+impl<A: AfiClass> Arbitrary for IpPrefixRange<A>
 where
-    A: fmt::Debug,
+    A: fmt::Debug + 'static,
     A::Addr: Arbitrary + Clone,
     <A::Addr as Arbitrary>::Strategy: 'static,
     A::Net: fmt::Debug,
 {
-    type Parameters = ParamsFor<A::Addr>;
+    type Parameters = ParamsFor<IpPrefix<A>>;
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-        any_with::<A::Addr>(args)
-            .prop_flat_map(|addr| {
-                let max_len = A::max_len(&addr);
-                (Just(addr), 0..=max_len, Just(max_len))
+    fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+        any_with::<IpPrefix<A>>(params)
+            .prop_flat_map(|prefix| {
+                let len = A::prefix_len(prefix.as_ref());
+                let max_len = A::max_len(&A::net_to_addr(prefix.as_ref()));
+                (Just(prefix), any_with::<RangeOperator>((len, max_len)))
             })
-            .prop_flat_map(|(addr, len, max_len)| {
-                (
-                    Just(addr),
-                    Just(len),
-                    any_with::<RangeOperator>((len, max_len)),
-                )
-            })
-            .prop_map(|(addr, len, op)| {
-                let prefix = A::addr_to_net(addr, len);
-                Self { prefix, op }
-            })
+            .prop_map(|(prefix, op)| Self::new(prefix, op))
             .boxed()
+        // any_with::<A::Addr>(args)
+        //     .prop_flat_map(|addr| {
+        //         let max_len = A::max_len(&addr);
+        //         (Just(addr), 0..=max_len, Just(max_len))
+        //     })
+        //     .prop_flat_map(|(addr, len, max_len)| {
+        //         (
+        //             Just(addr),
+        //             Just(len),
+        //             any_with::<RangeOperator>((len, max_len)),
+        //         )
+        //     })
+        //     .prop_map(|(addr, len, op)| {
+        //         let prefix = IpPrefix(A::addr_to_net(addr, len));
+        //         Self { prefix, op }
+        //     })
+        //     .boxed()
     }
 }
 
@@ -806,8 +832,8 @@ impl Arbitrary for PeerOptVal {
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.1
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct AfiSafi {
-    afi: AfiName,
-    safi: Option<SafiName>,
+    afi: Afi,
+    safi: Option<Safi>,
 }
 
 impl_from_str!(ParserRule::afi_safi => AfiSafi);
@@ -845,10 +871,10 @@ impl fmt::Display for AfiSafi {
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for AfiSafi {
-    type Parameters = ParamsFor<Option<SafiName>>;
+    type Parameters = ParamsFor<Option<Safi>>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
-        (any::<AfiName>(), any_with::<Option<SafiName>>(params))
+        (any::<Afi>(), any_with::<Option<Safi>>(params))
             .prop_map(|(afi, safi)| Self { afi, safi })
             .boxed()
     }
@@ -859,7 +885,7 @@ impl Arbitrary for AfiSafi {
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.1
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum AfiName {
+pub enum Afi {
     /// `ipv4` address family.
     Ipv4,
     /// `ipv6` address family.
@@ -868,11 +894,11 @@ pub enum AfiName {
     Any,
 }
 
-impl TryFrom<TokenPair<'_>> for AfiName {
+impl TryFrom<TokenPair<'_>> for Afi {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
-        debug_construction!(pair => AfiName);
+        debug_construction!(pair => Afi);
         match pair.as_rule() {
             ParserRule::afi_ipv4 => Ok(Self::Ipv4),
             ParserRule::afi_ipv6 => Ok(Self::Ipv6),
@@ -882,7 +908,7 @@ impl TryFrom<TokenPair<'_>> for AfiName {
     }
 }
 
-impl fmt::Display for AfiName {
+impl fmt::Display for Afi {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Ipv4 => write!(f, "ipv4"),
@@ -893,7 +919,7 @@ impl fmt::Display for AfiName {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl Arbitrary for AfiName {
+impl Arbitrary for Afi {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
@@ -906,14 +932,14 @@ impl Arbitrary for AfiName {
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.1
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum SafiName {
+pub enum Safi {
     /// `unicast` SAFI.
     Unicast,
     /// `multicast` SAFI.
     Multicast,
 }
 
-impl TryFrom<TokenPair<'_>> for SafiName {
+impl TryFrom<TokenPair<'_>> for Safi {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -926,7 +952,7 @@ impl TryFrom<TokenPair<'_>> for SafiName {
     }
 }
 
-impl fmt::Display for SafiName {
+impl fmt::Display for Safi {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Unicast => write!(f, "unicast"),
@@ -936,7 +962,7 @@ impl fmt::Display for SafiName {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl Arbitrary for SafiName {
+impl Arbitrary for Safi {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
@@ -944,41 +970,11 @@ impl Arbitrary for SafiName {
     }
 }
 
-/// Traits and helpers for implementing [`Arbitrary`] for primitive types.
+/// Helpers for implementing [`Arbitrary`] for primitive types.
 #[cfg(any(test, feature = "arbitrary"))]
 pub mod arbitrary {
     use super::*;
-    use crate::{
-        addr_family::{afi, LiteralPrefixSetAfi},
-        list::ListOf,
-    };
     use regex::RegexSetBuilder;
-
-    /// Helper trait extending [`LiteralPrefixSetAfi`].
-    pub trait AfiSafiList: LiteralPrefixSetAfi {
-        /// Return a [`Strategy`] that yields values of
-        /// [`Option<ListOf<AfiSafi>>`] as appropriate to the expression
-        /// being generated.
-        fn any_afis(
-            params: ParamsFor<Option<ListOf<AfiSafi>>>,
-        ) -> BoxedStrategy<Option<ListOf<AfiSafi>>>;
-    }
-
-    impl AfiSafiList for afi::Ipv4 {
-        fn any_afis(
-            _: ParamsFor<Option<ListOf<AfiSafi>>>,
-        ) -> BoxedStrategy<Option<ListOf<AfiSafi>>> {
-            Just(None).boxed()
-        }
-    }
-
-    impl AfiSafiList for afi::Any {
-        fn any_afis(
-            params: ParamsFor<Option<ListOf<AfiSafi>>>,
-        ) -> BoxedStrategy<Option<ListOf<AfiSafi>>> {
-            any_with::<Option<ListOf<AfiSafi>>>(params).boxed()
-        }
-    }
 
     /// Filter the values yielded by a [`Strategy<Value = String>`] for
     /// reserved RPSL keywords.

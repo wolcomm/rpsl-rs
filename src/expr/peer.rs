@@ -2,7 +2,7 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use crate::{
-    addr_family::{afi, LiteralPrefixSetAfi},
+    addr_family::{afi, AfiClass},
     error::{ParseError, ParseResult},
     list::ListOf,
     names::{InetRtr, PeeringSet, RtrSet},
@@ -11,6 +11,23 @@ use crate::{
     },
     primitive::{IpAddress, PeerOptKey, PeerOptVal, Protocol},
 };
+
+pub trait ExprAfi: AfiClass {
+    /// Address family specific [`ParserRule`] for peer expressions.
+    const PEER_EXPR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for peer specifications.
+    const PEER_SPEC_RULE: ParserRule;
+}
+
+impl ExprAfi for afi::Ipv4 {
+    const PEER_EXPR_RULE: ParserRule = ParserRule::peer_expr;
+    const PEER_SPEC_RULE: ParserRule = ParserRule::peer_spec;
+}
+
+impl ExprAfi for afi::Any {
+    const PEER_EXPR_RULE: ParserRule = ParserRule::mp_peer_expr;
+    const PEER_SPEC_RULE: ParserRule = ParserRule::mp_peer_spec;
+}
 
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
@@ -28,13 +45,13 @@ pub type MpPeerExpr = Expr<afi::Any>;
 impl_from_str!(ParserRule::just_mp_peer_expr => MpPeerExpr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Expr<A: LiteralPrefixSetAfi> {
+pub struct Expr<A: ExprAfi> {
     protocol: Protocol,
     peer: PeerSpec<A>,
     opts: Option<ListOf<PeerOpt>>,
 }
 
-impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
+impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -60,7 +77,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     }
 }
 
-impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
+impl<A: ExprAfi> fmt::Display for Expr<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self.protocol, self.peer)?;
         if let Some(opts) = &self.opts {
@@ -71,7 +88,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for Expr<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: LiteralPrefixSetAfi> Arbitrary for Expr<A>
+impl<A: ExprAfi> Arbitrary for Expr<A>
 where
     A: fmt::Debug + 'static,
     A::Addr: Arbitrary,
@@ -95,14 +112,14 @@ where
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum PeerSpec<A: LiteralPrefixSetAfi> {
+pub enum PeerSpec<A: ExprAfi> {
     Addr(IpAddress<A>),
     InetRtr(InetRtr),
     RtrSet(RtrSet),
     PeeringSet(PeeringSet),
 }
 
-impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for PeerSpec<A> {
+impl<A: ExprAfi> TryFrom<TokenPair<'_>> for PeerSpec<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -117,7 +134,7 @@ impl<A: LiteralPrefixSetAfi> TryFrom<TokenPair<'_>> for PeerSpec<A> {
     }
 }
 
-impl<A: LiteralPrefixSetAfi> fmt::Display for PeerSpec<A> {
+impl<A: ExprAfi> fmt::Display for PeerSpec<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Addr(addr) => addr.fmt(f),
@@ -129,7 +146,7 @@ impl<A: LiteralPrefixSetAfi> fmt::Display for PeerSpec<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: LiteralPrefixSetAfi> Arbitrary for PeerSpec<A>
+impl<A: ExprAfi> Arbitrary for PeerSpec<A>
 where
     A: fmt::Debug + 'static,
     A::Addr: Arbitrary,

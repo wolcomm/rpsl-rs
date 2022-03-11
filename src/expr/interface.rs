@@ -3,7 +3,7 @@ use std::fmt;
 use std::hash;
 
 use crate::{
-    addr_family::{afi, Afi},
+    addr_family::{afi, AfiClass},
     error::{err, ParseError, ParseResult},
     parser::{
         debug_construction, impl_from_str, next_into_or, next_parse_or, rule_mismatch, ParserRule,
@@ -29,7 +29,7 @@ impl_from_str!(ParserRule::just_ifaddr_expr => IfaddrExpr);
 pub type InterfaceExpr = Expr<afi::Any>;
 impl_from_str!(ParserRule::just_interface_expr => InterfaceExpr);
 
-pub trait TunnelEndpointAfi: Afi {
+pub trait TunnelEndpointAfi: AfiClass {
     type Tunnel: fmt::Display
         + for<'a> TryFrom<TokenPair<'a>, Error = ParseError>
         + Clone
@@ -193,7 +193,7 @@ impl Arbitrary for NeverTunnel {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct TunnelInterface<A: Afi> {
+pub struct TunnelInterface<A: TunnelEndpointAfi> {
     endpoint: IpAddress<A>,
     encapsulation: TunnelEncaps,
 }
@@ -225,7 +225,7 @@ impl<A: TunnelEndpointAfi> fmt::Display for TunnelInterface<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: Afi> Arbitrary for TunnelInterface<A>
+impl<A: TunnelEndpointAfi> Arbitrary for TunnelInterface<A>
 where
     A: fmt::Debug + 'static,
     A::Addr: Arbitrary,
