@@ -1,34 +1,13 @@
-use std::iter::{Extend, FromIterator};
-use std::ops::{BitAnd, BitOr, Not};
-
-use num::{One, Zero};
-
 use crate::{
     addr_family::afi,
     names::{AsSet, AutNum, RouteSet},
 };
 
-use super::data::IpPrefixRange;
+use super::data::PrefixSet;
 
 pub trait Resolver {
-    type Ipv4PrefixSet: Default
-        + One
-        + Zero
-        + Not<Output = Self::Ipv4PrefixSet>
-        + BitAnd<Output = Self::Ipv4PrefixSet>
-        + BitOr<Output = Self::Ipv4PrefixSet>
-        + Extend<IpPrefixRange<afi::Ipv4>>
-        + FromIterator<IpPrefixRange<afi::Ipv4>>
-        + IntoIterator<Item = IpPrefixRange<afi::Ipv4>>;
-    type Ipv6PrefixSet: Default
-        + One
-        + Zero
-        + Not<Output = Self::Ipv6PrefixSet>
-        + BitAnd<Output = Self::Ipv6PrefixSet>
-        + BitOr<Output = Self::Ipv6PrefixSet>
-        + Extend<IpPrefixRange<afi::Ipv6>>
-        + FromIterator<IpPrefixRange<afi::Ipv6>>
-        + IntoIterator<Item = IpPrefixRange<afi::Ipv6>>;
+    type Ipv4PrefixSet: PrefixSet<afi::Ipv4>;
+    type Ipv6PrefixSet: PrefixSet<afi::Ipv6>;
     type AsPathRegexp;
 
     type Error: ResolverError;

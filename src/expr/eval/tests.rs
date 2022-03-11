@@ -1,9 +1,7 @@
 use std::collections::{hash_set, HashSet};
 use std::fmt;
 use std::iter::{Extend, FromIterator, IntoIterator, Map};
-use std::ops::{Add, BitAnd, BitOr, Mul, Not};
-
-use num::{One, Zero};
+use std::ops::{BitAnd, BitOr, Not};
 
 use crate::{
     addr_family::{afi, Afi},
@@ -13,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    data::IpPrefixRange,
+    data::{IpPrefixRange, PrefixSet},
     resolver::{Resolver, ResolverError, ResolverResult},
     subst::PeerAs,
     Evaluate,
@@ -61,7 +59,7 @@ impl<A: Afi, T: AsRef<[&'static str]>> From<T> for TestPrefixSet<A> {
 impl<A: Afi> Extend<IpPrefixRange<A>> for TestPrefixSet<A> {
     fn extend<I: IntoIterator<Item = IpPrefixRange<A>>>(&mut self, iter: I) {
         self.0
-            .extend(iter.into_iter().map(|range| range.prefixes()).flatten())
+            .extend(iter.into_iter().flat_map(|range| range.prefixes()))
     }
 }
 
@@ -81,9 +79,9 @@ impl<A: Afi> IntoIterator for TestPrefixSet<A> {
     }
 }
 
-impl<A: Afi> Mul for TestPrefixSet<A> {
+impl<A: Afi> BitAnd for TestPrefixSet<A> {
     type Output = Self;
-    fn mul(self, rhs: Self) -> Self::Output {
+    fn bitand(self, rhs: Self) -> Self::Output {
         self.0
             .into_iter()
             .filter(|prefix| rhs.0.contains(prefix))
@@ -92,41 +90,11 @@ impl<A: Afi> Mul for TestPrefixSet<A> {
     }
 }
 
-impl<A: Afi> Add for TestPrefixSet<A> {
+impl<A: Afi> BitOr for TestPrefixSet<A> {
     type Output = Self;
-    fn add(mut self, rhs: Self) -> Self::Output {
+    fn bitor(mut self, rhs: Self) -> Self::Output {
         self.extend(rhs);
         self
-    }
-}
-
-impl<A: Afi> Zero for TestPrefixSet<A> {
-    fn zero() -> Self {
-        Self::default()
-    }
-
-    fn is_zero(&self) -> bool {
-        self.0.is_empty()
-    }
-}
-
-impl<A: Afi> One for TestPrefixSet<A> {
-    fn one() -> Self {
-        Self(IpPrefixRange::all().prefixes().collect())
-    }
-}
-
-impl<A: Afi> BitAnd for TestPrefixSet<A> {
-    type Output = <Self as Mul>::Output;
-    fn bitand(self, rhs: Self) -> Self::Output {
-        self.mul(rhs)
-    }
-}
-
-impl<A: Afi> BitOr for TestPrefixSet<A> {
-    type Output = <Self as Add>::Output;
-    fn bitor(self, rhs: Self) -> Self::Output {
-        self.add(rhs)
     }
 }
 
@@ -141,6 +109,8 @@ impl<A: Afi> Not for TestPrefixSet<A> {
         )
     }
 }
+
+impl<A: Afi> PrefixSet<A> for TestPrefixSet<A> {}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 struct TestResolverError(String);

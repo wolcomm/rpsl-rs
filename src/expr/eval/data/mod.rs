@@ -1,5 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
+use std::iter::{Extend, FromIterator};
+use std::ops::{BitAnd, BitOr, Not};
 
 use crate::{
     addr_family::Afi,
@@ -28,6 +30,27 @@ macro_rules! err {
 }
 
 pub use self::{enums::IpPrefixRangeEnum, len_range::PrefixLengthRange};
+
+pub trait PrefixSet<A: Afi>
+where
+    Self: Default
+        + Not<Output = Self>
+        + BitAnd<Output = Self>
+        + BitOr<Output = Self>
+        + Extend<IpPrefixRange<A>>
+        + FromIterator<IpPrefixRange<A>>
+        + IntoIterator<Item = IpPrefixRange<A>>,
+{
+    fn empty() -> Self {
+        Self::default()
+    }
+
+    fn any() -> Self {
+        let mut set = Self::empty();
+        set.extend(Some(IpPrefixRange::all()));
+        set
+    }
+}
 
 pub struct IpPrefixRange<A: Afi> {
     prefix: IpPrefix<A>,

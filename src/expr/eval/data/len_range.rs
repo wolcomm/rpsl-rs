@@ -1,7 +1,7 @@
 use std::cmp::max;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
-use std::ops::{BitAnd, Bound, RangeBounds, RangeInclusive};
+use std::ops::{BitAnd, RangeBounds, RangeInclusive};
 
 use ranges::{Domain, GenericRange, OperationResult};
 

@@ -1,18 +1,10 @@
 use std::convert::TryInto;
-use std::iter::zip;
 
-use num::{One, Zero};
-
-use crate::{
-    addr_family::{afi, Afi, AfiClass},
-    expr::filter,
-    names::{AsSet, AutNum, RouteSet},
-    primitive::{IpPrefixRange, RangeOperator},
-};
+use crate::{expr::filter, primitive::IpPrefixRange};
 
 use super::{
     apply::Apply,
-    data::IpPrefixRangeEnum,
+    data::{IpPrefixRangeEnum, PrefixSet},
     error::{EvaluationError, EvaluationResult},
     resolver::{Resolver, ResolverOutput},
     state, Evaluation,
@@ -115,9 +107,8 @@ where
                 Ok((ipv4_set, ipv6_set))
             }
             // TODO
-            Self::And(lhs, rhs) => unimplemented!(),
-            Self::Or(lhs, rhs) => unimplemented!(),
-            _ => unimplemented!(),
+            Self::And(_lhs, _rhs) => unimplemented!(),
+            Self::Or(_lhs, _rhs) => unimplemented!(),
         }
     }
 }
@@ -131,10 +122,10 @@ where
     fn resolve(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
         debug_resolution!(filter::Term: self);
         match self {
-            Self::Any => Ok((Some(R::Ipv4PrefixSet::one()), Some(R::Ipv6PrefixSet::one()))),
+            Self::Any => Ok((Some(R::Ipv4PrefixSet::any()), Some(R::Ipv6PrefixSet::any()))),
             Self::Literal(literal) => literal.resolve(resolver),
             // TODO
-            Self::Named(filter_name) => unimplemented!(),
+            Self::Named(_filter_name) => unimplemented!(),
             Self::Expr(expr) => expr.resolve(resolver),
         }
     }
@@ -179,7 +170,7 @@ where
         match self {
             Self::Literal(entries) => {
                 let (mut ipv4_set, mut ipv6_set) =
-                    (R::Ipv4PrefixSet::default(), R::Ipv6PrefixSet::default());
+                    (R::Ipv4PrefixSet::empty(), R::Ipv6PrefixSet::empty());
                 entries
                     .into_iter()
                     .filter_map(|prefix_range| {
@@ -212,7 +203,7 @@ impl<R: Resolver> Resolve<R> for filter::NamedPrefixSet {
         debug_resolution!(filter::NamedPrefixSet: self);
         match self {
             Self::RsAny | Self::AsAny => {
-                Ok((Some(R::Ipv4PrefixSet::one()), Some(R::Ipv6PrefixSet::one())))
+                Ok((Some(R::Ipv4PrefixSet::any()), Some(R::Ipv6PrefixSet::any())))
             }
             Self::PeerAs => Err(err!(
                 "expected named prefix set, found un-substituted 'PeerAS' token"
