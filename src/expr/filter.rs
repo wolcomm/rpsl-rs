@@ -49,6 +49,8 @@ pub trait ExprAfi: AfiClass {
             .iter()
             .any(|filter_expr_rule| &rule == filter_expr_rule)
     }
+    /// Address family specific [`ParserRule`] for filter expressions.
+    const FILTER_EXPR_ROOT_RULE: ParserRule;
 }
 
 impl ExprAfi for afi::Ipv4 {
@@ -60,6 +62,7 @@ impl ExprAfi for afi::Ipv4 {
     const FILTER_EXPR_NOT_RULE: ParserRule = ParserRule::filter_expr_not;
     const FILTER_EXPR_AND_RULE: ParserRule = ParserRule::filter_expr_and;
     const FILTER_EXPR_OR_RULE: ParserRule = ParserRule::filter_expr_or;
+    const FILTER_EXPR_ROOT_RULE: ParserRule = ParserRule::just_filter_expr;
 }
 
 impl ExprAfi for afi::Any {
@@ -71,19 +74,24 @@ impl ExprAfi for afi::Any {
     const FILTER_EXPR_NOT_RULE: ParserRule = ParserRule::mp_filter_expr_not;
     const FILTER_EXPR_AND_RULE: ParserRule = ParserRule::mp_filter_expr_and;
     const FILTER_EXPR_OR_RULE: ParserRule = ParserRule::mp_filter_expr_or;
+    const FILTER_EXPR_ROOT_RULE: ParserRule = ParserRule::just_mp_filter_expr;
 }
 
 /// RPSL `filter` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.4
 pub type FilterExpr = Expr<afi::Ipv4>;
-impl_from_str!(ParserRule::just_filter_expr => Expr<afi::Ipv4>);
 
 /// RPSL `mp-filter` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5.2
 pub type MpFilterExpr = Expr<afi::Any>;
-impl_from_str!(ParserRule::just_mp_filter_expr => Expr<afi::Any>);
+
+impl_from_str! {
+    forall A: ExprAfi {
+        A::FILTER_EXPR_ROOT_RULE => Expr<A>
+    }
+}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr<A: ExprAfi> {
