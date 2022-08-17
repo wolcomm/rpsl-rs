@@ -14,7 +14,26 @@ pub type TokenPair<'a> = Pair<'a, ParserRule>;
 macro_rules! impl_from_str {
     ( $rule:expr => $t:ty ) => {
         impl std::str::FromStr for $t {
-            type Err = ParseError;
+            type Err = $crate::error::ParseError;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                use pest::Parser;
+                log::info!(concat!("trying to parse ", stringify!($t), " expression"));
+                let root = $crate::parser::RpslParser::parse($rule, s)?
+                    .next()
+                    .ok_or_else(|| $crate::error::err!("failed to parse expression",))?;
+                root.try_into()
+            }
+        }
+    };
+    ( forall $( $bound_ty:ident: $bound:path ),+ $(,)? {
+        $rule:expr => $t:ty
+    } ) => {
+        impl<$($bound_ty),+> std::str::FromStr for $t
+        where
+            $($bound_ty: $bound),+
+        {
+            type Err = $crate::error::ParseError;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 use pest::Parser;
