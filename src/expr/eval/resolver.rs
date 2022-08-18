@@ -1,6 +1,7 @@
 use crate::{
     addr_family::afi,
-    names::{AsSet, AutNum, RouteSet},
+    expr::filter,
+    names::{AsSet, AutNum, FilterSet, RouteSet},
 };
 
 use super::data::PrefixSet;
@@ -15,6 +16,12 @@ pub trait Resolver {
     fn resolve_route_set(&mut self, route_set: RouteSet) -> ResolverResult<Self>;
     fn resolve_as_set_as_route_set(&mut self, as_set: AsSet) -> ResolverResult<Self>;
     fn resolve_aut_num_as_route_set(&mut self, aut_num: AutNum) -> ResolverResult<Self>;
+    fn resolve_named_filter_set<A>(
+        &mut self,
+        filter_set: FilterSet,
+    ) -> Result<filter::Expr<A>, Self::Error>
+    where
+        A: filter::ExprAfi;
 }
 
 pub trait ResolverError: std::error::Error + Send + Sync + 'static {}

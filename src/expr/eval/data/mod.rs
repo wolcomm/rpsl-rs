@@ -1,5 +1,5 @@
 use std::convert::{TryFrom, TryInto};
-use std::fmt;
+use std::fmt::{self, Debug};
 use std::iter::{Extend, FromIterator};
 use std::ops::{BitAnd, BitOr, Not};
 
@@ -34,6 +34,7 @@ pub use self::{enums::IpPrefixRangeEnum, len_range::PrefixLengthRange};
 pub trait PrefixSet<A: Afi>
 where
     Self: Default
+        + Debug
         + Not<Output = Self>
         + BitAnd<Output = Self>
         + BitOr<Output = Self>

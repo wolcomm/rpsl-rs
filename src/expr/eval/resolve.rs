@@ -7,7 +7,9 @@ use super::{
     data::{IpPrefixRangeEnum, PrefixSet},
     error::{EvaluationError, EvaluationResult},
     resolver::{Resolver, ResolverOutput},
-    state, Evaluation,
+    state,
+    subst::PeerAs,
+    Evaluate, Evaluation,
 };
 
 macro_rules! debug_resolution {
@@ -45,52 +47,7 @@ where
     }
 }
 
-// impl<R: Resolver, A: filter::ExprAfi> Resolve<R> for filter::Expr<A> {
-//     type Output = (Option<R::Ipv4PrefixSet>, Option<R::Ipv6PrefixSet>);
-
-//     fn resolve(self, resolver: &mut R) -> ResolutionResult<Self::Output> {
-//         debug_resolution!(filter::Expr: self);
-//         match self {
-//             Self::Unit(term) => term.resolve(resolver),
-//             Self::Not(term) => {
-//                 let (ipv4, ipv6) = term.resolve(resolver)?;
-//                 Ok((ipv4.map(|set| !set), ipv6.map(|set| !set)))
-//             }
-//             Self::And(lhs, rhs) => {
-//                 let (lhs_ipv4, lhs_ipv6) = lhs.resolve(resolver)?;
-//                 let (rhs_ipv4, rhs_ipv6) = rhs.resolve(resolver)?;
-//                 let ipv4 = match (lhs_ipv4, rhs_ipv4) {
-//                     (Some(lhs), Some(rhs)) => Some(lhs & rhs),
-//                     (None, None) => None,
-//                     _ => return Err(err!("failed to take intersection of sets")),
-//                 };
-//                 let ipv6 = match (lhs_ipv6, rhs_ipv6) {
-//                     (Some(lhs), Some(rhs)) => Some(lhs & rhs),
-//                     (None, None) => None,
-//                     _ => return Err(err!("failed to take intersection of sets")),
-//                 };
-//                 Ok((ipv4, ipv6))
-//             }
-//             Self::Or(lhs, rhs) => {
-//                 let (lhs_ipv4, lhs_ipv6) = lhs.resolve(resolver)?;
-//                 let (rhs_ipv4, rhs_ipv6) = rhs.resolve(resolver)?;
-//                 let ipv4 = match (lhs_ipv4, rhs_ipv4) {
-//                     (Some(lhs), Some(rhs)) => Some(lhs | rhs),
-//                     (None, None) => None,
-//                     _ => return Err(err!("failed to take union of sets")),
-//                 };
-//                 let ipv6 = match (lhs_ipv6, rhs_ipv6) {
-//                     (Some(lhs), Some(rhs)) => Some(lhs | rhs),
-//                     (None, None) => None,
-//                     _ => return Err(err!("failed to take union of sets")),
-//                 };
-//                 Ok((ipv4, ipv6))
-//             }
-//         }
-//     }
-// }
-
-impl<R: Resolver, A: filter::ExprAfi> Resolve<R> for filter::Expr<A>
+impl<R: Resolver + PeerAs, A: filter::ExprAfi> Resolve<R> for filter::Expr<A>
 where
     IpPrefixRange<A>: TryInto<IpPrefixRangeEnum, Error = EvaluationError>,
 {
@@ -99,21 +56,48 @@ where
     fn resolve(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
         debug_resolution!(filter::Expr: self);
         match self {
-            Self::Unit(term) => term.resolve(resolver),
+            Self::Unit(term) => dbg!(term.resolve(resolver)),
             Self::Not(term) => {
                 let (mut ipv4_set, mut ipv6_set) = term.resolve(resolver)?;
                 ipv4_set = ipv4_set.map(|set| !set);
                 ipv6_set = ipv6_set.map(|set| !set);
-                Ok((ipv4_set, ipv6_set))
+                Ok(dbg!((ipv4_set, ipv6_set)))
             }
-            // TODO
-            Self::And(_lhs, _rhs) => unimplemented!(),
-            Self::Or(_lhs, _rhs) => unimplemented!(),
+            Self::And(lhs, rhs) => {
+                let (lhs_ipv4_set, lhs_ipv6_set) = lhs.resolve(resolver)?;
+                let (rhs_ipv4_set, rhs_ipv6_set) = rhs.resolve(resolver)?;
+                let ipv4_set = match (lhs_ipv4_set, rhs_ipv4_set) {
+                    (Some(lhs), Some(rhs)) => Some(lhs & rhs),
+                    (None, None) => None,
+                    _ => return Err(err!("failed to take union of ipv4 sets")),
+                };
+                let ipv6_set = match (lhs_ipv6_set, rhs_ipv6_set) {
+                    (Some(lhs), Some(rhs)) => Some(lhs & rhs),
+                    (None, None) => None,
+                    _ => return Err(err!("failed to take union of ipv6 sets")),
+                };
+                Ok(dbg!((ipv4_set, ipv6_set)))
+            }
+            Self::Or(lhs, rhs) => {
+                let (lhs_ipv4_set, lhs_ipv6_set) = lhs.resolve(resolver)?;
+                let (rhs_ipv4_set, rhs_ipv6_set) = rhs.resolve(resolver)?;
+                let ipv4_set = match (lhs_ipv4_set, rhs_ipv4_set) {
+                    (Some(lhs), Some(rhs)) => Some(lhs | rhs),
+                    (None, None) => None,
+                    _ => return Err(err!("failed to take union of ipv4 sets")),
+                };
+                let ipv6_set = match (lhs_ipv6_set, rhs_ipv6_set) {
+                    (Some(lhs), Some(rhs)) => Some(lhs | rhs),
+                    (None, None) => None,
+                    _ => return Err(err!("failed to take union of ipv6 sets")),
+                };
+                Ok(dbg!((ipv4_set, ipv6_set)))
+            }
         }
     }
 }
 
-impl<R: Resolver, A: filter::ExprAfi> Resolve<R> for filter::Term<A>
+impl<R: Resolver + PeerAs, A: filter::ExprAfi> Resolve<R> for filter::Term<A>
 where
     IpPrefixRange<A>: TryInto<IpPrefixRangeEnum, Error = EvaluationError>,
 {
@@ -124,8 +108,9 @@ where
         match self {
             Self::Any => Ok((Some(R::Ipv4PrefixSet::any()), Some(R::Ipv6PrefixSet::any()))),
             Self::Literal(literal) => literal.resolve(resolver),
-            // TODO
-            Self::Named(_filter_name) => unimplemented!(),
+            Self::Named(filter_set) => resolver
+                .resolve_named_filter_set(filter_set)?
+                .evaluate(resolver),
             Self::Expr(expr) => expr.resolve(resolver),
         }
     }

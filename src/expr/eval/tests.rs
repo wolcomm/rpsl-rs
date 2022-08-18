@@ -1,12 +1,14 @@
+use std::borrow::Borrow;
 use std::collections::{hash_set, HashSet};
 use std::fmt;
-use std::iter::{Extend, FromIterator, IntoIterator, Map};
+use std::hash::Hash;
+use std::iter::{Extend, FromIterator, IntoIterator};
 use std::ops::{BitAnd, BitOr, Not};
 
 use crate::{
     addr_family::{afi, Afi},
-    expr::MpFilterExpr,
-    names::{AsSet, AutNum, RouteSet},
+    expr::{filter, MpFilterExpr},
+    names::{AsSet, AutNum, FilterSet, RouteSet},
     primitive::IpPrefix,
 };
 
@@ -36,30 +38,101 @@ impl PeerAs for TestResolver {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct TestPrefixSet<A: Afi>(HashSet<IpPrefix<A>>);
+enum TestPrefixSetIncl<A: Afi> {
+    Any,
+    Set(HashSet<IpPrefix<A>>),
+}
+
+impl<A: Afi> TestPrefixSetIncl<A> {
+    fn contains<Q>(&self, prefix: &Q) -> bool
+    where
+        IpPrefix<A>: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        match self {
+            Self::Any => true,
+            Self::Set(inner) => inner.contains(prefix),
+        }
+    }
+}
+
+impl<A: Afi> Default for TestPrefixSetIncl<A> {
+    fn default() -> Self {
+        Self::Set(Default::default())
+    }
+}
+
+impl<A: Afi> From<HashSet<IpPrefix<A>>> for TestPrefixSetIncl<A> {
+    fn from(set: HashSet<IpPrefix<A>>) -> Self {
+        Self::Set(set)
+    }
+}
+
+impl<A: Afi> Extend<IpPrefix<A>> for TestPrefixSetIncl<A> {
+    fn extend<I: IntoIterator<Item = IpPrefix<A>>>(&mut self, iter: I) {
+        if let Self::Set(inner) = self {
+            inner.extend(iter)
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct TestPrefixSet<A: Afi> {
+    include: TestPrefixSetIncl<A>,
+    exclude: HashSet<IpPrefix<A>>,
+}
+
+impl<A: Afi> TestPrefixSet<A> {
+    fn contains<Q>(&self, prefix: &Q) -> bool
+    where
+        IpPrefix<A>: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.include.contains(prefix) && !self.exclude.contains(prefix)
+    }
+    fn contains_some<Q>(&self, prefix: Q) -> Option<Q>
+    where
+        IpPrefix<A>: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        self.contains(&prefix).then_some(prefix)
+    }
+}
 
 impl<A: Afi> Default for TestPrefixSet<A> {
     fn default() -> Self {
-        Self(HashSet::default())
+        Self {
+            include: Default::default(),
+            exclude: Default::default(),
+        }
     }
 }
 
 impl<A: Afi, T: AsRef<[&'static str]>> From<T> for TestPrefixSet<A> {
     fn from(prefixes: T) -> Self {
-        Self(
-            prefixes
-                .as_ref()
-                .iter()
-                .map(|p| p.parse().unwrap())
-                .collect(),
-        )
+        let include = prefixes
+            .as_ref()
+            .iter()
+            .map(|p| p.parse().unwrap())
+            .collect::<HashSet<_>>()
+            .into();
+        Self {
+            include,
+            exclude: Default::default(),
+        }
     }
 }
 
 impl<A: Afi> Extend<IpPrefixRange<A>> for TestPrefixSet<A> {
     fn extend<I: IntoIterator<Item = IpPrefixRange<A>>>(&mut self, iter: I) {
-        self.0
-            .extend(iter.into_iter().flat_map(|range| range.prefixes()))
+        let excl = &mut self.exclude;
+        self.include.extend(
+            iter.into_iter()
+                .flat_map(|range| range.prefixes())
+                .inspect(|prefix| {
+                    excl.remove(prefix);
+                }),
+        )
     }
 }
 
@@ -73,19 +146,42 @@ impl<A: Afi> FromIterator<IpPrefixRange<A>> for TestPrefixSet<A> {
 
 impl<A: Afi> IntoIterator for TestPrefixSet<A> {
     type Item = IpPrefixRange<A>;
-    type IntoIter = Map<hash_set::IntoIter<IpPrefix<A>>, fn(IpPrefix<A>) -> IpPrefixRange<A>>;
+    type IntoIter = TestPrefixSetIter<A>;
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter().map(IpPrefixRange::from)
+        let inner = match self.include {
+            TestPrefixSetIncl::Any => panic!("iterating over Any is a bad idea!"),
+            TestPrefixSetIncl::Set(inner) => inner.into_iter(),
+        };
+        Self::IntoIter {
+            inner,
+            exclude: self.exclude,
+        }
+    }
+}
+
+struct TestPrefixSetIter<A: Afi> {
+    inner: hash_set::IntoIter<IpPrefix<A>>,
+    exclude: HashSet<IpPrefix<A>>,
+}
+
+impl<A: Afi> Iterator for TestPrefixSetIter<A> {
+    type Item = IpPrefixRange<A>;
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(prefix) = self.inner.next() {
+            if !self.exclude.contains(&prefix) {
+                return Some(prefix.into());
+            }
+        }
+        None
     }
 }
 
 impl<A: Afi> BitAnd for TestPrefixSet<A> {
     type Output = Self;
     fn bitand(self, rhs: Self) -> Self::Output {
-        self.0
-            .into_iter()
-            .filter(|prefix| rhs.0.contains(prefix))
-            .map(|prefix| prefix.into())
+        self.into_iter()
+            .flat_map(IpPrefixRange::prefixes)
+            .filter_map(|prefix| rhs.contains_some(prefix).map(IpPrefixRange::from))
             .collect()
     }
 }
@@ -101,16 +197,22 @@ impl<A: Afi> BitOr for TestPrefixSet<A> {
 impl<A: Afi> Not for TestPrefixSet<A> {
     type Output = Self;
     fn not(self) -> Self::Output {
-        Self(
-            IpPrefixRange::all()
-                .prefixes()
-                .filter(|prefix| !self.0.contains(prefix))
-                .collect(),
-        )
+        let exclude = self.into_iter().flat_map(IpPrefixRange::prefixes).collect();
+        Self {
+            include: TestPrefixSetIncl::Any,
+            exclude,
+        }
     }
 }
 
-impl<A: Afi> PrefixSet<A> for TestPrefixSet<A> {}
+impl<A: Afi> PrefixSet<A> for TestPrefixSet<A> {
+    fn any() -> Self {
+        Self {
+            include: TestPrefixSetIncl::Any,
+            exclude: Default::default(),
+        }
+    }
+}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 struct TestResolverError(String);
@@ -118,6 +220,11 @@ struct TestResolverError(String);
 impl fmt::Display for TestResolverError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+impl<S: AsRef<str>> From<S> for TestResolverError {
+    fn from(s: S) -> Self {
+        Self(s.as_ref().to_owned())
     }
 }
 impl std::error::Error for TestResolverError {}
@@ -136,6 +243,18 @@ impl Resolver for TestResolver {
     }
     fn resolve_aut_num_as_route_set(&mut self, _: AutNum) -> ResolverResult<Self> {
         Ok((None, None))
+    }
+    fn resolve_named_filter_set<A: filter::ExprAfi>(
+        &mut self,
+        name: FilterSet,
+    ) -> Result<filter::Expr<A>, Self::Error> {
+        match name.to_string().as_str() {
+            "FLTR-NONE" => Ok("{}".parse().unwrap()),
+            "FLTR-ERROR" => Err("resolver error".into()),
+            "FLTR-ANY" => Ok("ANY".parse().unwrap()),
+            "FLTR-ONE" => Ok("{1.1.1.1/32, 1::1/128}".parse().unwrap()),
+            _ => panic!("bad filter name"),
+        }
     }
 }
 
@@ -310,6 +429,30 @@ eval_filters! {
     );
     range_over_range_disjoint: "{2001:db8::f0/124^126-127}^124-125" => (
         Some([]),
+        Some([]),
+    );
+    intersection: "{192.168.0.0/16^16-24, 2001:db8::/32^32-48} AND {192.0.0.0/8^17, 2001::/16^33}" => (
+        Some(["192.168.0.0/17", "192.168.128.0/17"]),
+        Some(["2001:db8::/33", "2001:db8:8000::/33"]),
+    );
+    union: "{192.168.0.0/24, 2001:db8:f00::/48} OR {10.0.0.0/8, 2001:db8:baa::/64}" => (
+        Some(["192.168.0.0/24", "10.0.0.0/8"]),
+        Some(["2001:db8:f00::/48", "2001:db8:baa::/64"]),
+    );
+    subtraction: "{192.168.0.0/22^24, 2001:db8:f00::/48^50} AND NOT {192.168.2.0/23^24, 2001:db8:f00::/49^50}" => (
+        Some(["192.168.0.0/24", "192.168.1.0/24"]),
+        Some(["2001:db8:f00:8000::/50", "2001:db8:f00:c000::/50"]),
+    );
+    intersect_any: "{192.0.2.0/24, 2001:db8::/32} AND ANY" => (
+        Some(["192.0.2.0/24"]),
+        Some(["2001:db8::/32"]),
+    );
+    union_over_intersection: "{192.0.2.0/26} OR ({192.0.2.64/26, 192.0.2.128/26} AND {192.0.2.128/25^26})" => (
+        Some(["192.0.2.0/26", "192.0.2.128/26"]),
+        Some([]),
+    );
+    intersection_over_union: "({192.0.2.0/26} OR {192.0.2.64/26, 192.0.2.128/26}) AND {192.0.2.128/25^26}" => (
+        Some(["192.0.2.128/26"]),
         Some([]),
     );
 }
