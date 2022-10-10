@@ -2,13 +2,14 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::str::FromStr;
 
+use ip::{traits::Prefix as _, AfiClass, Any, Ipv4, Ipv6};
+
 use time::{format_description::FormatItem, macros::format_description};
 
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
-    addr_family::AfiClass,
     error::{err, ParseError, ParseResult},
     names::AutNum,
     parser::{
@@ -20,125 +21,142 @@ use crate::{
 #[cfg(any(test, feature = "arbitrary"))]
 use self::arbitrary::{impl_free_form_arbitrary, impl_rpsl_name_arbitrary, prop_filter_keywords};
 
+pub trait ParserAfi: AfiClass {
+    const LITERAL_ADDR_RULE: ParserRule;
+    const LITERAL_PREFIX_RULE: ParserRule;
+}
+impl ParserAfi for Ipv4 {
+    const LITERAL_ADDR_RULE: ParserRule = ParserRule::ipv4_addr;
+    const LITERAL_PREFIX_RULE: ParserRule = ParserRule::ipv4_prefix;
+}
+impl ParserAfi for Ipv6 {
+    const LITERAL_ADDR_RULE: ParserRule = ParserRule::ipv6_addr;
+    const LITERAL_PREFIX_RULE: ParserRule = ParserRule::ipv6_prefix;
+}
+impl ParserAfi for Any {
+    const LITERAL_ADDR_RULE: ParserRule = ParserRule::ip_addr_choice;
+    const LITERAL_PREFIX_RULE: ParserRule = ParserRule::ip_prefix_choice;
+}
+
 /// IP address literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct IpAddress<A: AfiClass>(A::Addr);
+pub struct IpAddress<A: ParserAfi> {
+    inner: A::Address,
+}
 
-impl<A: AfiClass> FromStr for IpAddress<A> {
-    type Err = <A::Addr as FromStr>::Err;
+impl<A: ParserAfi> IpAddress<A> {
+    pub fn new(address: A::Address) -> Self {
+        Self { inner: address }
+    }
+
+    pub fn into_inner(self) -> A::Address {
+        self.inner
+    }
+}
+
+impl<A: ParserAfi> FromStr for IpAddress<A> {
+    type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self(s.parse()?))
+        Ok(Self::new(s.parse()?))
     }
 }
 
-impl<A: AfiClass> AsRef<A::Addr> for IpAddress<A> {
-    fn as_ref(&self) -> &A::Addr {
-        &self.0
-    }
-}
-
-impl<A: AfiClass> TryFrom<TokenPair<'_>> for IpAddress<A> {
+impl<A: ParserAfi> TryFrom<TokenPair<'_>> for IpAddress<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
         debug_construction!(pair => IpAddress);
         match pair.as_rule() {
-            rule if rule == A::LITERAL_ADDR_RULE => Ok(Self(pair.as_str().parse()?)),
+            rule if rule == A::LITERAL_ADDR_RULE => Ok(pair.as_str().parse()?),
             _ => Err(rule_mismatch!(pair => "IP address")),
         }
     }
 }
 
-impl<A: AfiClass> fmt::Display for IpAddress<A> {
+impl<A: ParserAfi> fmt::Display for IpAddress<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        self.inner.fmt(f)
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl<A> Arbitrary for IpAddress<A>
 where
-    A: AfiClass + fmt::Debug + 'static,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Strategy: 'static,
+    A: ParserAfi + 'static,
+    A::Address: Arbitrary,
+    <A::Address as Arbitrary>::Strategy: 'static,
 {
-    type Parameters = ParamsFor<A::Addr>;
+    type Parameters = ParamsFor<A::Address>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
-        any_with::<A::Addr>(params).prop_map(Self).boxed()
+        any_with::<A::Address>(params).prop_map(Self::new).boxed()
     }
 }
 
 /// IP prefix literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct IpPrefix<A: AfiClass>(A::Net);
+pub struct IpPrefix<A: ParserAfi> {
+    inner: A::Prefix,
+}
 
-impl<A: AfiClass> IpPrefix<A> {
-    pub fn new(prefix: A::Net) -> Self {
-        Self(prefix)
+impl<A: ParserAfi> IpPrefix<A> {
+    pub fn new(prefix: A::Prefix) -> Self {
+        Self { inner: prefix }
+    }
+
+    pub fn into_inner(self) -> A::Prefix {
+        self.inner
     }
 }
 
-impl<A: AfiClass> AsRef<A::Net> for IpPrefix<A> {
-    fn as_ref(&self) -> &A::Net {
-        &self.0
-    }
-}
-
-impl<A: AfiClass> FromStr for IpPrefix<A> {
-    type Err = <A::Net as FromStr>::Err;
+impl<A: ParserAfi> FromStr for IpPrefix<A> {
+    type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self(s.parse()?))
+        Ok(Self::new(s.parse()?))
     }
 }
 
-impl<A: AfiClass> TryFrom<TokenPair<'_>> for IpPrefix<A> {
+impl<A: ParserAfi> TryFrom<TokenPair<'_>> for IpPrefix<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
         debug_construction!(pair => Prefix);
         match pair.as_rule() {
-            rule if rule == A::LITERAL_PREFIX_RULE => Ok(Self(pair.as_str().parse()?)),
+            rule if rule == A::LITERAL_PREFIX_RULE => Ok(pair.as_str().parse()?),
             _ => Err(rule_mismatch!(pair => "IP prefix")),
         }
     }
 }
 
-impl<A: AfiClass> fmt::Display for IpPrefix<A> {
+impl<A: ParserAfi> fmt::Display for IpPrefix<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        self.inner.fmt(f)
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl<A> Arbitrary for IpPrefix<A>
 where
-    A: AfiClass + fmt::Debug + 'static,
-    A::Addr: Arbitrary,
+    A: ParserAfi + 'static,
+    A::Prefix: Arbitrary,
 {
-    type Parameters = ParamsFor<A::Addr>;
+    type Parameters = ParamsFor<A::Prefix>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
-        any_with::<A::Addr>(params)
-            .prop_flat_map(|addr| {
-                let len = 0..=A::max_len(&addr);
-                (Just(addr), len)
-            })
-            .prop_map(|(addr, len)| Self(A::addr_to_net(addr, len)))
-            .boxed()
+        any_with::<A::Prefix>(params).prop_map(Self::new).boxed()
     }
 }
 
 /// IP prefix range literal.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct IpPrefixRange<A: AfiClass> {
+pub struct IpPrefixRange<A: ParserAfi> {
     prefix: IpPrefix<A>,
     op: RangeOperator,
 }
 
-impl<A: AfiClass> IpPrefixRange<A> {
+impl<A: ParserAfi> IpPrefixRange<A> {
     /// Construct a new [`PrefixRange<T>`].
     pub fn new(prefix: IpPrefix<A>, op: RangeOperator) -> Self {
         Self { prefix, op }
@@ -155,14 +173,13 @@ impl<A: AfiClass> IpPrefixRange<A> {
     }
 }
 
-impl<A: AfiClass> TryFrom<TokenPair<'_>> for IpPrefixRange<A> {
+impl<A: ParserAfi> TryFrom<TokenPair<'_>> for IpPrefixRange<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
         debug_construction!(pair => PrefixRange);
         let mut pairs = pair.into_inner();
         let prefix = next_parse_or!(pairs => "failed to get inner prefix")?;
-        // .map_err(|err| err.into())?;
         let op = match pairs.next() {
             Some(inner) => inner.try_into()?,
             None => RangeOperator::None,
@@ -171,48 +188,30 @@ impl<A: AfiClass> TryFrom<TokenPair<'_>> for IpPrefixRange<A> {
     }
 }
 
-impl<A: AfiClass> fmt::Display for IpPrefixRange<A> {
+impl<A: ParserAfi> fmt::Display for IpPrefixRange<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.prefix, self.op)
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: AfiClass> Arbitrary for IpPrefixRange<A>
+impl<A> Arbitrary for IpPrefixRange<A>
 where
-    A: fmt::Debug + 'static,
-    A::Addr: Arbitrary + Clone,
-    <A::Addr as Arbitrary>::Strategy: 'static,
-    A::Net: fmt::Debug,
+    A: ParserAfi + 'static,
+    A::Prefix: Arbitrary,
+    <A::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
 {
     type Parameters = ParamsFor<IpPrefix<A>>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
         any_with::<IpPrefix<A>>(params)
             .prop_flat_map(|prefix| {
-                let len = A::prefix_len(prefix.as_ref());
-                let max_len = A::max_len(&A::net_to_addr(prefix.as_ref()));
+                let len = *prefix.into_inner().prefix_len().as_ref();
+                let max_len = *prefix.into_inner().max_prefix_len().as_ref();
                 (Just(prefix), any_with::<RangeOperator>((len, max_len)))
             })
             .prop_map(|(prefix, op)| Self::new(prefix, op))
             .boxed()
-        // any_with::<A::Addr>(args)
-        //     .prop_flat_map(|addr| {
-        //         let max_len = A::max_len(&addr);
-        //         (Just(addr), 0..=max_len, Just(max_len))
-        //     })
-        //     .prop_flat_map(|(addr, len, max_len)| {
-        //         (
-        //             Just(addr),
-        //             Just(len),
-        //             any_with::<RangeOperator>((len, max_len)),
-        //         )
-        //     })
-        //     .prop_map(|(addr, len, op)| {
-        //         let prefix = IpPrefix(A::addr_to_net(addr, len));
-        //         Self { prefix, op }
-        //     })
-        //     .boxed()
     }
 }
 

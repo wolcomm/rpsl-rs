@@ -2,11 +2,12 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::marker::PhantomData;
 
+use ip::{Any, Ipv4};
+
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
-    addr_family::afi,
     error::{ParseError, ParseResult},
     list::ListOf,
     parser::{
@@ -52,7 +53,7 @@ pub trait StmtAfi: filter::ExprAfi + peering::ExprAfi {
     const EXPORT_STMT_RULE: ParserRule;
 }
 
-impl StmtAfi for afi::Ipv4 {
+impl StmtAfi for Ipv4 {
     const IMPORT_FACTOR_RULE: ParserRule = ParserRule::import_factor;
     const IMPORT_TERM_RULE: ParserRule = ParserRule::import_term;
     const IMPORT_EXPR_UNIT_RULE: ParserRule = ParserRule::import_expr_unit;
@@ -70,7 +71,7 @@ impl StmtAfi for afi::Ipv4 {
     const EXPORT_STMT_RULE: ParserRule = ParserRule::export_stmt;
 }
 
-impl StmtAfi for afi::Any {
+impl StmtAfi for Any {
     const IMPORT_FACTOR_RULE: ParserRule = ParserRule::mp_import_factor;
     const IMPORT_TERM_RULE: ParserRule = ParserRule::mp_import_term;
     const IMPORT_EXPR_UNIT_RULE: ParserRule = ParserRule::mp_import_expr_unit;
@@ -91,26 +92,26 @@ impl StmtAfi for afi::Any {
 /// RPSL `import` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6.1
-pub type ImportExpr = Statement<afi::Ipv4, Import<afi::Ipv4>>;
-impl_from_str!(ParserRule::just_import_stmt => Statement<afi::Ipv4, Import<afi::Ipv4>>);
+pub type ImportExpr = Statement<Ipv4, Import<Ipv4>>;
+impl_from_str!(ParserRule::just_import_stmt => Statement<Ipv4, Import<Ipv4>>);
 
 /// RPSL `mp-import` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5
-pub type MpImportExpr = Statement<afi::Any, Import<afi::Any>>;
-impl_from_str!(ParserRule::just_mp_import_stmt => Statement<afi::Any, Import<afi::Any>>);
+pub type MpImportExpr = Statement<Any, Import<Any>>;
+impl_from_str!(ParserRule::just_mp_import_stmt => Statement<Any, Import<Any>>);
 
 /// RPSL `export` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6.2
-pub type ExportExpr = Statement<afi::Ipv4, Export<afi::Ipv4>>;
-impl_from_str!(ParserRule::just_export_stmt => Statement<afi::Ipv4, Export<afi::Ipv4>>);
+pub type ExportExpr = Statement<Ipv4, Export<Ipv4>>;
+impl_from_str!(ParserRule::just_export_stmt => Statement<Ipv4, Export<Ipv4>>);
 
 /// RPSL `mp-export` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5
-pub type MpExportExpr = Statement<afi::Any, Export<afi::Any>>;
-impl_from_str!(ParserRule::just_mp_export_stmt => Statement<afi::Any, Export<afi::Any>>);
+pub type MpExportExpr = Statement<Any, Export<Any>>;
+impl_from_str!(ParserRule::just_mp_export_stmt => Statement<Any, Export<Any>>);
 
 pub trait Policy<A: StmtAfi> {
     const PEER_DIRECTION: &'static str;
@@ -219,10 +220,15 @@ impl<A: StmtAfi, P: Policy<A>> fmt::Display for Statement<A, P> {
 #[cfg(any(test, feature = "arbitrary"))]
 impl<A, P> Arbitrary for Statement<A, P>
 where
-    A: AfiSafiList + fmt::Debug + Clone + 'static,
+    A: AfiSafiList + 'static,
     P: Policy<A> + fmt::Debug + 'static,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Parameters: Clone,
+    A::Address: Arbitrary,
+    <A::Address as Arbitrary>::Parameters: Clone,
+    <A::Address as Arbitrary>::Strategy: 'static,
+    A::Prefix: Arbitrary,
+    <A::Prefix as Arbitrary>::Parameters: Clone,
+    <A::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    A::PrefixLength: AsRef<u8>,
 {
     type Parameters = (
         ParamsFor<Option<Protocol>>,
@@ -286,10 +292,15 @@ impl<A: StmtAfi, P: Policy<A>> fmt::Display for AfiExpr<A, P> {
 #[cfg(any(test, feature = "arbitrary"))]
 impl<A, P> Arbitrary for AfiExpr<A, P>
 where
-    A: AfiSafiList + fmt::Debug + Clone + 'static,
+    A: AfiSafiList + 'static,
     P: Policy<A> + fmt::Debug + 'static,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Parameters: Clone,
+    A::Address: Arbitrary,
+    <A::Address as Arbitrary>::Parameters: Clone,
+    <A::Address as Arbitrary>::Strategy: 'static,
+    A::Prefix: Arbitrary,
+    <A::Prefix as Arbitrary>::Parameters: Clone,
+    <A::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    A::PrefixLength: AsRef<u8>,
 {
     type Parameters = (ParamsFor<Option<ListOf<AfiSafi>>>, ParamsFor<Expr<A, P>>);
     type Strategy = BoxedStrategy<Self>;
@@ -348,10 +359,15 @@ impl<A: StmtAfi, P: Policy<A>> fmt::Display for Expr<A, P> {
 #[cfg(any(test, feature = "arbitrary"))]
 impl<A, P> Arbitrary for Expr<A, P>
 where
-    A: AfiSafiList + fmt::Debug + Clone + 'static,
+    A: AfiSafiList + 'static,
     P: Policy<A> + fmt::Debug + 'static,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Parameters: Clone,
+    A::Address: Arbitrary,
+    <A::Address as Arbitrary>::Parameters: Clone,
+    <A::Address as Arbitrary>::Strategy: 'static,
+    A::Prefix: Arbitrary,
+    <A::Prefix as Arbitrary>::Parameters: Clone,
+    <A::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    A::PrefixLength: AsRef<u8>,
 {
     type Parameters = (ParamsFor<Term<A, P>>, ParamsFor<Option<AfiSafi>>);
     type Strategy = BoxedStrategy<Self>;
@@ -410,10 +426,15 @@ impl<A: StmtAfi, P: Policy<A>> fmt::Display for Term<A, P> {
 #[cfg(any(test, feature = "arbitrary"))]
 impl<A, P> Arbitrary for Term<A, P>
 where
-    A: AfiSafiList + fmt::Debug + Clone + 'static,
+    A: AfiSafiList + 'static,
     P: Policy<A> + fmt::Debug + 'static,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Parameters: Clone,
+    A::Address: Arbitrary,
+    <A::Address as Arbitrary>::Parameters: Clone,
+    <A::Address as Arbitrary>::Strategy: 'static,
+    A::Prefix: Arbitrary,
+    <A::Prefix as Arbitrary>::Parameters: Clone,
+    <A::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    A::PrefixLength: AsRef<u8>,
 {
     type Parameters = ParamsFor<Factor<A, P>>;
     type Strategy = BoxedStrategy<Self>;
@@ -484,10 +505,15 @@ impl<A: StmtAfi, P: Policy<A>> fmt::Display for Factor<A, P> {
 #[cfg(any(test, feature = "arbitrary"))]
 impl<A, P> Arbitrary for Factor<A, P>
 where
-    A: AfiSafiList + fmt::Debug + Clone + 'static,
+    A: AfiSafiList + 'static,
     P: Policy<A> + fmt::Debug,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Parameters: Clone,
+    A::Address: Arbitrary,
+    <A::Address as Arbitrary>::Parameters: Clone,
+    <A::Address as Arbitrary>::Strategy: 'static,
+    A::Prefix: Arbitrary,
+    <A::Prefix as Arbitrary>::Parameters: Clone,
+    <A::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    A::PrefixLength: AsRef<u8>,
 {
     type Parameters = (
         ParamsFor<peering::Expr<A>>,

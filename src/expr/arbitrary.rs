@@ -1,6 +1,8 @@
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
-use crate::{addr_family::afi, list::ListOf, primitive::AfiSafi};
+use ip::{Any, Ipv4};
+
+use crate::{list::ListOf, primitive::AfiSafi};
 
 use super::{default, policy};
 
@@ -14,13 +16,13 @@ pub trait AfiSafiList: policy::StmtAfi + default::ExprAfi {
     ) -> BoxedStrategy<Option<ListOf<AfiSafi>>>;
 }
 
-impl AfiSafiList for afi::Ipv4 {
+impl AfiSafiList for Ipv4 {
     fn any_afis(_: ParamsFor<Option<ListOf<AfiSafi>>>) -> BoxedStrategy<Option<ListOf<AfiSafi>>> {
         Just(None).boxed()
     }
 }
 
-impl AfiSafiList for afi::Any {
+impl AfiSafiList for Any {
     fn any_afis(
         params: ParamsFor<Option<ListOf<AfiSafi>>>,
     ) -> BoxedStrategy<Option<ListOf<AfiSafi>>> {

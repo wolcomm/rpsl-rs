@@ -1,14 +1,15 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
+use ip::{Any, Ipv4};
+
 use crate::{
-    addr_family::{afi, AfiClass},
     error::{ParseError, ParseResult},
     names::{AsSet, AutNum, InetRtr, RouteSet, RtrSet},
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
-    primitive::{IpAddress, IpPrefix, RangeOperator},
+    primitive::{IpAddress, IpPrefix, ParserAfi, RangeOperator},
 };
 
 #[cfg(any(test, feature = "arbitrary"))]
@@ -72,29 +73,27 @@ mod as_set {
 /// See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.2
-pub type RouteSetMember = self::route_set::Member<afi::Ipv4>;
-impl_from_str!(ParserRule::route_set_member_choice => RouteSetMember);
+pub type RouteSetMember = self::route_set::Member<Ipv4>;
 
 /// Elements that can appear in the `mp-members` attribute of a `route-set` object.
 /// See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.2
-pub type RouteSetMpMember = self::route_set::Member<afi::Any>;
-impl_from_str!(ParserRule::route_set_mp_member_choice => RouteSetMpMember);
+pub type RouteSetMpMember = self::route_set::Member<Any>;
 
 mod route_set {
     use super::*;
 
-    pub trait MemberAfi: AfiClass {
+    pub trait MemberAfi: ParserAfi {
         /// Address family specific [`ParserRule`] for `route-set` member items.
         const ROUTE_SET_MEMBER_RULE: ParserRule;
     }
 
-    impl MemberAfi for afi::Ipv4 {
+    impl MemberAfi for Ipv4 {
         const ROUTE_SET_MEMBER_RULE: ParserRule = ParserRule::route_set_member_choice;
     }
 
-    impl MemberAfi for afi::Any {
+    impl MemberAfi for Any {
         const ROUTE_SET_MEMBER_RULE: ParserRule = ParserRule::route_set_mp_member_choice;
     }
 
@@ -108,6 +107,12 @@ mod route_set {
         /// Construct a new [`RouteSetMember`].
         pub fn new(base: MemberElem<A>, op: RangeOperator) -> Self {
             Self { base, op }
+        }
+    }
+
+    impl_from_str! {
+        forall A: MemberAfi {
+            A::ROUTE_SET_MEMBER_RULE => Member<A>
         }
     }
 
@@ -141,7 +146,7 @@ mod route_set {
     impl<A: MemberAfi> Arbitrary for Member<A>
     where
         A: fmt::Debug + Clone + 'static,
-        A::Addr: Arbitrary,
+        A::Prefix: Arbitrary,
     {
         type Parameters = ParamsFor<RangeOperator>;
         type Strategy = BoxedStrategy<Self>;
@@ -208,7 +213,7 @@ mod route_set {
     impl<A: MemberAfi> Arbitrary for MemberElem<A>
     where
         A: fmt::Debug + Clone + 'static,
-        A::Addr: Arbitrary,
+        A::Prefix: Arbitrary,
     {
         type Parameters = ();
         type Strategy = BoxedStrategy<Self>;
@@ -231,23 +236,30 @@ mod route_set {
 /// See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.5
-pub type RtrSetMember = self::rtr_set::Member<afi::Ipv4>;
-impl_from_str!(ParserRule::rtr_set_member_choice => RtrSetMember);
+pub type RtrSetMember = self::rtr_set::Member<Ipv4>;
 
 /// RPSL names that can appear in the `mp-members` attribute of an `rtr-set`
 /// object.
 /// See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.6
-pub type RtrSetMpMember = self::rtr_set::Member<afi::Any>;
-impl_from_str!(ParserRule::rtr_set_mp_member_choice => RtrSetMpMember);
+pub type RtrSetMpMember = self::rtr_set::Member<Any>;
 
 mod rtr_set {
     use super::*;
 
-    pub trait MemberAfi: AfiClass {}
-    impl MemberAfi for afi::Ipv4 {}
-    impl MemberAfi for afi::Any {}
+    pub trait MemberAfi: ParserAfi {
+        /// Address family specific [`ParserRule`] for `rtr-set` member items.
+        const RTR_SET_MEMBER_RULE: ParserRule;
+    }
+
+    impl MemberAfi for Ipv4 {
+        const RTR_SET_MEMBER_RULE: ParserRule = ParserRule::rtr_set_member_choice;
+    }
+
+    impl MemberAfi for Any {
+        const RTR_SET_MEMBER_RULE: ParserRule = ParserRule::rtr_set_mp_member_choice;
+    }
 
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
     pub enum Member<A: MemberAfi> {
@@ -257,6 +269,12 @@ mod rtr_set {
         InetRtr(InetRtr),
         /// An `rtr-set` member wrapping an `rtr-set` name.
         RtrSet(RtrSet),
+    }
+
+    impl_from_str! {
+        forall A: MemberAfi {
+            A::RTR_SET_MEMBER_RULE => Member<A>
+        }
     }
 
     impl<A: MemberAfi> TryFrom<TokenPair<'_>> for Member<A> {
@@ -287,7 +305,7 @@ mod rtr_set {
     impl<A: MemberAfi> Arbitrary for Member<A>
     where
         A: fmt::Debug + Clone + 'static,
-        A::Addr: Arbitrary,
+        A::Address: Arbitrary,
     {
         type Parameters = ();
         type Strategy = BoxedStrategy<Self>;

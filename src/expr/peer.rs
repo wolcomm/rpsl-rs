@@ -1,30 +1,31 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
+use ip::{Any, Ipv4};
+
 use crate::{
-    addr_family::{afi, AfiClass},
     error::{ParseError, ParseResult},
     list::ListOf,
     names::{InetRtr, PeeringSet, RtrSet},
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
-    primitive::{IpAddress, PeerOptKey, PeerOptVal, Protocol},
+    primitive::{IpAddress, ParserAfi, PeerOptKey, PeerOptVal, Protocol},
 };
 
-pub trait ExprAfi: AfiClass {
+pub trait ExprAfi: ParserAfi {
     /// Address family specific [`ParserRule`] for peer expressions.
     const PEER_EXPR_RULE: ParserRule;
     /// Address family specific [`ParserRule`] for peer specifications.
     const PEER_SPEC_RULE: ParserRule;
 }
 
-impl ExprAfi for afi::Ipv4 {
+impl ExprAfi for Ipv4 {
     const PEER_EXPR_RULE: ParserRule = ParserRule::peer_expr;
     const PEER_SPEC_RULE: ParserRule = ParserRule::peer_spec;
 }
 
-impl ExprAfi for afi::Any {
+impl ExprAfi for Any {
     const PEER_EXPR_RULE: ParserRule = ParserRule::mp_peer_expr;
     const PEER_SPEC_RULE: ParserRule = ParserRule::mp_peer_spec;
 }
@@ -35,13 +36,13 @@ use proptest::{arbitrary::ParamsFor, prelude::*};
 /// RPSL `peer` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-9
-pub type PeerExpr = Expr<afi::Ipv4>;
+pub type PeerExpr = Expr<Ipv4>;
 impl_from_str!(ParserRule::just_peer_expr => PeerExpr);
 
 /// RPSL `mp-peer` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.5
-pub type MpPeerExpr = Expr<afi::Any>;
+pub type MpPeerExpr = Expr<Any>;
 impl_from_str!(ParserRule::just_mp_peer_expr => MpPeerExpr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -88,11 +89,10 @@ impl<A: ExprAfi> fmt::Display for Expr<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for Expr<A>
+impl<A> Arbitrary for Expr<A>
 where
-    A: fmt::Debug + 'static,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Strategy: 'static,
+    A: ExprAfi + 'static,
+    A::Address: Arbitrary,
 {
     type Parameters = ParamsFor<Option<ListOf<PeerOpt>>>;
     type Strategy = BoxedStrategy<Self>;
@@ -146,11 +146,10 @@ impl<A: ExprAfi> fmt::Display for PeerSpec<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for PeerSpec<A>
+impl<A> Arbitrary for PeerSpec<A>
 where
-    A: fmt::Debug + 'static,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Strategy: 'static,
+    A: ExprAfi + 'static,
+    A::Address: Arbitrary,
 {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;

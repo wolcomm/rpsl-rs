@@ -67,9 +67,11 @@ inet_rtr            = @{ !keyword ~ dns_name }
 key_cert            = _{ key_cert_pgp | key_cert_x509 }
     key_cert_pgp    = @{ ^"PGPKEY-" ~ ASCII_HEX_DIGIT+ }
     key_cert_x509   = @{ ^"X509-" ~ num }
-as_block            = { aut_num ~ "-" ~ aut_num }
-inetnum             = { ipv4_addr ~ "-" ~ ipv4_addr }
-inet6num            = { ipv6_addr ~ "-" ~ ipv6_addr }
+as_block            =  { aut_num ~ "-" ~ aut_num }
+inetnum             =  { ipv4_addr ~ "-" ~ ipv4_addr }
+inet6num            =  { ipv6_addr ~ "-" ~ ipv6_addr }
+route               =  { ipv4_prefix }
+route6              =  { ipv6_prefix }
 // object keys
 rpsl_object_key     = _{ mntner_name | nic_hdl | as_set | route_set | rtr_set
                        | filter_set | peering_set | dictionary | inet_rtr
@@ -561,7 +563,7 @@ inet6num_obj                    =  { inet6num_class_attr    ~ ( inet6num_attr )+
                                    ( common_attrs | inetnum_attrs )}
 // route object
 route_obj                       =  { route_class_attr       ~ ( route_attr )+ }
-    route_class_attr            = _{ ^"route:"              ~ ipv4_prefix }
+    route_class_attr            = _{ ^"route:"              ~ route }
     route_attr                  = ${ NEWLINE ~
                                    ( common_attrs | mp_route_attrs
                                    | inject_attr | components_attr
@@ -573,8 +575,8 @@ route_obj                       =  { route_class_attr       ~ ( route_attr )+ }
         holes_attr              = !{ ^"holes:"              ~ ipv4_prefix_list }
         pingable4_attr          = !{ ^"pingable:"           ~ ipv4_addr }
 // route6 object
-route6_obj                      =  { route6_class_attr        ~ ( route6_attr )+ }
-    route6_class_attr           = _{ ^"route6:"              ~ ipv6_prefix }
+route6_obj                      =  { route6_class_attr      ~ ( route6_attr )+ }
+    route6_class_attr           = _{ ^"route6:"             ~ route6 }
     route6_attr                 = ${ NEWLINE ~
                                    ( common_attrs | mp_route_attrs
                                    | inject6_attr | components6_attr

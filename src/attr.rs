@@ -2,10 +2,11 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::iter::FromIterator;
 
+use ip::{Ipv4, Ipv6};
+
 use strum::EnumDiscriminants;
 
 use crate::{
-    addr_family::afi,
     error::{ParseError, ParseResult},
     expr::{
         AggrMtdExpr, AsExpr, AsSetMember, AuthExpr, ChangedExpr, Components6Expr, ComponentsExpr,
@@ -194,18 +195,18 @@ pub enum RpslAttribute {
     ExportComps6(MpFilterExpr),
     /// RPSL `holes` attribute for `route` objects.
     #[strum_discriminants(strum(to_string = "holes"))]
-    Holes(ListOf<IpPrefix<afi::Ipv4>>),
+    Holes(ListOf<IpPrefix<Ipv4>>),
     /// RPSL `holes` attribute for `route6` objects.
     #[strum_discriminants(strum(to_string = "holes"))]
-    Holes6(ListOf<IpPrefix<afi::Ipv6>>),
+    Holes6(ListOf<IpPrefix<Ipv6>>),
     /// RPSL `pingable` attribute for `route` objects. See [RFC5943].
     /// [RFC5943]: https://datatracker.ietf.org/doc/html/rfc5943
     #[strum_discriminants(strum(to_string = "pingable"))]
-    Pingable4(IpAddress<afi::Ipv4>),
+    Pingable4(IpAddress<Ipv4>),
     /// RPSL `pingable` attribute for `route6` objects. See [RFC5943].
     /// [RFC5943]: https://datatracker.ietf.org/doc/html/rfc5943
     #[strum_discriminants(strum(to_string = "pingable"))]
-    Pingable6(IpAddress<afi::Ipv6>),
+    Pingable6(IpAddress<Ipv6>),
     /// RPSL `ping-hdl` attribute. See [RFC5943].
     /// [RFC5943]: https://datatracker.ietf.org/doc/html/rfc5943
     #[strum_discriminants(strum(to_string = "ping-hdl"))]
@@ -625,10 +626,10 @@ arbitrary_variants! {
     AggrMtd(AggrMtdExpr);
     ExportComps(FilterExpr);
     ExportComps6(MpFilterExpr);
-    Holes(ListOf<IpPrefix<afi::Ipv4>>);
-    Holes6(ListOf<IpPrefix<afi::Ipv6>>);
-    Pingable4(IpAddress<afi::Ipv4>);
-    Pingable6(IpAddress<afi::Ipv6>);
+    Holes(ListOf<IpPrefix<Ipv4>>);
+    Holes6(ListOf<IpPrefix<Ipv6>>);
+    Pingable4(IpAddress<Ipv4>);
+    Pingable6(IpAddress<Ipv6>);
     PingHdl(NicHdl);
     AsSetMembers(ListOf<AsSetMember>);
     RouteSetMembers(ListOf<RouteSetMember>);

@@ -12,11 +12,12 @@ keywords = ["irr", "rpsl", "as-set", "route", "bgp"]
 categories = ["network-programming", "database"]
 
 [features]
-arbitrary = ["paste", "proptest", "regex"]
+arbitrary = ["paste", "proptest", "regex", "generic-ip/arbitrary"]
 
 [dependencies]
 anyhow = "^1.0"
 ipnet = "^2.3"
+generic-ip = {path = "../generic-ip-rs"}
 log = "^0.4"
 paste = {version = "^1.0", optional = true}
 pest = "^2.1"
@@ -28,6 +29,7 @@ strum = {version = "^0.21", features = ["derive"]}
 time = {version = "^0.3", features = ["formatting", "parsing", "macros"]}
 
 [dev-dependencies]
+generic-ip = {path = "../generic-ip-rs", features = ["arbitrary"]}
 paste = "^1.0"
 proptest = "^1.0"
 regex = "^1.5"

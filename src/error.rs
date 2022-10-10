@@ -79,21 +79,9 @@ impl From<ParseIntError> for ParseError {
     }
 }
 
-impl From<std::net::AddrParseError> for ParseError {
-    fn from(err: std::net::AddrParseError) -> Self {
-        Self::new("failed to parse IP address", Some(err))
-    }
-}
-
-impl From<ipnet::AddrParseError> for ParseError {
-    fn from(err: ipnet::AddrParseError) -> Self {
-        Self::new("failed to parse IP prefix", Some(err))
-    }
-}
-
-impl From<ipnet::PrefixLenError> for ParseError {
-    fn from(err: ipnet::PrefixLenError) -> Self {
-        Self::new("Invalid IP prefix length", Some(err))
+impl From<ip::Error> for ParseError {
+    fn from(err: ip::Error) -> Self {
+        Self::new("failed to parse IP address or prefix", Some(err))
     }
 }
 
@@ -116,9 +104,9 @@ pub type ValidationResult<T> = Result<T, ValidationError>;
 #[derive(Debug)]
 pub struct ValidationError(String);
 
-impl<S: AsRef<str>> From<S> for ValidationError {
-    fn from(s: S) -> Self {
-        Self(s.as_ref().to_string())
+impl From<String> for ValidationError {
+    fn from(s: String) -> Self {
+        Self(s)
     }
 }
 

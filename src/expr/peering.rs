@@ -1,11 +1,12 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
+use ip::{Any, Ipv4};
+
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
-    addr_family::afi,
     error::{ParseError, ParseResult},
     names::PeeringSet,
     parser::{
@@ -38,14 +39,14 @@ pub trait ExprAfi: rtr::ExprAfi {
     }
 }
 
-impl ExprAfi for afi::Ipv4 {
+impl ExprAfi for Ipv4 {
     const REMOTE_RTR_EXPR_RULE: ParserRule = ParserRule::remote_rtr_expr;
     const LOCAL_RTR_EXPR_RULE: ParserRule = ParserRule::local_rtr_expr;
     const PEERING_EXPR_LITERAL_RULE: ParserRule = ParserRule::peering_expr_literal;
     const PEERING_EXPR_NAMED_RULE: ParserRule = ParserRule::peering_expr_named;
 }
 
-impl ExprAfi for afi::Any {
+impl ExprAfi for Any {
     const REMOTE_RTR_EXPR_RULE: ParserRule = ParserRule::remote_mp_rtr_expr;
     const LOCAL_RTR_EXPR_RULE: ParserRule = ParserRule::local_mp_rtr_expr;
     const PEERING_EXPR_LITERAL_RULE: ParserRule = ParserRule::mp_peering_expr_literal;
@@ -55,14 +56,14 @@ impl ExprAfi for afi::Any {
 /// RPSL `peering` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.6
-pub type PeeringExpr = Expr<afi::Ipv4>;
-impl_from_str!(ParserRule::just_peering_expr => Expr<afi::Ipv4>);
+pub type PeeringExpr = Expr<Ipv4>;
+impl_from_str!(ParserRule::just_peering_expr => Expr<Ipv4>);
 
 /// RPSL `mp-peering` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5.1
-pub type MpPeeringExpr = Expr<afi::Any>;
-impl_from_str!(ParserRule::just_mp_peering_expr => Expr<afi::Any>);
+pub type MpPeeringExpr = Expr<Any>;
+impl_from_str!(ParserRule::just_mp_peering_expr => Expr<Any>);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr<A: ExprAfi> {
@@ -98,9 +99,8 @@ impl<A: ExprAfi> fmt::Display for Expr<A> {
 impl<A: ExprAfi> Arbitrary for Expr<A>
 where
     A: Clone + fmt::Debug + 'static,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Strategy: 'static,
-    <A::Addr as Arbitrary>::Parameters: Clone,
+    A::Address: Arbitrary,
+    <A::Address as Arbitrary>::Parameters: Clone,
 {
     type Parameters = ParamsFor<LiteralPeering<A>>;
     type Strategy = BoxedStrategy<Self>;
@@ -173,9 +173,8 @@ impl<A: ExprAfi> fmt::Display for LiteralPeering<A> {
 impl<A: ExprAfi> Arbitrary for LiteralPeering<A>
 where
     A: Clone + fmt::Debug + 'static,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Strategy: 'static,
-    <A::Addr as Arbitrary>::Parameters: Clone,
+    A::Address: Arbitrary,
+    <A::Address as Arbitrary>::Parameters: Clone,
 {
     type Parameters = (ParamsFor<AsExpr>, ParamsFor<Option<rtr::Expr<A>>>);
     type Strategy = BoxedStrategy<Self>;

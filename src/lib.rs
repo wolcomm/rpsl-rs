@@ -11,8 +11,6 @@ extern crate pest_derive;
 
 mod parser;
 
-/// AFI definitions.
-pub mod addr_family;
 /// RPSL attributes.
 pub mod attr;
 /// Error types

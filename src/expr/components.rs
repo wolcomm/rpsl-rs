@@ -2,13 +2,14 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::iter::FromIterator;
 
+use ip::{Any, Ipv4, Ipv6};
+
 use crate::{
-    addr_family::{afi, AfiClass},
     error::{ParseError, ParseResult},
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
-    primitive::Protocol,
+    primitive::{ParserAfi, Protocol},
 };
 
 use super::filter::{self, ExprAfi as FilterExprAfi};
@@ -16,19 +17,7 @@ use super::filter::{self, ExprAfi as FilterExprAfi};
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
-/// RPSL `components` expression for `route` objects. See [RFC2622].
-///
-/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-8.1
-pub type ComponentsExpr = Expr<afi::Ipv4>;
-impl_from_str!(ParserRule::just_components_expr => ComponentsExpr);
-
-/// RPSL `components` expression for `route6` objects. See [RFC4012].
-///
-/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-3
-pub type Components6Expr = Expr<afi::Ipv6>;
-impl_from_str!(ParserRule::just_components6_expr => Components6Expr);
-
-pub trait ExprAfi: AfiClass {
+pub trait ExprAfi: ParserAfi {
     type FilterExprAfi: filter::ExprAfi;
     /// Address family specific [`ParserRule`] for components expressions.
     const COMPONENTS_EXPR_RULE: ParserRule;
@@ -38,20 +27,32 @@ pub trait ExprAfi: AfiClass {
     const COMPONENTS_PROTO_TERM_RULE: ParserRule;
 }
 
-impl ExprAfi for afi::Ipv4 {
-    type FilterExprAfi = afi::Ipv4;
+impl ExprAfi for Ipv4 {
+    type FilterExprAfi = Ipv4;
     const COMPONENTS_EXPR_RULE: ParserRule = ParserRule::components_expr;
     const COMPONENTS_PROTO_TERMS_RULE: ParserRule = ParserRule::components_proto_terms;
     const COMPONENTS_PROTO_TERM_RULE: ParserRule = ParserRule::components_proto_term;
 }
 
-impl ExprAfi for afi::Ipv6 {
+impl ExprAfi for Ipv6 {
     // TODO: impl filter::ExprAfi for Ipv6 and remove this type
-    type FilterExprAfi = afi::Any;
+    type FilterExprAfi = Any;
     const COMPONENTS_EXPR_RULE: ParserRule = ParserRule::components6_expr;
     const COMPONENTS_PROTO_TERMS_RULE: ParserRule = ParserRule::components6_proto_terms;
     const COMPONENTS_PROTO_TERM_RULE: ParserRule = ParserRule::components6_proto_term;
 }
+
+/// RPSL `components` expression for `route` objects. See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-8.1
+pub type ComponentsExpr = Expr<Ipv4>;
+impl_from_str!(ParserRule::just_components_expr => ComponentsExpr);
+
+/// RPSL `components` expression for `route6` objects. See [RFC4012].
+///
+/// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-3
+pub type Components6Expr = Expr<Ipv6>;
+impl_from_str!(ParserRule::just_components6_expr => Components6Expr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Expr<A: ExprAfi> {
@@ -113,13 +114,15 @@ impl<A: ExprAfi> fmt::Display for Expr<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for Expr<A>
+impl<A> Arbitrary for Expr<A>
 where
-    A: fmt::Debug + 'static,
-    A::Addr: Arbitrary,
-    A::FilterExprAfi: fmt::Debug + Clone + 'static,
-    <A::FilterExprAfi as AfiClass>::Addr: Arbitrary,
-    <<A::FilterExprAfi as AfiClass>::Addr as Arbitrary>::Parameters: Clone,
+    A: ExprAfi + 'static,
+    A::Address: Arbitrary,
+    A::FilterExprAfi: 'static,
+    <A::FilterExprAfi as ip::AfiClass>::Prefix: Arbitrary,
+    <<A::FilterExprAfi as ip::AfiClass>::Prefix as Arbitrary>::Parameters: Clone,
+    <<A::FilterExprAfi as ip::AfiClass>::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    <A::FilterExprAfi as ip::AfiClass>::PrefixLength: AsRef<u8>,
 {
     type Parameters = (
         ParamsFor<Option<filter::Expr<A::FilterExprAfi>>>,
@@ -187,12 +190,14 @@ impl<A: ExprAfi> FromIterator<ProtocolTerm<A>> for ProtocolTerms<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for ProtocolTerms<A>
+impl<A> Arbitrary for ProtocolTerms<A>
 where
-    A: fmt::Debug + 'static,
-    A::FilterExprAfi: fmt::Debug + Clone + 'static,
-    <A::FilterExprAfi as AfiClass>::Addr: Arbitrary,
-    <<A::FilterExprAfi as AfiClass>::Addr as Arbitrary>::Parameters: Clone,
+    A: ExprAfi + 'static,
+    A::FilterExprAfi: 'static,
+    <A::FilterExprAfi as ip::AfiClass>::Prefix: Arbitrary,
+    <<A::FilterExprAfi as ip::AfiClass>::Prefix as Arbitrary>::Parameters: Clone,
+    <<A::FilterExprAfi as ip::AfiClass>::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    <A::FilterExprAfi as ip::AfiClass>::PrefixLength: AsRef<u8>,
 {
     type Parameters = ParamsFor<ProtocolTerm<A>>;
     type Strategy = BoxedStrategy<Self>;
@@ -233,12 +238,14 @@ impl<A: ExprAfi> fmt::Display for ProtocolTerm<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for ProtocolTerm<A>
+impl<A> Arbitrary for ProtocolTerm<A>
 where
-    A: fmt::Debug,
-    A::FilterExprAfi: fmt::Debug + Clone + 'static,
-    <A::FilterExprAfi as AfiClass>::Addr: Arbitrary,
-    <<A::FilterExprAfi as AfiClass>::Addr as Arbitrary>::Parameters: Clone,
+    A: ExprAfi,
+    A::FilterExprAfi: 'static,
+    <A::FilterExprAfi as ip::AfiClass>::Prefix: Arbitrary,
+    <<A::FilterExprAfi as ip::AfiClass>::Prefix as Arbitrary>::Parameters: Clone,
+    <<A::FilterExprAfi as ip::AfiClass>::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    <A::FilterExprAfi as ip::AfiClass>::PrefixLength: AsRef<u8>,
 {
     type Parameters = ParamsFor<filter::Expr<A::FilterExprAfi>>;
     type Strategy = BoxedStrategy<Self>;

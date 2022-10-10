@@ -2,23 +2,24 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::string::ToString;
 
+use ip::{Any, Ipv4};
+
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
-    addr_family::{afi, AfiClass},
     error::{ParseError, ParseResult},
     names::{AsSet, AutNum, FilterSet, RouteSet},
     parser::{
         debug_construction, impl_from_str, next_into_or, next_parse_or, rule_mismatch, ParserRule,
         TokenPair,
     },
-    primitive::{IpPrefixRange, RangeOperator},
+    primitive::{IpPrefixRange, ParserAfi, RangeOperator},
 };
 
 use super::action;
 
-pub trait ExprAfi: AfiClass {
+pub trait ExprAfi: ParserAfi {
     /// Address family specific [`ParserRule`] for IP prefix set literals.
     const LITERAL_PREFIX_SET_RULE: ParserRule;
     /// Address family specific [`ParserRule`] for ranged IP prefix set literals.
@@ -53,7 +54,7 @@ pub trait ExprAfi: AfiClass {
     const FILTER_EXPR_ROOT_RULE: ParserRule;
 }
 
-impl ExprAfi for afi::Ipv4 {
+impl ExprAfi for Ipv4 {
     const LITERAL_PREFIX_SET_RULE: ParserRule = ParserRule::literal_prefix_set;
     const LITERAL_RANGED_PREFIX_SET_RULE: ParserRule = ParserRule::ranged_prefix_set;
     const LITERAL_FILTER_RULE: ParserRule = ParserRule::literal_filter;
@@ -65,7 +66,7 @@ impl ExprAfi for afi::Ipv4 {
     const FILTER_EXPR_ROOT_RULE: ParserRule = ParserRule::just_filter_expr;
 }
 
-impl ExprAfi for afi::Any {
+impl ExprAfi for Any {
     const LITERAL_PREFIX_SET_RULE: ParserRule = ParserRule::mp_literal_prefix_set;
     const LITERAL_RANGED_PREFIX_SET_RULE: ParserRule = ParserRule::mp_ranged_prefix_set;
     const LITERAL_FILTER_RULE: ParserRule = ParserRule::mp_literal_filter;
@@ -80,12 +81,12 @@ impl ExprAfi for afi::Any {
 /// RPSL `filter` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.4
-pub type FilterExpr = Expr<afi::Ipv4>;
+pub type FilterExpr = Expr<Ipv4>;
 
 /// RPSL `mp-filter` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5.2
-pub type MpFilterExpr = Expr<afi::Any>;
+pub type MpFilterExpr = Expr<Any>;
 
 impl_from_str! {
     forall A: ExprAfi {
@@ -857,7 +858,6 @@ impl Arbitrary for AsPathRegexpOp {
 
 #[cfg(test)]
 mod tests {
-    use ipnet::IpNet;
     use paste::paste;
 
     use crate::{

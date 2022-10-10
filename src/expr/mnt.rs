@@ -1,11 +1,12 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
+use ip::Any;
+
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
-    addr_family::afi,
     error::{ParseError, ParseResult},
     list::ListOf,
     names::Mntner,
@@ -73,7 +74,7 @@ impl Arbitrary for MntRoutesExpr {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum MntRoutesExprQualifier {
-    Prefixes(ListOf<IpPrefixRange<afi::Any>>),
+    Prefixes(ListOf<IpPrefixRange<Any>>),
     Any,
 }
 
@@ -103,12 +104,12 @@ impl fmt::Display for MntRoutesExprQualifier {
 
 #[cfg(any(test, feature = "arbitrary"))]
 impl Arbitrary for MntRoutesExprQualifier {
-    type Parameters = ParamsFor<ListOf<IpPrefixRange<afi::Any>>>;
+    type Parameters = ParamsFor<ListOf<IpPrefixRange<Any>>>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
         prop_oneof![
             Just(Self::Any),
-            any_with::<ListOf<IpPrefixRange<afi::Any>>>(params).prop_map(Self::Prefixes),
+            any_with::<ListOf<IpPrefixRange<Any>>>(params).prop_map(Self::Prefixes),
         ]
         .boxed()
     }

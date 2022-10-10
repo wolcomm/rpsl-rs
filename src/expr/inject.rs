@@ -1,19 +1,20 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
+use ip::{Any, Ipv4, Ipv6};
+
 use crate::{
-    addr_family::{afi, AfiClass},
     error::{ParseError, ParseResult},
     list::ListOf,
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
-    primitive::IpPrefixRange,
+    primitive::{IpPrefixRange, ParserAfi},
 };
 
 use super::{
     action,
-    rtr::{self, ExprAfi as RtrExprAfi},
+    rtr::{self, ExprAfi as _},
 };
 
 #[cfg(any(test, feature = "arbitrary"))]
@@ -22,16 +23,16 @@ use proptest::{arbitrary::ParamsFor, prelude::*};
 /// RPSL `inject` expression for `route` objects. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-8.1
-pub type InjectExpr = Expr<afi::Ipv4>;
+pub type InjectExpr = Expr<Ipv4>;
 impl_from_str!(ParserRule::just_inject_expr => InjectExpr);
 
 /// RPSL `inject` expression for `route6` objects. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-3
-pub type Inject6Expr = Expr<afi::Ipv6>;
+pub type Inject6Expr = Expr<Ipv6>;
 impl_from_str!(ParserRule::just_inject6_expr => Inject6Expr);
 
-pub trait ExprAfi: AfiClass {
+pub trait ExprAfi: ParserAfi {
     /// Address family of contained `rtr-expression`.
     type RtrExprAfi: rtr::ExprAfi;
     /// Address family specific [`ParserRule`] for inject expressions.
@@ -66,8 +67,8 @@ pub trait ExprAfi: AfiClass {
     const INJECT_COND_TERM_STATIC_RULE: ParserRule;
 }
 
-impl ExprAfi for afi::Ipv4 {
-    type RtrExprAfi = afi::Ipv4;
+impl ExprAfi for Ipv4 {
+    type RtrExprAfi = Ipv4;
     const INJECT_EXPR_RULE: ParserRule = ParserRule::inject_expr;
     const INJECT_COND_UNIT_RULE: ParserRule = ParserRule::inject_cond_unit;
     const INJECT_COND_AND_RULE: ParserRule = ParserRule::inject_cond_and;
@@ -77,9 +78,9 @@ impl ExprAfi for afi::Ipv4 {
     const INJECT_COND_TERM_STATIC_RULE: ParserRule = ParserRule::inject_cond_term_stat;
 }
 
-impl ExprAfi for afi::Ipv6 {
-    // TODO: impl filter::ExprAfi for Ipv6 and remove this type
-    type RtrExprAfi = afi::Any;
+impl ExprAfi for Ipv6 {
+    // TODO: impl rtr::ExprAfi for Ipv6 and remove this type
+    type RtrExprAfi = Any;
     const INJECT_EXPR_RULE: ParserRule = ParserRule::inject6_expr;
     const INJECT_COND_UNIT_RULE: ParserRule = ParserRule::inject6_cond_unit;
     const INJECT_COND_AND_RULE: ParserRule = ParserRule::inject6_cond_and;
@@ -146,13 +147,18 @@ impl<A: ExprAfi> fmt::Display for Expr<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for Expr<A>
+impl<A> Arbitrary for Expr<A>
 where
-    A: fmt::Debug + Clone + 'static,
-    A::Addr: Arbitrary,
-    A::RtrExprAfi: fmt::Debug + Clone,
-    <A::RtrExprAfi as AfiClass>::Addr: Arbitrary,
-    <<A::RtrExprAfi as AfiClass>::Addr as Arbitrary>::Parameters: Clone,
+    A: ExprAfi + 'static,
+    A::RtrExprAfi: 'static,
+    A::Prefix: Arbitrary,
+    <A::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    A::PrefixLength: AsRef<u8>,
+    <A::RtrExprAfi as ip::AfiClass>::Address: Arbitrary,
+    <<A::RtrExprAfi as ip::AfiClass>::Address as Arbitrary>::Parameters: Clone,
+    <<A::RtrExprAfi as ip::AfiClass>::Address as Arbitrary>::Strategy: 'static,
+    <<A::RtrExprAfi as ip::AfiClass>::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    <A::RtrExprAfi as ip::AfiClass>::PrefixLength: AsRef<u8>,
 {
     type Parameters = (
         ParamsFor<Option<rtr::Expr<A::RtrExprAfi>>>,
@@ -221,10 +227,12 @@ impl<A: ExprAfi> fmt::Display for Condition<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for Condition<A>
+impl<A> Arbitrary for Condition<A>
 where
-    A: fmt::Debug + Clone + 'static,
-    A::Addr: Arbitrary,
+    A: ExprAfi + 'static,
+    A::Prefix: Arbitrary,
+    <A::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    A::PrefixLength: AsRef<u8>,
 {
     type Parameters = ParamsFor<Term<A>>;
     type Strategy = BoxedStrategy<Self>;
@@ -275,10 +283,12 @@ impl<A: ExprAfi> fmt::Display for Term<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for Term<A>
+impl<A> Arbitrary for Term<A>
 where
-    A: fmt::Debug + Clone + 'static,
-    A::Addr: Arbitrary,
+    A: ExprAfi + 'static,
+    A::Prefix: Arbitrary,
+    <A::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    A::PrefixLength: AsRef<u8>,
 {
     type Parameters = ParamsFor<ListOf<IpPrefixRange<A>>>;
     type Strategy = BoxedStrategy<Self>;

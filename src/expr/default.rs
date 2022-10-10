@@ -1,8 +1,9 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
+use ip::{Any, Ipv4};
+
 use crate::{
-    addr_family::afi,
     error::{ParseError, ParseResult},
     list::ListOf,
     parser::{
@@ -24,24 +25,24 @@ pub trait ExprAfi: filter::ExprAfi + peering::ExprAfi {
     const DEFAULT_EXPR_RULE: ParserRule;
 }
 
-impl ExprAfi for afi::Ipv4 {
+impl ExprAfi for Ipv4 {
     const DEFAULT_EXPR_RULE: ParserRule = ParserRule::default_expr;
 }
 
-impl ExprAfi for afi::Any {
+impl ExprAfi for Any {
     const DEFAULT_EXPR_RULE: ParserRule = ParserRule::mp_default_expr;
 }
 
 /// RPSL `default` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6.5
-pub type DefaultExpr = Expr<afi::Ipv4>;
+pub type DefaultExpr = Expr<Ipv4>;
 impl_from_str!(ParserRule::just_default_expr => DefaultExpr);
 
 /// RPSL `mp-default` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5
-pub type MpDefaultExpr = Expr<afi::Any>;
+pub type MpDefaultExpr = Expr<Any>;
 impl_from_str!(ParserRule::just_mp_default_expr => MpDefaultExpr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -111,9 +112,14 @@ impl<A: ExprAfi> fmt::Display for Expr<A> {
 #[cfg(any(test, feature = "arbitrary"))]
 impl<A> Arbitrary for Expr<A>
 where
-    A: AfiSafiList + fmt::Debug + Clone + 'static,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Parameters: Clone,
+    A: AfiSafiList + 'static,
+    A::Address: Arbitrary,
+    <A::Address as Arbitrary>::Parameters: Clone,
+    <A::Address as Arbitrary>::Strategy: 'static,
+    A::Prefix: Arbitrary,
+    <A::Prefix as Arbitrary>::Parameters: Clone,
+    <A::Prefix as ip::traits::Prefix>::Length: AsRef<u8>,
+    A::PrefixLength: AsRef<u8>,
 {
     type Parameters = (
         ParamsFor<Option<ListOf<AfiSafi>>>,

@@ -2,14 +2,14 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::hash;
 
+use ip::{traits::Interface as _, Any, Ipv4};
+
 use crate::{
-    addr_family::{afi, AfiClass},
     error::{err, ParseError, ParseResult},
     parser::{
-        debug_construction, impl_from_str, next_into_or, next_parse_or, rule_mismatch, ParserRule,
-        TokenPair,
+        debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
-    primitive::IpAddress,
+    primitive::{IpAddress, ParserAfi},
 };
 
 use super::ActionExpr;
@@ -20,16 +20,16 @@ use proptest::{arbitrary::ParamsFor, prelude::*};
 /// RPSL `ifaddr` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-9
-pub type IfaddrExpr = Expr<afi::Ipv4>;
+pub type IfaddrExpr = Expr<Ipv4>;
 impl_from_str!(ParserRule::just_ifaddr_expr => IfaddrExpr);
 
 /// RPSL `interface` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.5
-pub type InterfaceExpr = Expr<afi::Any>;
+pub type InterfaceExpr = Expr<Any>;
 impl_from_str!(ParserRule::just_interface_expr => InterfaceExpr);
 
-pub trait TunnelEndpointAfi: AfiClass {
+pub trait TunnelEndpointAfi: ParserAfi {
     type Tunnel: fmt::Display
         + for<'a> TryFrom<TokenPair<'a>, Error = ParseError>
         + Clone
@@ -48,7 +48,7 @@ pub trait TunnelEndpointAfi: AfiClass {
         Self::Tunnel: Arbitrary;
 }
 
-impl TunnelEndpointAfi for afi::Ipv4 {
+impl TunnelEndpointAfi for Ipv4 {
     type Tunnel = NeverTunnel;
 
     const INTERFACE_EXPR_RULE: ParserRule = ParserRule::ifaddr_expr;
@@ -59,7 +59,7 @@ impl TunnelEndpointAfi for afi::Ipv4 {
     }
 }
 
-impl TunnelEndpointAfi for afi::Any {
+impl TunnelEndpointAfi for Any {
     type Tunnel = TunnelInterface<Self>;
 
     const INTERFACE_EXPR_RULE: ParserRule = ParserRule::interface_expr;
@@ -74,8 +74,7 @@ impl TunnelEndpointAfi for afi::Any {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Expr<A: TunnelEndpointAfi> {
-    addr: A::Addr,
-    masklen: u8,
+    interface: A::Interface,
     action: Option<ActionExpr>,
     tunnel: Option<A::Tunnel>,
 }
@@ -88,9 +87,18 @@ impl<A: TunnelEndpointAfi> TryFrom<TokenPair<'_>> for Expr<A> {
         match pair.as_rule() {
             rule if rule == A::INTERFACE_EXPR_RULE => {
                 let mut pairs = pair.into_inner().peekable();
-                let addr = next_parse_or!(pairs => "failed to get interface address")?;
-                let masklen = next_parse_or!(pairs => "failed to get mask legth")?;
-                A::check_addr_len(addr, masklen)?;
+                let interface = format!(
+                    "{}/{}",
+                    pairs
+                        .next()
+                        .ok_or_else(|| err!("failed to get interface address"))?
+                        .as_str(),
+                    pairs
+                        .next()
+                        .ok_or_else(|| err!("failed to get interface masklen"))?
+                        .as_str()
+                )
+                .parse()?;
                 let action = if let Some(ParserRule::action_expr) =
                     pairs.peek().map(|pair| pair.as_rule())
                 {
@@ -106,8 +114,7 @@ impl<A: TunnelEndpointAfi> TryFrom<TokenPair<'_>> for Expr<A> {
                     None
                 };
                 Ok(Self {
-                    addr,
-                    masklen,
+                    interface,
                     action,
                     tunnel,
                 })
@@ -119,7 +126,12 @@ impl<A: TunnelEndpointAfi> TryFrom<TokenPair<'_>> for Expr<A> {
 
 impl<A: TunnelEndpointAfi> fmt::Display for Expr<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} masklen {}", &self.addr, &self.masklen)?;
+        write!(
+            f,
+            "{} masklen {}",
+            &self.interface.addr(),
+            &self.interface.prefix_len()
+        )?;
         if let Some(action_expr) = &self.action {
             write!(f, " action {}", action_expr)?;
         }
@@ -134,29 +146,25 @@ impl<A: TunnelEndpointAfi> fmt::Display for Expr<A> {
 impl<A: TunnelEndpointAfi> Arbitrary for Expr<A>
 where
     A: fmt::Debug,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Strategy: 'static,
+    A::Interface: Arbitrary,
+    <A::Interface as Arbitrary>::Strategy: 'static,
     A::Tunnel: Arbitrary + 'static,
     <A::Tunnel as Arbitrary>::Strategy: 'static,
 {
     type Parameters = (
-        ParamsFor<A::Addr>,
+        ParamsFor<A::Interface>,
         ParamsFor<Option<ActionExpr>>,
         ParamsFor<Option<A::Tunnel>>,
     );
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
         (
-            any_with::<A::Addr>(params.0).prop_flat_map(|addr| {
-                let masklen = 0..=A::max_len(&addr);
-                (Just(addr), masklen)
-            }),
+            any_with::<A::Interface>(params.0),
             any_with::<Option<ActionExpr>>(params.1),
             A::arbitrary_tunnel(params.2),
         )
-            .prop_map(|((addr, masklen), action, tunnel)| Self {
-                addr,
-                masklen,
+            .prop_map(|(interface, action, tunnel)| Self {
+                interface,
                 action,
                 tunnel,
             })
@@ -228,7 +236,7 @@ impl<A: TunnelEndpointAfi> fmt::Display for TunnelInterface<A> {
 impl<A: TunnelEndpointAfi> Arbitrary for TunnelInterface<A>
 where
     A: fmt::Debug + 'static,
-    A::Addr: Arbitrary,
+    A::Address: Arbitrary,
 {
     type Parameters = ParamsFor<IpAddress<A>>;
     type Strategy = BoxedStrategy<Self>;
@@ -293,8 +301,7 @@ mod tests {
         IfaddrExpr {
             rfc2622_fig20_inet_rtr_example: "1.1.1.1 masklen 30" => {
                 IfaddrExpr {
-                    addr: "1.1.1.1".parse().unwrap(),
-                    masklen: 30,
+                    interface: "1.1.1.1/30".parse().unwrap(),
                     action: None,
                     tunnel: None,
                 }

@@ -1,20 +1,21 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
+use ip::{Any, Ipv4};
+
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
-    addr_family::{afi, AfiClass},
     error::{ParseError, ParseResult},
     names::{InetRtr, RtrSet},
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
-    primitive::IpAddress,
+    primitive::{IpAddress, ParserAfi},
 };
 
-pub trait ExprAfi: AfiClass {
+pub trait ExprAfi: ParserAfi {
     /// Address family specific [`ParserRule`] for unit router expressions.
     const RTR_EXPR_UNIT_RULE: ParserRule;
     /// Address family specific [`ParserRule`] for unit router expressions.
@@ -39,14 +40,14 @@ pub trait ExprAfi: AfiClass {
     }
 }
 
-impl ExprAfi for afi::Ipv4 {
+impl ExprAfi for Ipv4 {
     const RTR_EXPR_UNIT_RULE: ParserRule = ParserRule::rtr_expr_unit;
     const RTR_EXPR_AND_RULE: ParserRule = ParserRule::rtr_expr_and;
     const RTR_EXPR_OR_RULE: ParserRule = ParserRule::rtr_expr_or;
     const RTR_EXPR_EXCEPT_RULE: ParserRule = ParserRule::rtr_expr_except;
 }
 
-impl ExprAfi for afi::Any {
+impl ExprAfi for Any {
     const RTR_EXPR_UNIT_RULE: ParserRule = ParserRule::mp_rtr_expr_unit;
     const RTR_EXPR_AND_RULE: ParserRule = ParserRule::mp_rtr_expr_and;
     const RTR_EXPR_OR_RULE: ParserRule = ParserRule::mp_rtr_expr_or;
@@ -56,13 +57,13 @@ impl ExprAfi for afi::Any {
 /// RPSL `router-expression`. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.6
-pub type RtrExpr = Expr<afi::Ipv4>;
+pub type RtrExpr = Expr<Ipv4>;
 impl_from_str!(ParserRule::just_rtr_expr => RtrExpr);
 
 /// RPSL `mp-router-expression`. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.5.1
-pub type MpRtrExpr = Expr<afi::Any>;
+pub type MpRtrExpr = Expr<Any>;
 impl_from_str!(ParserRule::just_mp_rtr_expr => MpRtrExpr);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -191,8 +192,7 @@ impl<A: ExprAfi> fmt::Display for Term<A> {
 impl<A: ExprAfi> Arbitrary for Term<A>
 where
     A: fmt::Debug + 'static,
-    A::Addr: Arbitrary,
-    <A::Addr as Arbitrary>::Strategy: 'static,
+    A::Address: Arbitrary,
 {
     type Parameters = ParamsFor<IpAddress<A>>;
     type Strategy = BoxedStrategy<Self>;

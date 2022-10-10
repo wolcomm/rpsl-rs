@@ -1,9 +1,8 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::iter::FromIterator;
-use std::net::{Ipv4Addr, Ipv6Addr};
 
-use ipnet::{Ipv4Net, Ipv6Net};
+use ip::{Ipv4, Ipv6};
 
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
@@ -14,7 +13,7 @@ use crate::{
         debug_construction, impl_from_str, impl_str_primitive, next_into_or, next_parse_or,
         rule_mismatch, ParserRule, TokenPair,
     },
-    primitive::SetNameComp,
+    primitive::{IpAddress, IpPrefix, SetNameComp},
 };
 
 #[cfg(any(test, feature = "arbitrary"))]
@@ -185,8 +184,8 @@ impl Arbitrary for AsBlock {
 /// RPSL `inetnum` name.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct InetNum {
-    lower: Ipv4Addr,
-    upper: Ipv4Addr,
+    lower: IpAddress<Ipv4>,
+    upper: IpAddress<Ipv4>,
 }
 
 impl TryFrom<TokenPair<'_>> for InetNum {
@@ -219,9 +218,10 @@ impl Arbitrary for InetNum {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        any::<Ipv4Addr>()
+        any::<IpAddress<Ipv4>>()
             .prop_flat_map(|lower| {
-                let upper = (<Ipv4Addr as Into<u32>>::into(lower)..).prop_map(Ipv4Addr::from);
+                let upper = (lower.into_inner().into_primitive()..)
+                    .prop_map(|u| IpAddress::new(ip::Address::<Ipv4>::new(u)));
                 (Just(lower), upper)
             })
             .prop_map(|(lower, upper)| Self { lower, upper })
@@ -234,8 +234,8 @@ impl Arbitrary for InetNum {
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-5
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Inet6Num {
-    lower: Ipv6Addr,
-    upper: Ipv6Addr,
+    lower: IpAddress<Ipv6>,
+    upper: IpAddress<Ipv6>,
 }
 
 impl TryFrom<TokenPair<'_>> for Inet6Num {
@@ -268,9 +268,10 @@ impl Arbitrary for Inet6Num {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        any::<Ipv6Addr>()
+        any::<IpAddress<Ipv6>>()
             .prop_flat_map(|lower| {
-                let upper = (<Ipv6Addr as Into<u128>>::into(lower)..).prop_map(Ipv6Addr::from);
+                let upper = (lower.into_inner().into_primitive()..)
+                    .prop_map(|u| IpAddress::new(ip::Address::<Ipv6>::new(u)));
                 (Just(lower), upper)
             })
             .prop_map(|(lower, upper)| Self { lower, upper })
@@ -282,7 +283,7 @@ impl Arbitrary for Inet6Num {
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct Route(Ipv4Net);
+pub struct Route(IpPrefix<Ipv4>);
 
 impl TryFrom<TokenPair<'_>> for Route {
     type Error = ParseError;
@@ -290,13 +291,15 @@ impl TryFrom<TokenPair<'_>> for Route {
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
         debug_construction!(pair => Route);
         match pair.as_rule() {
-            ParserRule::ipv4_prefix => Ok(Self(pair.as_str().parse()?)),
+            ParserRule::route => Ok(Self(
+                next_into_or!(pair.into_inner() => "failed to parse route prefix")?,
+            )),
             _ => Err(rule_mismatch!(pair => "route name")),
         }
     }
 }
 
-impl_from_str!(ParserRule::ipv4_prefix => Route);
+impl_from_str!(ParserRule::route => Route);
 
 impl fmt::Display for Route {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -309,10 +312,7 @@ impl Arbitrary for Route {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        (any::<Ipv4Addr>(), (0u8..32))
-            .prop_map(|(addr, len)| Ipv4Net::new(addr, len).unwrap().trunc())
-            .prop_map(Self)
-            .boxed()
+        any::<IpPrefix<Ipv4>>().prop_map(Self).boxed()
     }
 }
 
@@ -320,21 +320,23 @@ impl Arbitrary for Route {
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-3
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub struct Route6(Ipv6Net);
+pub struct Route6(IpPrefix<Ipv6>);
 
 impl TryFrom<TokenPair<'_>> for Route6 {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
-        debug_construction!(pair => Route);
+        debug_construction!(pair => Route6);
         match pair.as_rule() {
-            ParserRule::ipv6_prefix => Ok(Self(pair.as_str().parse()?)),
-            _ => Err(rule_mismatch!(pair => "route name")),
+            ParserRule::route6 => Ok(Self(
+                next_into_or!(pair.into_inner() => "failed to parse route6 prefix")?,
+            )),
+            _ => Err(rule_mismatch!(pair => "route6 name")),
         }
     }
 }
 
-impl_from_str!(ParserRule::ipv6_prefix => Route6);
+impl_from_str!(ParserRule::route6 => Route6);
 
 impl fmt::Display for Route6 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -347,10 +349,7 @@ impl Arbitrary for Route6 {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        (any::<Ipv6Addr>(), (0u8..128))
-            .prop_map(|(addr, len)| Ipv6Net::new(addr, len).unwrap().trunc())
-            .prop_map(Self)
-            .boxed()
+        any::<IpPrefix<Ipv6>>().prop_map(Self).boxed()
     }
 }
 
