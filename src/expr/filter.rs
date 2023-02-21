@@ -1,5 +1,6 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
+use std::marker::PhantomData;
 use std::string::ToString;
 
 use ip::{Any, Ipv4};
@@ -325,7 +326,7 @@ pub enum PrefixSetExpr<A: ExprAfi> {
     /// A literal IP prefix list.
     Literal(Vec<IpPrefixRange<A>>),
     /// A named RSPL object that can be evaluated as a `route-set`.
-    Named(NamedPrefixSet),
+    Named(NamedPrefixSet<A>),
 }
 
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for PrefixSetExpr<A> {
@@ -376,7 +377,7 @@ where
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
         prop_oneof![
             any_with::<Vec<IpPrefixRange<A>>>(args).prop_map(Self::Literal),
-            any::<NamedPrefixSet>().prop_map(Self::Named),
+            any::<NamedPrefixSet<A>>().prop_map(Self::Named),
         ]
         .boxed()
     }
@@ -387,7 +388,7 @@ where
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.3
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum NamedPrefixSet {
+pub enum NamedPrefixSet<A: ExprAfi> {
     /// The `RS-ANY` token.
     RsAny,
     /// The `AS-ANY` token.
@@ -395,14 +396,14 @@ pub enum NamedPrefixSet {
     /// The `PeerAS` token.
     PeerAs,
     /// A `route-set` name.
-    RouteSet(RouteSet),
+    RouteSet(RouteSet, PhantomData<A>),
     /// An `as-set` name.
-    AsSet(AsSet),
+    AsSet(AsSet, PhantomData<A>),
     /// An `aut-num` name.
-    AutNum(AutNum),
+    AutNum(AutNum, PhantomData<A>),
 }
 
-impl TryFrom<TokenPair<'_>> for NamedPrefixSet {
+impl<A: ExprAfi> TryFrom<TokenPair<'_>> for NamedPrefixSet<A> {
     type Error = ParseError;
 
     fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -411,29 +412,32 @@ impl TryFrom<TokenPair<'_>> for NamedPrefixSet {
             ParserRule::any_rs => Ok(Self::RsAny),
             ParserRule::any_as => Ok(Self::AsAny),
             ParserRule::peeras => Ok(Self::PeerAs),
-            ParserRule::route_set => Ok(Self::RouteSet(pair.try_into()?)),
-            ParserRule::as_set => Ok(Self::AsSet(pair.try_into()?)),
-            ParserRule::aut_num => Ok(Self::AutNum(pair.try_into()?)),
+            ParserRule::route_set => Ok(Self::RouteSet(pair.try_into()?, PhantomData)),
+            ParserRule::as_set => Ok(Self::AsSet(pair.try_into()?, PhantomData)),
+            ParserRule::aut_num => Ok(Self::AutNum(pair.try_into()?, PhantomData)),
             _ => Err(rule_mismatch!(pair => "named prefix-set variant")),
         }
     }
 }
 
-impl fmt::Display for NamedPrefixSet {
+impl<A: ExprAfi> fmt::Display for NamedPrefixSet<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::RsAny => write!(f, "RS-ANY"),
             Self::AsAny => write!(f, "AS-ANY"),
             Self::PeerAs => write!(f, "PeerAS"),
-            Self::RouteSet(set) => set.fmt(f),
-            Self::AsSet(set) => set.fmt(f),
-            Self::AutNum(autnum) => autnum.fmt(f),
+            Self::RouteSet(set, _) => set.fmt(f),
+            Self::AsSet(set, _) => set.fmt(f),
+            Self::AutNum(autnum, _) => autnum.fmt(f),
         }
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl Arbitrary for NamedPrefixSet {
+impl<A> Arbitrary for NamedPrefixSet<A>
+where
+    A: ExprAfi + 'static,
+{
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
@@ -441,9 +445,9 @@ impl Arbitrary for NamedPrefixSet {
             Just(Self::RsAny),
             Just(Self::AsAny),
             Just(Self::PeerAs),
-            any::<RouteSet>().prop_map(Self::RouteSet),
-            any::<AsSet>().prop_map(Self::AsSet),
-            any::<AutNum>().prop_map(Self::AutNum),
+            any::<RouteSet>().prop_map(|set| Self::RouteSet(set, PhantomData)),
+            any::<AsSet>().prop_map(|set| Self::AsSet(set, PhantomData)),
+            any::<AutNum>().prop_map(|autnum| Self::AutNum(autnum, PhantomData)),
         ]
         .boxed()
     }
@@ -889,14 +893,14 @@ mod tests {
     test_exprs! {
         single_autnum: "AS65000" => FilterExpr:
             FilterExpr::Unit(Term::Literal(Literal::PrefixSet(
-                PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS65000".parse().unwrap())),
+                PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS65000".parse().unwrap(), PhantomData)),
                 RangeOperator::None
             ))),
         simple_as_set: "AS-FOO" => FilterExpr:
             FilterExpr::Unit(Term::Literal(Literal::PrefixSet(
                 PrefixSetExpr::Named(NamedPrefixSet::AsSet(vec![
                     SetNameComp::Name("AS-FOO".into())
-                ].into_iter().collect())),
+                ].into_iter().collect(), PhantomData)),
                 RangeOperator::None
             ))),
         hierarchical_as_set: "AS65000:AS-FOO" => FilterExpr:
@@ -904,14 +908,14 @@ mod tests {
                 PrefixSetExpr::Named(NamedPrefixSet::AsSet(vec![
                     SetNameComp::AutNum("AS65000".parse().unwrap()),
                     SetNameComp::Name("AS-FOO".into())
-                ].into_iter().collect())),
+                ].into_iter().collect(), PhantomData)),
                 RangeOperator::None
             ))),
         simple_route_set: "RS-FOO" => FilterExpr:
             FilterExpr::Unit(Term::Literal(Literal::PrefixSet(
                 PrefixSetExpr::Named(NamedPrefixSet::RouteSet(vec![
                     SetNameComp::Name("RS-FOO".into())
-                ].into_iter().collect())),
+                ].into_iter().collect(), PhantomData)),
                 RangeOperator::None
             ))),
         hierarchical_route_set: "AS65000:RS-FOO" => FilterExpr:
@@ -919,7 +923,7 @@ mod tests {
                 PrefixSetExpr::Named(NamedPrefixSet::RouteSet(vec![
                     SetNameComp::AutNum("AS65000".parse().unwrap()),
                     SetNameComp::Name("RS-FOO".into())
-                ].into_iter().collect())),
+                ].into_iter().collect(), PhantomData)),
                 RangeOperator::None
             ))),
         peeras: "PeerAS" => FilterExpr:
@@ -979,7 +983,7 @@ mod tests {
         parens_single_autnum: "(AS65000)" => MpFilterExpr:
             MpFilterExpr::Unit(Term::Expr(Box::new(
                 Expr::Unit(Term::Literal(Literal::PrefixSet(
-                    PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS65000".parse().unwrap())),
+                    PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS65000".parse().unwrap(), PhantomData)),
                     RangeOperator::None
                 )))
             ))),
@@ -990,7 +994,7 @@ mod tests {
                         SetNameComp::AutNum("AS65000".parse().unwrap()),
                         SetNameComp::Name("AS-FOO".into()),
                         SetNameComp::PeerAs,
-                    ].into_iter().collect())),
+                    ].into_iter().collect(), PhantomData)),
                     RangeOperator::None
                 )))
             ))),
@@ -1177,7 +1181,7 @@ mod tests {
                 FilterExpr::And(
                     Term::Expr(Box::new(FilterExpr::Or(
                         Term::Literal(Literal::PrefixSet(
-                            PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS1".parse().unwrap())),
+                            PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS1".parse().unwrap(), PhantomData)),
                             RangeOperator::None,
                         )),
                         Box::new(Expr::Unit(Term::Named("fltr-foo".parse().unwrap()))),
@@ -1326,16 +1330,16 @@ mod tests {
             rfc2622_sect5_example13: "AS226 AS227 OR AS228" => {
                 FilterExpr::Or(
                     Term::Literal(Literal::PrefixSet(
-                        PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS226".parse().unwrap())),
+                        PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS226".parse().unwrap(), PhantomData)),
                         RangeOperator::None,
                     )),
                     Box::new(Expr::Or(
                         Term::Literal(Literal::PrefixSet(
-                            PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS227".parse().unwrap())),
+                            PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS227".parse().unwrap(), PhantomData)),
                             RangeOperator::None,
                         )),
                         Box::new(Expr::Unit(Term::Literal(Literal::PrefixSet(
-                            PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS228".parse().unwrap())),
+                            PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS228".parse().unwrap(), PhantomData)),
                             RangeOperator::None,
                         ))))
                     ))
@@ -1344,7 +1348,7 @@ mod tests {
             rfc2622_sect5_example14: "AS226 AND NOT {128.9.0.0/16}" => {
                 FilterExpr::And(
                     Term::Literal(Literal::PrefixSet(
-                        PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS226".parse().unwrap())),
+                        PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS226".parse().unwrap(), PhantomData)),
                         RangeOperator::None,
                     )),
                     Box::new(Expr::Not(Box::new(Expr::Unit(
@@ -1365,7 +1369,7 @@ mod tests {
             rfc2622_sect5_example15: "AS226 AND {0.0.0.0/0^0-18}" => {
                 FilterExpr::And(
                     Term::Literal(Literal::PrefixSet(
-                        PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS226".parse().unwrap())),
+                        PrefixSetExpr::Named(NamedPrefixSet::AutNum("AS226".parse().unwrap(), PhantomData)),
                         RangeOperator::None,
                     )),
                     Box::new(Expr::Unit(Term::Literal(Literal::PrefixSet(

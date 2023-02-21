@@ -21,7 +21,7 @@ use crate::{
 #[cfg(any(test, feature = "arbitrary"))]
 use self::arbitrary::{impl_free_form_arbitrary, impl_rpsl_name_arbitrary, prop_filter_keywords};
 
-pub trait ParserAfi: AfiClass {
+pub trait ParserAfi: AfiClass + 'static {
     const LITERAL_ADDR_RULE: ParserRule;
     const LITERAL_PREFIX_RULE: ParserRule;
 }

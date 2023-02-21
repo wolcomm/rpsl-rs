@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 792ad5db1a43779c823d92177aae9eec8cdefd9cec7edde250b13ee2c8a70f74 # shrinks to obj = Route(Route { name: Route(IpPrefix(Prefix { prefix: Address<Ipv4>(0.0.0.0), length: PrefixLength(0) })), attrs: AttributeSeq([MntBy(ListOf([Mntner("a-")])), Changed(ChangedExpr { by: EmailAddress("a@A"), on: Date(Date { year: 0, ordinal: 1 }) }), Source(RegistryName("AA")), Origin(AutNum(0))]) })

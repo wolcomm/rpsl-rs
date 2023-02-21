@@ -1,96 +1,174 @@
-use std::marker::PhantomData;
-use std::ops::Deref;
+use std::iter::FromIterator;
+use std::ops::{BitAnd, BitOr, Not};
+
+use ip;
+
+use crate::names;
 
 use super::filter;
 
+mod any;
 mod apply;
-mod data;
 mod error;
-mod resolve;
-mod resolver;
-/// traits for performing value substitution on RPSL expressions.
-mod subst;
-// Evaluation states
-mod state;
 
 use self::{
-    error::EvaluationResult, resolve::Resolve, resolver::Resolver, state::State, subst::Substitute,
+    any::AnyPrefixRange,
+    apply::Apply as _,
+    error::{EvaluationError, EvaluationErrorKind, EvaluationResult},
 };
 
-#[derive(Clone, Debug)]
-pub struct Evaluation<T, S: State> {
-    expr: T,
-    state: PhantomData<S>,
+trait PrefixSet<A>:
+    FromIterator<EvaluationResult<ip::PrefixRange<A>>>
+    + IntoIterator<Item = EvaluationResult<ip::PrefixRange<A>>>
+where
+    A: filter::ExprAfi,
+{
 }
 
-impl<T, S: State> Deref for Evaluation<T, S> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        &self.expr
-    }
+trait Evaluate<R> {
+    type Output;
+    fn evaluate(self, resolver: &mut R) -> EvaluationResult<Self::Output>;
 }
 
-impl<T, S: State> AsRef<T> for Evaluation<T, S> {
-    fn as_ref(&self) -> &T {
-        self.deref()
-    }
-}
-
-impl<T, S: State> Evaluation<T, S> {
-    fn into_inner(self) -> T {
-        self.expr
-    }
-}
-
-impl<T> From<T> for Evaluation<T, state::New> {
-    fn from(expr: T) -> Self {
-        Evaluation {
-            expr,
-            state: PhantomData,
+impl<A, R, I, E> Evaluate<R> for filter::Expr<A>
+where
+    A: filter::ExprAfi,
+    A::PrefixRange: AnyPrefixRange,
+    R: Resolver<filter::NamedPrefixSet<A>, Output = I>
+        + Resolver<names::FilterSet, Output = filter::Expr<A>>,
+    I: IntoIterator<Item = Result<ip::PrefixRange<A>, E>>,
+    I::IntoIter: 'static,
+    E: std::error::Error + Send + Sync + 'static,
+{
+    type Output = Box<dyn PrefixSet<A>>;
+    fn evaluate(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
+        match self {
+            Self::Unit(term) => term.evaluate(resolver)?.collect(),
+            Self::Not(_) => todo!(),
+            Self::And(_, _) => todo!(),
+            Self::Or(_, _) => todo!(),
         }
     }
 }
 
-impl<A: filter::ExprAfi> From<Evaluation<filter::Expr<A>, state::Substituted>>
-    for Evaluation<filter::Expr<A>, state::Ready>
+impl<A, R, I, E> Evaluate<R> for filter::Term<A>
+where
+    A: filter::ExprAfi,
+    A::PrefixRange: AnyPrefixRange,
+    R: Resolver<filter::NamedPrefixSet<A>, Output = I>
+        + Resolver<names::FilterSet, Output = filter::Expr<A>>,
+    I: IntoIterator<Item = Result<ip::PrefixRange<A>, E>>,
+    I::IntoIter: 'static,
+    E: std::error::Error + Send + Sync + 'static,
 {
-    fn from(evaluation: Evaluation<filter::Expr<A>, state::Substituted>) -> Self {
-        Evaluation {
-            expr: evaluation.into_inner(),
-            state: PhantomData,
+    type Output = Box<dyn Iterator<Item = EvaluationResult<ip::PrefixRange<A>>>>;
+    fn evaluate(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
+        match self {
+            Self::Any => Ok(Box::new(A::PrefixRange::any().map(Ok)) as Self::Output),
+            Self::Literal(literal) => literal.evaluate(resolver),
+            Self::Named(filter_set) => resolver
+                .resolve(&filter_set)
+                .map_err(|err| {
+                    EvaluationError::new_from(
+                        EvaluationErrorKind::Resolution,
+                        format!("failed to resolve {:?}", filter_set),
+                        Some(err),
+                    )
+                })
+                .and_then(|expr| expr.evaluate(resolver))
+                .map(|prefix_set| Box::new(prefix_set.into_iter()) as Self::Output),
+            Self::Expr(expr) => expr
+                .evaluate(resolver)
+                .map(|prefix_set| Box::new(prefix_set.into_iter()) as Self::Output),
         }
     }
 }
 
-trait PreEvaluate<I>: Into<Evaluation<Self, state::New>> {
-    fn pre_evaluate(self, info: &mut I) -> EvaluationResult<Evaluation<Self, state::Ready>>;
-}
-
-impl<A: filter::ExprAfi, I: subst::PeerAs> PreEvaluate<I> for filter::Expr<A> {
-    fn pre_evaluate(self, info: &mut I) -> EvaluationResult<Evaluation<Self, state::Ready>> {
-        Ok(Evaluation::from(self).substitute(info)?.into())
+impl<A, R, I, E> Evaluate<R> for filter::Literal<A>
+where
+    A: filter::ExprAfi,
+    R: Resolver<filter::NamedPrefixSet<A>, Output = I>,
+    I: IntoIterator<Item = Result<ip::PrefixRange<A>, E>>,
+    I::IntoIter: 'static,
+    E: std::error::Error + Send + Sync + 'static,
+{
+    type Output = Box<dyn Iterator<Item = EvaluationResult<ip::PrefixRange<A>>>>;
+    fn evaluate(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
+        match self {
+            Self::PrefixSet(prefix_set_expr, operator) => {
+                prefix_set_expr.evaluate(resolver).map(move |iter| {
+                    Box::new(iter.filter_map(move |result| {
+                        result
+                            .and_then(|range| operator.apply::<A, _>(range))
+                            .transpose()
+                    })) as Self::Output
+                })
+            }
+            Self::AsPath(_) => todo!("AS-path regexp expressions not yet implemented"),
+            Self::AttrMatch(_) => todo!("action match expressions not yet implemented"),
+        }
     }
 }
 
-trait Evaluate<E: Resolver>: PreEvaluate<E>
+impl<A, R, I, E> Evaluate<R> for filter::PrefixSetExpr<A>
 where
-    Evaluation<Self, state::Ready>: Resolve<E>,
+    A: filter::ExprAfi,
+    R: Resolver<filter::NamedPrefixSet<A>, Output = I>,
+    I: IntoIterator<Item = Result<ip::PrefixRange<A>, E>>,
+    I::IntoIter: 'static,
+    E: std::error::Error + Send + Sync + 'static,
 {
-    fn evaluate(
-        self,
-        evaluator: &mut E,
-    ) -> EvaluationResult<<Evaluation<Self, state::Ready> as Resolve<E>>::Output> {
-        self.pre_evaluate(evaluator)?.resolve(evaluator)
+    type Output = Box<dyn Iterator<Item = EvaluationResult<ip::PrefixRange<A>>>>;
+    fn evaluate(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
+        match self {
+            Self::Literal(prefix_ranges) => {
+                Ok(Box::new(prefix_ranges.into_iter().filter_map(|range| {
+                    range
+                        .operator()
+                        .apply::<A, _>(range.prefix().into_inner())
+                        .transpose()
+                })) as Self::Output)
+            }
+            Self::Named(named) => named.evaluate(resolver),
+        }
     }
 }
 
-impl<T, E> Evaluate<E> for T
+impl<A, R, I, E> Evaluate<R> for filter::NamedPrefixSet<A>
 where
-    T: PreEvaluate<E>,
-    E: Resolver,
-    Evaluation<Self, state::Ready>: Resolve<E>,
+    A: filter::ExprAfi,
+    R: Resolver<filter::NamedPrefixSet<A>, Output = I>,
+    I: IntoIterator<Item = Result<ip::PrefixRange<A>, E>>,
+    I::IntoIter: 'static,
+    E: std::error::Error + Send + Sync + 'static,
 {
+    type Output = Box<dyn Iterator<Item = EvaluationResult<ip::PrefixRange<A>>>>;
+    fn evaluate(self, resolver: &mut R) -> EvaluationResult<Self::Output> {
+        resolver
+            .resolve(&self)
+            .map_err(|err| {
+                EvaluationError::new_from(
+                    EvaluationErrorKind::Resolution,
+                    format!("failed to resolve {:?}", self),
+                    Some(err),
+                )
+            })
+            .map(|iter| {
+                Box::new(iter.into_iter().map(|result| {
+                    result.map_err(|err| {
+                        EvaluationError::new_from(
+                            EvaluationErrorKind::Resolution,
+                            "error while resolving named prefix set",
+                            Some(err),
+                        )
+                    })
+                })) as Self::Output
+            })
+    }
 }
 
-#[cfg(test)]
-mod tests;
+trait Resolver<T> {
+    type Output;
+    type Error: std::error::Error + Send + Sync + 'static;
+    fn resolve(&mut self, expr: &T) -> Result<Self::Output, Self::Error>;
+}

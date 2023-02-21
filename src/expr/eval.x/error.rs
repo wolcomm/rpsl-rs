@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt;
 
-// use super::resolver::ResolverError;
+use super::resolver::ResolverError;
 
 /// Custom [`Result<T, E>`] containing a possible [`EvaluationError`].
 pub type EvaluationResult<T> = Result<T, EvaluationError>;
@@ -68,21 +68,11 @@ impl EvaluationError {
     }
 }
 
-impl From<ip::Error> for EvaluationError {
-    fn from(err: ip::Error) -> Self {
-        Self::new_from(
-            EvaluationErrorKind::RangeOperatorApplication,
-            "failed to apply range operator",
-            Some(err),
-        )
+impl<E: ResolverError> From<E> for EvaluationError {
+    fn from(err: E) -> Self {
+        Self::new_from(EvaluationErrorKind::Resolution, "resolver error", Some(err))
     }
 }
-
-// impl<E: ResolverError> From<E> for EvaluationError {
-//     fn from(err: E) -> Self {
-//         Self::new_from(EvaluationErrorKind::Resolution, "resolver error", Some(err))
-//     }
-// }
 
 macro_rules! err {
     ( $kind:expr, $msg:literal $(,)? ) => {
