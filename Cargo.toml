@@ -2,7 +2,7 @@
 name = "rpsl"
 version = "0.1.0-alpha.1"
 resolver = "2"
-edition = "2018"
+edition = "2021"
 authors = ["Ben Maddison <benm@workonline.africa>"]
 description = "A parser for the Routing Policy Specification Language (RPSL)"
 license = "MIT"
