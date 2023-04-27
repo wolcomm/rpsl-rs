@@ -3,6 +3,8 @@
 //!
 //! [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622
 //! [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012
+// docs.rs build config
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(html_root_url = "https://docs.rs/rpsl/0.1.0-alpha.1")]
 #![warn(missing_docs)]
 
