@@ -78,11 +78,59 @@ impl From<ip::Error> for EvaluationError {
     }
 }
 
-// impl<E: ResolverError> From<E> for EvaluationError {
-//     fn from(err: E) -> Self {
-//         Self::new_from(EvaluationErrorKind::Resolution, "resolver error", Some(err))
-//     }
-// }
+#[derive(Debug, Default)]
+pub struct EvaluationErrors {
+    inner: Vec<EvaluationError>,
+}
+
+impl EvaluationErrors {
+    pub fn iter(&self) -> impl Iterator<Item = &EvaluationError> {
+        self.inner.iter()
+    }
+}
+
+pub struct IntoIter {
+    inner: <Vec<EvaluationError> as IntoIterator>::IntoIter,
+}
+
+impl Iterator for IntoIter {
+    type Item = EvaluationError;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
+}
+
+impl IntoIterator for EvaluationErrors {
+    type IntoIter = IntoIter;
+    type Item = EvaluationError;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Self::IntoIter {
+            inner: self.inner.into_iter(),
+        }
+    }
+}
+
+impl Extend<EvaluationError> for EvaluationErrors {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = EvaluationError>,
+    {
+        self.inner.extend(iter)
+    }
+}
+
+impl FromIterator<EvaluationError> for EvaluationErrors {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = EvaluationError>,
+    {
+        let mut this = Self::default();
+        this.extend(iter);
+        this
+    }
+}
 
 macro_rules! err {
     ( $kind:expr, $msg:literal $(,)? ) => {
