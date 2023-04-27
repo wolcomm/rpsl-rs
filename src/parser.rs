@@ -49,7 +49,7 @@ macro_rules! impl_from_str {
 pub(crate) use impl_from_str;
 
 macro_rules! impl_str_primitive {
-    ( $( $rule:pat )|+ => $t:ty ) => {
+    ( $( $rule:pat_param )|+ => $t:ty ) => {
         impl TryFrom<TokenPair<'_>> for $t {
             type Error = ParseError;
             fn try_from(pair: TokenPair) -> ParseResult<Self> {
@@ -79,7 +79,7 @@ macro_rules! impl_str_primitive {
 pub(crate) use impl_str_primitive;
 
 macro_rules! impl_case_insensitive_str_primitive {
-    ( $( $rule:pat )|+ => $t:ty ) => {
+    ( $( $rule:pat_param )|+ => $t:ty ) => {
         $crate::parser::impl_str_primitive!($( $rule )|+ => $t);
         impl std::cmp::PartialEq for $t {
             fn eq(&self, other: &Self) -> bool {
