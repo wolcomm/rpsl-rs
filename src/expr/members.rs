@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use ip::{Any, Ipv4};
@@ -36,7 +35,7 @@ mod as_set {
     impl TryFrom<TokenPair<'_>> for Member {
         type Error = ParseError;
 
-        fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
             debug_construction!(pair => Member);
             match pair.as_rule() {
                 ParserRule::aut_num => Ok(Self::AutNum(pair.try_into()?)),
@@ -47,7 +46,7 @@ mod as_set {
     }
 
     impl fmt::Display for Member {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
                 Self::AutNum(aut_num) => aut_num.fmt(f),
                 Self::AsSet(as_set) => as_set.fmt(f),
@@ -105,7 +104,7 @@ mod route_set {
 
     impl<A: MemberAfi> Member<A> {
         /// Construct a new [`RouteSetMember`].
-        pub fn new(base: MemberElem<A>, op: RangeOperator) -> Self {
+        pub const fn new(base: MemberElem<A>, op: RangeOperator) -> Self {
             Self { base, op }
         }
     }
@@ -119,7 +118,7 @@ mod route_set {
     impl<A: MemberAfi> TryFrom<TokenPair<'_>> for Member<A> {
         type Error = ParseError;
 
-        fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
             debug_construction!(pair => RouteSetMember);
             match pair.as_rule() {
                 rule if rule == A::ROUTE_SET_MEMBER_RULE => {
@@ -137,15 +136,15 @@ mod route_set {
     }
 
     impl<A: MemberAfi> fmt::Display for Member<A> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(f, "{}{}", self.base, self.op)
         }
     }
 
     #[cfg(any(test, feature = "arbitrary"))]
-    impl<A: MemberAfi> Arbitrary for Member<A>
+    impl<A> Arbitrary for Member<A>
     where
-        A: fmt::Debug + Clone + 'static,
+        A: MemberAfi + fmt::Debug + Clone + 'static,
         A::Prefix: Arbitrary,
     {
         type Parameters = ParamsFor<RangeOperator>;
@@ -182,7 +181,7 @@ mod route_set {
     impl<A: MemberAfi> TryFrom<TokenPair<'_>> for MemberElem<A> {
         type Error = ParseError;
 
-        fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
             debug_construction!(pair => RouteSetMemberElem);
             match pair.as_rule() {
                 rule if rule == A::LITERAL_PREFIX_RULE => Ok(Self::Prefix(pair.try_into()?)),
@@ -197,7 +196,7 @@ mod route_set {
     }
 
     impl<A: MemberAfi> fmt::Display for MemberElem<A> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
                 Self::Prefix(prefix) => prefix.fmt(f),
                 Self::RsAny => write!(f, "RS-ANY"),
@@ -210,9 +209,9 @@ mod route_set {
     }
 
     #[cfg(any(test, feature = "arbitrary"))]
-    impl<A: MemberAfi> Arbitrary for MemberElem<A>
+    impl<A> Arbitrary for MemberElem<A>
     where
-        A: fmt::Debug + Clone + 'static,
+        A: MemberAfi + fmt::Debug + Clone + 'static,
         A::Prefix: Arbitrary,
     {
         type Parameters = ();
@@ -280,7 +279,7 @@ mod rtr_set {
     impl<A: MemberAfi> TryFrom<TokenPair<'_>> for Member<A> {
         type Error = ParseError;
 
-        fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
             debug_construction!(pair => Member);
             match pair.as_rule() {
                 rule if rule == A::LITERAL_ADDR_RULE => Ok(Self::Addr(pair.try_into()?)),
@@ -292,7 +291,7 @@ mod rtr_set {
     }
 
     impl<A: MemberAfi> fmt::Display for Member<A> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
                 Self::Addr(addr) => addr.fmt(f),
                 Self::InetRtr(inet_rtr) => inet_rtr.fmt(f),
@@ -302,9 +301,9 @@ mod rtr_set {
     }
 
     #[cfg(any(test, feature = "arbitrary"))]
-    impl<A: MemberAfi> Arbitrary for Member<A>
+    impl<A> Arbitrary for Member<A>
     where
-        A: fmt::Debug + Clone + 'static,
+        A: MemberAfi + fmt::Debug + Clone + 'static,
         A::Address: Arbitrary,
     {
         type Parameters = ();

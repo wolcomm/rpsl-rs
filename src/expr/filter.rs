@@ -1,7 +1,5 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::marker::PhantomData;
-use std::string::ToString;
 
 use ip::{Any, Ipv4};
 
@@ -82,6 +80,7 @@ impl ExprAfi for Any {
 /// RPSL `filter` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.4
+#[allow(clippy::module_name_repetitions)]
 pub type FilterExpr = Expr<Ipv4>;
 
 /// RPSL `mp-filter` expression. See [RFC4012].
@@ -112,7 +111,7 @@ pub enum Expr<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
             rule if rule == A::FILTER_EXPR_UNIT_RULE => Ok(Self::Unit(
@@ -143,20 +142,20 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for Expr<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Unit(term) => term.fmt(f),
-            Self::Not(expr) => write!(f, "NOT {}", expr),
-            Self::And(lhs, rhs) => write!(f, "{} AND {}", lhs, rhs),
-            Self::Or(lhs, rhs) => write!(f, "{} OR {}", lhs, rhs),
+            Self::Not(expr) => write!(f, "NOT {expr}"),
+            Self::And(lhs, rhs) => write!(f, "{lhs} AND {rhs}"),
+            Self::Or(lhs, rhs) => write!(f, "{lhs} OR {rhs}"),
         }
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for Expr<A>
+impl<A> Arbitrary for Expr<A>
 where
-    A: fmt::Debug + Clone + 'static,
+    A: ExprAfi + fmt::Debug + Clone + 'static,
     Term<A>: Arbitrary,
     <Term<A> as Arbitrary>::Parameters: Clone,
 {
@@ -164,15 +163,14 @@ where
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
         let term = any_with::<Term<A>>(args.clone()).boxed();
-        any_with::<Term<A>>(args.clone())
+        any_with::<Term<A>>(args)
             .prop_map(Self::Unit)
             .prop_recursive(2, 4, 4, move |unit| {
                 prop_oneof![
                     unit.clone().prop_map(|unit| Self::Not(Box::new(unit))),
                     (term.clone(), unit.clone())
                         .prop_map(|(term, unit)| Self::And(term, Box::new(unit))),
-                    (term.clone(), unit.clone())
-                        .prop_map(|(term, unit)| Self::Or(term, Box::new(unit))),
+                    (term.clone(), unit).prop_map(|(term, unit)| Self::Or(term, Box::new(unit))),
                 ]
             })
             .boxed()
@@ -195,7 +193,7 @@ pub enum Term<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Term<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Term);
         match pair.as_rule() {
             rule if rule == A::LITERAL_FILTER_RULE => Ok(Self::Literal(
@@ -212,20 +210,20 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Term<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for Term<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Any => write!(f, "ANY"),
             Self::Literal(fltr_literal) => fltr_literal.fmt(f),
             Self::Named(fltr_set_expr) => fltr_set_expr.fmt(f),
-            Self::Expr(expr) => write!(f, "({})", expr),
+            Self::Expr(expr) => write!(f, "({expr})"),
         }
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for Term<A>
+impl<A> Arbitrary for Term<A>
 where
-    A: Clone + fmt::Debug + 'static,
+    A: ExprAfi + Clone + fmt::Debug + 'static,
     PrefixSetExpr<A>: Arbitrary,
     <PrefixSetExpr<A> as Arbitrary>::Parameters: Clone,
 {
@@ -233,7 +231,7 @@ where
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
         let leaf = prop_oneof![
-            any_with::<Literal<A>>(args.clone()).prop_map(Self::Literal),
+            any_with::<Literal<A>>(args).prop_map(Self::Literal),
             any::<FilterSet>().prop_map(Self::Named),
             Just(Self::Any),
         ];
@@ -245,7 +243,7 @@ where
                     .prop_map(|inner| Expr::Not(Box::new(Expr::Unit(inner)))),
                 (inner.clone(), inner.clone())
                     .prop_map(|(lhs, rhs)| Expr::And(lhs, Box::new(Expr::Unit(rhs)))),
-                (inner.clone(), inner.clone())
+                (inner.clone(), inner)
                     .prop_map(|(lhs, rhs)| Expr::Or(lhs, Box::new(Expr::Unit(rhs)))),
             ]
             .prop_map(|expr| Self::Expr(Box::new(expr)))
@@ -264,7 +262,7 @@ pub enum Literal<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Literal<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Literal);
         match pair.as_rule() {
             rule if rule == A::LITERAL_RANGED_PREFIX_SET_RULE => {
@@ -287,9 +285,9 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Literal<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for Literal<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::PrefixSet(set_expr, op) => write!(f, "{}{}", set_expr, op),
+            Self::PrefixSet(set_expr, op) => write!(f, "{set_expr}{op}"),
             Self::AsPath(as_path_regexp) => as_path_regexp.fmt(f),
             Self::AttrMatch(stmt) => stmt.fmt(f),
         }
@@ -297,9 +295,9 @@ impl<A: ExprAfi> fmt::Display for Literal<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for Literal<A>
+impl<A> Arbitrary for Literal<A>
 where
-    A: Clone + fmt::Debug + 'static,
+    A: ExprAfi + Clone + fmt::Debug + 'static,
     PrefixSetExpr<A>: Arbitrary,
     <PrefixSetExpr<A> as Arbitrary>::Parameters: Clone,
 {
@@ -332,12 +330,12 @@ pub enum PrefixSetExpr<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for PrefixSetExpr<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => PrefixSetExpr);
         match pair.as_rule() {
             rule if rule == A::LITERAL_PREFIX_SET_RULE => Ok(Self::Literal(
                 pair.into_inner()
-                    .map(|inner| inner.try_into())
+                    .map(IpPrefixRange::try_from)
                     .collect::<ParseResult<_>>()?,
             )),
             ParserRule::named_prefix_set => Ok(Self::Named(
@@ -349,14 +347,14 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for PrefixSetExpr<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for PrefixSetExpr<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Literal(entries) => write!(
                 f,
                 "{{{}}}",
                 entries
                     .iter()
-                    .map(|entry| entry.to_string())
+                    .map(IpPrefixRange::to_string)
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
@@ -366,9 +364,9 @@ impl<A: ExprAfi> fmt::Display for PrefixSetExpr<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for PrefixSetExpr<A>
+impl<A> Arbitrary for PrefixSetExpr<A>
 where
-    A: fmt::Debug + 'static,
+    A: ExprAfi + fmt::Debug + 'static,
     IpPrefixRange<A>: Arbitrary,
     <IpPrefixRange<A> as Arbitrary>::Strategy: 'static,
 {
@@ -406,7 +404,7 @@ pub enum NamedPrefixSet<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for NamedPrefixSet<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => NamedPrefixSet);
         match pair.as_rule() {
             ParserRule::any_rs => Ok(Self::RsAny),
@@ -421,7 +419,7 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for NamedPrefixSet<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for NamedPrefixSet<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::RsAny => write!(f, "RS-ANY"),
             Self::AsAny => write!(f, "AS-ANY"),
@@ -473,29 +471,31 @@ impl AsPathRegexp {
 impl TryFrom<TokenPair<'_>> for AsPathRegexp {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => AsPathRegexp);
         match pair.as_rule() {
             ParserRule::as_path_regexpr => {
-                let mut pairs = pair.into_inner();
-                let (mut match_start, mut match_end) = (false, false);
+                let mut pairs = pair.into_inner().peekable();
                 let mut elements = vec![];
-                if let Some(ParserRule::as_path_regexpr_soi) =
-                    pairs.peek().map(|pair| pair.as_rule())
+                let match_start = if pairs.peek().map(TokenPair::as_rule)
+                    == Some(ParserRule::as_path_regexpr_soi)
                 {
-                    match_start = true;
-                    pairs.next();
+                    _ = pairs.next();
+                    true
+                } else {
+                    false
                 };
-                while let Some(ParserRule::as_path_regexpr_elem) =
-                    pairs.peek().map(|pair| pair.as_rule())
+                while pairs.peek().map(TokenPair::as_rule) == Some(ParserRule::as_path_regexpr_elem)
                 {
-                    elements.push(pairs.next().unwrap().try_into()?)
+                    elements.push(pairs.next().unwrap().try_into()?);
                 }
-                if let Some(ParserRule::as_path_regexpr_eoi) =
-                    pairs.peek().map(|pair| pair.as_rule())
+                let match_end = if pairs.peek().map(TokenPair::as_rule)
+                    == Some(ParserRule::as_path_regexpr_eoi)
                 {
-                    match_end = true;
-                    pairs.next();
+                    _ = pairs.next();
+                    true
+                } else {
+                    false
                 };
                 Ok(Self::new(match_start, elements, match_end))
             }
@@ -505,22 +505,22 @@ impl TryFrom<TokenPair<'_>> for AsPathRegexp {
 }
 
 impl fmt::Display for AsPathRegexp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<")?;
         if self.match_start {
-            write!(f, "^")?
+            write!(f, "^")?;
         };
         write!(
             f,
             "{}",
             self.elements
                 .iter()
-                .map(|elem| elem.to_string())
+                .map(AsPathRegexpElem::to_string)
                 .collect::<Vec<_>>()
                 .join(" ")
         )?;
         if self.match_end {
-            write!(f, "$")?
+            write!(f, "$")?;
         };
         write!(f, ">")
     }
@@ -550,7 +550,7 @@ pub struct AsPathRegexpElem {
 }
 
 impl AsPathRegexpElem {
-    fn new(component: AsPathRegexpComponent, op: Option<AsPathRegexpOp>) -> Self {
+    const fn new(component: AsPathRegexpComponent, op: Option<AsPathRegexpOp>) -> Self {
         Self { component, op }
     }
 }
@@ -558,7 +558,7 @@ impl AsPathRegexpElem {
 impl TryFrom<TokenPair<'_>> for AsPathRegexpElem {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => AsPathRegexpElem);
         match pair.as_rule() {
             ParserRule::as_path_regexpr_elem => {
@@ -577,7 +577,7 @@ impl TryFrom<TokenPair<'_>> for AsPathRegexpElem {
 }
 
 impl fmt::Display for AsPathRegexpElem {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.component.fmt(f)?;
         if let Some(op) = &self.op {
             op.fmt(f)?;
@@ -613,7 +613,7 @@ pub enum AsPathRegexpComponent {
 impl TryFrom<TokenPair<'_>> for AsPathRegexpComponent {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => AsPathRegexpComponent);
         match pair.as_rule() {
             ParserRule::as_set => Ok(Self::AsSet(pair.try_into()?)),
@@ -621,12 +621,12 @@ impl TryFrom<TokenPair<'_>> for AsPathRegexpComponent {
             ParserRule::as_path_any => Ok(Self::Any),
             ParserRule::as_path_set => Ok(Self::ComponentSet(
                 pair.into_inner()
-                    .map(|pair| pair.try_into())
+                    .map(AsPathRegexpComponentSetMember::try_from)
                     .collect::<ParseResult<_>>()?,
             )),
             ParserRule::as_path_set_compl => Ok(Self::ComplComponentSet(
                 pair.into_inner()
-                    .map(|pair| pair.try_into())
+                    .map(AsPathRegexpComponentSetMember::try_from)
                     .collect::<ParseResult<_>>()?,
             )),
             ParserRule::as_path_regexpr_alt => {
@@ -646,7 +646,7 @@ impl TryFrom<TokenPair<'_>> for AsPathRegexpComponent {
 }
 
 impl fmt::Display for AsPathRegexpComponent {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::AutNum(aut_num) => aut_num.fmt(f),
             Self::AsSet(as_set) => as_set.fmt(f),
@@ -657,7 +657,7 @@ impl fmt::Display for AsPathRegexpComponent {
                     "[{}]",
                     components
                         .iter()
-                        .map(|component| component.to_string())
+                        .map(AsPathRegexpComponentSetMember::to_string)
                         .collect::<Vec<_>>()
                         .join(" ")
                 )
@@ -668,12 +668,12 @@ impl fmt::Display for AsPathRegexpComponent {
                     "[^{}]",
                     components
                         .iter()
-                        .map(|component| component.to_string())
+                        .map(AsPathRegexpComponentSetMember::to_string)
                         .collect::<Vec<_>>()
                         .join(" ")
                 )
             }
-            Self::Alternates(left, right) => write!(f, "({}|{})", left, right),
+            Self::Alternates(left, right) => write!(f, "({left}|{right})"),
         }
     }
 }
@@ -710,6 +710,7 @@ impl Arbitrary for AsPathRegexpComponent {
     }
 }
 
+#[allow(variant_size_differences)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AsPathRegexpComponentSetMember {
     AutNum(AutNum),
@@ -720,7 +721,7 @@ pub enum AsPathRegexpComponentSetMember {
 impl TryFrom<TokenPair<'_>> for AsPathRegexpComponentSetMember {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => AsPathRegexpComponentSetMember);
         match pair.as_rule() {
             ParserRule::as_set => Ok(Self::AsSet(pair.try_into()?)),
@@ -738,11 +739,11 @@ impl TryFrom<TokenPair<'_>> for AsPathRegexpComponentSetMember {
 }
 
 impl fmt::Display for AsPathRegexpComponentSetMember {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::AutNum(aut_num) => aut_num.fmt(f),
             Self::AsSet(as_set) => as_set.fmt(f),
-            Self::AsRange(lower, upper) => write!(f, "{}-{}", lower, upper),
+            Self::AsRange(lower, upper) => write!(f, "{lower}-{upper}"),
         }
     }
 }
@@ -762,7 +763,7 @@ impl Arbitrary for AsPathRegexpComponentSetMember {
     }
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum AsPathRegexpOp {
     Optional,
     Any,
@@ -780,7 +781,7 @@ pub enum AsPathRegexpOp {
 impl TryFrom<TokenPair<'_>> for AsPathRegexpOp {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => AsPathRegexpOp);
         match pair.as_rule() {
             ParserRule::as_path_regexpr_opt => Ok(Self::Optional),
@@ -820,19 +821,19 @@ impl TryFrom<TokenPair<'_>> for AsPathRegexpOp {
 }
 
 impl fmt::Display for AsPathRegexpOp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Optional => write!(f, "?"),
             Self::Any => write!(f, "*"),
             Self::Multi => write!(f, "+"),
-            Self::AtLeast(lower) => write!(f, "{{{},}}", lower),
-            Self::AtMost(upper) => write!(f, "{{,{}}}", upper),
-            Self::Range(lower, upper) => write!(f, "{{{},{}}}", lower, upper),
+            Self::AtLeast(lower) => write!(f, "{{{lower},}}"),
+            Self::AtMost(upper) => write!(f, "{{,{upper}}}"),
+            Self::Range(lower, upper) => write!(f, "{{{lower},{upper}}}"),
             Self::AnySame => write!(f, "~*"),
             Self::MultiSame => write!(f, "~+"),
-            Self::AtLeastSame(lower) => write!(f, "~{{{},}}", lower),
-            Self::AtMostSame(upper) => write!(f, "~{{,{}}}", upper),
-            Self::RangeSame(lower, upper) => write!(f, "~{{{},{}}}", lower, upper),
+            Self::AtLeastSame(lower) => write!(f, "~{{{lower},}}"),
+            Self::AtMostSame(upper) => write!(f, "~{{,{upper}}}"),
+            Self::RangeSame(lower, upper) => write!(f, "~{{{lower},{upper}}}"),
         }
     }
 }

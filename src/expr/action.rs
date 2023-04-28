@@ -1,8 +1,4 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
-
-#[cfg(any(test, feature = "arbitrary"))]
-use std::iter::FromIterator;
 
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
@@ -22,6 +18,7 @@ use crate::primitive::arbitrary::impl_rpsl_name_arbitrary;
 /// RPSL `action` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6.1.1
+#[allow(clippy::module_name_repetitions)]
 pub type ActionExpr = Expr;
 impl_from_str!(ParserRule::just_action_expr => Expr);
 
@@ -31,12 +28,12 @@ pub struct Expr(Vec<Stmt>);
 impl TryFrom<TokenPair<'_>> for Expr {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
             ParserRule::action_expr => Ok(Self(
                 pair.into_inner()
-                    .map(|inner_pair| inner_pair.try_into())
+                    .map(Stmt::try_from)
                     .collect::<ParseResult<_>>()?,
             )),
             _ => Err(rule_mismatch!(pair => "action expression")),
@@ -45,11 +42,11 @@ impl TryFrom<TokenPair<'_>> for Expr {
 }
 
 impl fmt::Display for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = self
             .0
             .iter()
-            .map(|stmt| stmt.to_string())
+            .map(Stmt::to_string)
             .collect::<Vec<_>>()
             .join("; ");
         s.push(';');
@@ -77,7 +74,7 @@ pub enum Stmt {
 impl TryFrom<TokenPair<'_>> for Stmt {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Stmt);
         match pair.as_rule() {
             ParserRule::action_stmt_oper => Ok(Self::Operator(pair.try_into()?)),
@@ -88,7 +85,7 @@ impl TryFrom<TokenPair<'_>> for Stmt {
 }
 
 impl fmt::Display for Stmt {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Operator(stmt) => stmt.fmt(f),
             Self::Method(stmt) => stmt.fmt(f),
@@ -119,7 +116,7 @@ pub struct OperatorStmt {
 impl TryFrom<TokenPair<'_>> for OperatorStmt {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => OperatorStmt);
         match pair.as_rule() {
             ParserRule::action_stmt_oper => {
@@ -136,7 +133,7 @@ impl TryFrom<TokenPair<'_>> for OperatorStmt {
 }
 
 impl fmt::Display for OperatorStmt {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} {} {}", self.prop, self.op, self.val)
     }
 }
@@ -162,19 +159,18 @@ pub struct MethodStmt {
 impl TryFrom<TokenPair<'_>> for MethodStmt {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => MethodStmt);
         match pair.as_rule() {
             ParserRule::action_stmt_meth => {
                 let mut pairs = pair.into_inner().peekable();
                 let prop = next_into_or!(pairs => "failed to get action property")?;
-                let method = if let Some(ParserRule::action_meth) =
-                    pairs.peek().map(|pair| pair.as_rule())
-                {
-                    Some(next_into_or!(pairs => "failed to get action method")?)
-                } else {
-                    None
-                };
+                let method =
+                    if pairs.peek().map(TokenPair::as_rule) == Some(ParserRule::action_meth) {
+                        Some(next_into_or!(pairs => "failed to get action method")?)
+                    } else {
+                        None
+                    };
                 let vals = next_into_or!(pairs => "failed to get action operands")?;
                 Ok(Self { prop, method, vals })
             }
@@ -184,10 +180,10 @@ impl TryFrom<TokenPair<'_>> for MethodStmt {
 }
 
 impl fmt::Display for MethodStmt {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.prop)?;
         if let Some(method) = &self.method {
-            write!(f, ".{}", method)?;
+            write!(f, ".{method}")?;
         }
         write!(f, "({})", self.vals)
     }
@@ -223,7 +219,7 @@ pub enum Property {
 impl TryFrom<TokenPair<'_>> for Property {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Property);
         match pair.as_rule() {
             ParserRule::rp_pref => Ok(Self::Pref),
@@ -240,7 +236,7 @@ impl TryFrom<TokenPair<'_>> for Property {
 }
 
 impl fmt::Display for Property {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Pref => write!(f, "pref"),
             Self::Med => write!(f, "med"),
@@ -300,7 +296,7 @@ pub enum Operator {
 impl TryFrom<TokenPair<'_>> for Operator {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Operator);
         match pair.as_rule() {
             ParserRule::action_op_assign => Ok(Self::Assign),
@@ -323,7 +319,7 @@ impl TryFrom<TokenPair<'_>> for Operator {
 }
 
 impl fmt::Display for Operator {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Assign => write!(f, "="),
             Self::Append => write!(f, ".="),
@@ -383,7 +379,7 @@ pub enum Value {
 impl TryFrom<TokenPair<'_>> for Value {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Value);
         match pair.as_rule() {
             ParserRule::action_val_nested => Ok(Self::List(Box::new(
@@ -396,9 +392,9 @@ impl TryFrom<TokenPair<'_>> for Value {
 }
 
 impl fmt::Display for Value {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::List(val_list) => write!(f, "{{{}}}", val_list),
+            Self::List(val_list) => write!(f, "{{{val_list}}}"),
             Self::Unit(val) => val.fmt(f),
         }
     }

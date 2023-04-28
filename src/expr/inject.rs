@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use ip::{Any, Ipv4, Ipv6};
@@ -23,12 +22,14 @@ use proptest::{arbitrary::ParamsFor, prelude::*};
 /// RPSL `inject` expression for `route` objects. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-8.1
+#[allow(clippy::module_name_repetitions)]
 pub type InjectExpr = Expr<Ipv4>;
 impl_from_str!(ParserRule::just_inject_expr => InjectExpr);
 
 /// RPSL `inject` expression for `route6` objects. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-3
+#[allow(clippy::module_name_repetitions)]
 pub type Inject6Expr = Expr<Ipv6>;
 impl_from_str!(ParserRule::just_inject6_expr => Inject6Expr);
 
@@ -68,7 +69,7 @@ pub trait ExprAfi: ParserAfi {
 }
 
 impl ExprAfi for Ipv4 {
-    type RtrExprAfi = Ipv4;
+    type RtrExprAfi = Self;
     const INJECT_EXPR_RULE: ParserRule = ParserRule::inject_expr;
     const INJECT_COND_UNIT_RULE: ParserRule = ParserRule::inject_cond_unit;
     const INJECT_COND_AND_RULE: ParserRule = ParserRule::inject_cond_and;
@@ -100,7 +101,7 @@ pub struct Expr<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
             rule if rule == A::INJECT_EXPR_RULE => {
@@ -131,16 +132,16 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for Expr<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut statements = Vec::new();
         if let Some(rtr_expr) = &self.at {
-            statements.push(format!("at {}", rtr_expr));
+            statements.push(format!("at {rtr_expr}"));
         }
         if let Some(action_expr) = &self.action {
-            statements.push(format!("action {}", action_expr));
+            statements.push(format!("action {action_expr}"));
         }
         if let Some(condition) = &self.condition {
-            statements.push(format!("upon {}", condition));
+            statements.push(format!("upon {condition}"));
         }
         statements.join(" ").fmt(f)
     }
@@ -191,7 +192,7 @@ pub enum Condition<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Condition<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Condition);
         match pair.as_rule() {
             rule if rule == A::INJECT_COND_UNIT_RULE => Ok(Self::Unit(
@@ -217,11 +218,11 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Condition<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for Condition<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Unit(term) => term.fmt(f),
-            Self::And(lhs, rhs) => write!(f, "{} AND {}", lhs, rhs),
-            Self::Or(lhs, rhs) => write!(f, "{} OR {}", lhs, rhs),
+            Self::And(lhs, rhs) => write!(f, "{lhs} AND {rhs}"),
+            Self::Or(lhs, rhs) => write!(f, "{lhs} OR {rhs}"),
         }
     }
 }
@@ -241,7 +242,7 @@ where
         prop_oneof![
             term.clone().prop_map(Self::Unit),
             (term.clone(), term.clone()).prop_map(|(lhs, rhs)| Self::And(lhs, rhs)),
-            (term.clone(), term.clone()).prop_map(|(lhs, rhs)| Self::Or(lhs, rhs)),
+            (term.clone(), term).prop_map(|(lhs, rhs)| Self::Or(lhs, rhs)),
         ]
         .boxed()
     }
@@ -257,7 +258,7 @@ pub enum Term<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Term<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Term);
         match pair.as_rule() {
             rule if rule == A::INJECT_COND_TERM_HAVE_RULE => Ok(Self::HaveComps(
@@ -273,10 +274,10 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Term<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for Term<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::HaveComps(prefixes) => write!(f, "have-components {{{}}}", prefixes),
-            Self::Exclude(prefixes) => write!(f, "exclude {{{}}}", prefixes),
+            Self::HaveComps(prefixes) => write!(f, "have-components {{{prefixes}}}"),
+            Self::Exclude(prefixes) => write!(f, "exclude {{{prefixes}}}"),
             Self::Static => write!(f, "static"),
         }
     }
@@ -296,7 +297,7 @@ where
         let prefix_range_list = any_with::<ListOf<IpPrefixRange<A>>>(params);
         prop_oneof![
             prefix_range_list.clone().prop_map(Self::HaveComps),
-            prefix_range_list.clone().prop_map(Self::Exclude),
+            prefix_range_list.prop_map(Self::Exclude),
             Just(Self::Static),
         ]
         .boxed()

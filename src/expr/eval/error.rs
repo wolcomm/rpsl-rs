@@ -26,14 +26,15 @@ pub enum EvaluationErrorKind {
 
 impl Error for EvaluationError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        self.inner
-            .as_ref()
-            .map(|boxed_err| boxed_err.as_ref() as &(dyn Error))
+        self.inner.as_ref().map(|boxed_err| {
+            let err: &(dyn Error) = boxed_err.as_ref();
+            err
+        })
     }
 }
 
 impl fmt::Display for EvaluationError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(inner_err) = self.source() {
             write!(
                 f,
@@ -59,7 +60,7 @@ impl EvaluationError {
         S: AsRef<str>,
         E: Error + Send + Sync + 'static,
     {
-        let inner = err.map(|err| err.into());
+        let inner = err.map(Into::into);
         Self {
             kind,
             msg: msg.as_ref().to_string(),
@@ -117,7 +118,7 @@ impl Extend<EvaluationError> for EvaluationErrors {
     where
         I: IntoIterator<Item = EvaluationError>,
     {
-        self.inner.extend(iter)
+        self.inner.extend(iter);
     }
 }
 
@@ -131,13 +132,3 @@ impl FromIterator<EvaluationError> for EvaluationErrors {
         this
     }
 }
-
-macro_rules! err {
-    ( $kind:expr, $msg:literal $(,)? ) => {
-        EvaluationError::new($kind, $msg)
-    };
-    ( $kind:expr, $fmt:expr, $( $arg:tt )* ) => {
-        EvaluationError::new($kind, format!($fmt, $($arg)*))
-    };
-}
-pub(crate) use err;

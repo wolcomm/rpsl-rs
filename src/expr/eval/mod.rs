@@ -1,3 +1,4 @@
+use core::iter::once;
 use core::ops::{BitAnd, BitOr, Not};
 
 use ip::{self, traits::PrefixSet as _};
@@ -27,12 +28,11 @@ where
     T::Output: Default,
 {
     fn from_resolver_err<E: ResolverError>(err: E, item: &T) -> Self {
-        let errors = [EvaluationError::new_from(
+        let errors = once(EvaluationError::new_from(
             EvaluationErrorKind::Resolution,
-            format!("failed to resolve {:?}", item),
+            format!("failed to resolve {item:?}"),
             Some(err),
-        )]
-        .into_iter()
+        ))
         .collect();
         Self {
             errors,
@@ -49,7 +49,7 @@ impl<R, T: Evaluate<R>> Evaluated<R, T> {
         }
     }
 
-    pub fn output(&self) -> &T::Output {
+    pub const fn output(&self) -> &T::Output {
         &self.output
     }
 
@@ -57,7 +57,7 @@ impl<R, T: Evaluate<R>> Evaluated<R, T> {
         self.output
     }
 
-    pub fn errors(&self) -> &EvaluationErrors {
+    pub const fn errors(&self) -> &EvaluationErrors {
         &self.errors
     }
 
@@ -108,7 +108,7 @@ where
         iter.into_iter().for_each(|item| match item {
             Ok(val) => self.output.extend(Some(val)),
             Err(err) => self.errors.extend(Some(err)),
-        })
+        });
     }
 }
 
@@ -126,7 +126,7 @@ where
         //       re-aggregation for each iteration, making it very slow.
         let mut this = Self {
             output: T::Output::default(),
-            errors: Default::default(),
+            errors: EvaluationErrors::default(),
         };
         this.extend(iter);
         this
@@ -177,8 +177,7 @@ trait Evaluate<R>: Sized {
 impl<A, R, I, E> Evaluate<R> for filter::Expr<A>
 where
     A: filter::ExprAfi,
-    R: Resolver<filter::NamedPrefixSet<A>, Output = I>
-        + Resolver<names::FilterSet, Output = filter::Expr<A>>,
+    R: Resolver<filter::NamedPrefixSet<A>, Output = I> + Resolver<names::FilterSet, Output = Self>,
     I: IntoIterator<Item = Result<A::PrefixRange, E>>,
     E: ResolverError,
 {
@@ -232,7 +231,7 @@ where
                     output
                         .ranges()
                         .filter_map(|range| {
-                            <A::PrefixRange as Apply<A>>::apply(range, &operator).transpose()
+                            <A::PrefixRange as Apply<A>>::apply(range, operator).transpose()
                         })
                         .for_each(|result| match result {
                             Ok(val) => new.extend(Some(val)),
@@ -271,7 +270,7 @@ where
 impl<A, R, I, E> Evaluate<R> for filter::NamedPrefixSet<A>
 where
     A: filter::ExprAfi,
-    R: Resolver<filter::NamedPrefixSet<A>, Output = I>,
+    R: Resolver<Self, Output = I>,
     I: IntoIterator<Item = Result<A::PrefixRange, E>>,
     E: ResolverError,
 {

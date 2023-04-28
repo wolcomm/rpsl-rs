@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use crate::{
@@ -16,6 +15,7 @@ use proptest::prelude::*;
 /// RPSL `auth` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AuthExpr {
     /// `NONE` authentication scheme.
@@ -37,7 +37,7 @@ pub enum AuthExpr {
 impl TryFrom<TokenPair<'_>> for AuthExpr {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => AuthExpr);
         match pair.as_rule() {
             ParserRule::auth_expr_none => Ok(Self::None),
@@ -67,14 +67,14 @@ impl TryFrom<TokenPair<'_>> for AuthExpr {
 impl_from_str!(ParserRule::just_auth_expr => AuthExpr);
 
 impl fmt::Display for AuthExpr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::None => write!(f, "NONE"),
-            Self::Mail(s) => write!(f, "MAIL-FROM {}", s),
-            Self::PgpFrom(s) => write!(f, "PGP-FROM {}", s),
-            Self::Crypt(s) => write!(f, "CRYPT-PW {}", s),
-            Self::Person(s) => write!(f, "PERSON {}", s),
-            Self::Role(s) => write!(f, "ROLE {}", s),
+            Self::Mail(s) => write!(f, "MAIL-FROM {s}"),
+            Self::PgpFrom(s) => write!(f, "PGP-FROM {s}"),
+            Self::Crypt(s) => write!(f, "CRYPT-PW {s}"),
+            Self::Person(s) => write!(f, "PERSON {s}"),
+            Self::Role(s) => write!(f, "ROLE {s}"),
             Self::KeyCert(key_cert) => key_cert.fmt(f),
         }
     }

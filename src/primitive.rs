@@ -45,11 +45,11 @@ pub struct IpAddress<A: ParserAfi> {
 }
 
 impl<A: ParserAfi> IpAddress<A> {
-    pub fn new(address: A::Address) -> Self {
+    pub const fn new(address: A::Address) -> Self {
         Self { inner: address }
     }
 
-    pub fn into_inner(self) -> A::Address {
+    pub const fn into_inner(self) -> A::Address {
         self.inner
     }
 }
@@ -65,7 +65,7 @@ impl<A: ParserAfi> FromStr for IpAddress<A> {
 impl<A: ParserAfi> TryFrom<TokenPair<'_>> for IpAddress<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => IpAddress);
         match pair.as_rule() {
             rule if rule == A::LITERAL_ADDR_RULE => Ok(pair.as_str().parse()?),
@@ -75,7 +75,7 @@ impl<A: ParserAfi> TryFrom<TokenPair<'_>> for IpAddress<A> {
 }
 
 impl<A: ParserAfi> fmt::Display for IpAddress<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.inner.fmt(f)
     }
 }
@@ -101,11 +101,11 @@ pub struct IpPrefix<A: ParserAfi> {
 }
 
 impl<A: ParserAfi> IpPrefix<A> {
-    pub fn new(prefix: A::Prefix) -> Self {
+    pub const fn new(prefix: A::Prefix) -> Self {
         Self { inner: prefix }
     }
 
-    pub fn into_inner(self) -> A::Prefix {
+    pub const fn into_inner(self) -> A::Prefix {
         self.inner
     }
 }
@@ -121,7 +121,7 @@ impl<A: ParserAfi> FromStr for IpPrefix<A> {
 impl<A: ParserAfi> TryFrom<TokenPair<'_>> for IpPrefix<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Prefix);
         match pair.as_rule() {
             rule if rule == A::LITERAL_PREFIX_RULE => Ok(pair.as_str().parse()?),
@@ -131,7 +131,7 @@ impl<A: ParserAfi> TryFrom<TokenPair<'_>> for IpPrefix<A> {
 }
 
 impl<A: ParserAfi> fmt::Display for IpPrefix<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.inner.fmt(f)
     }
 }
@@ -158,25 +158,25 @@ pub struct IpPrefixRange<A: ParserAfi> {
 
 impl<A: ParserAfi> IpPrefixRange<A> {
     /// Construct a new [`PrefixRange<T>`].
-    pub fn new(prefix: IpPrefix<A>, op: RangeOperator) -> Self {
+    pub const fn new(prefix: IpPrefix<A>, op: RangeOperator) -> Self {
         Self { prefix, op }
     }
 
     /// Get the IP prefix represented by this [`PrefixRange<T>`].
-    pub fn prefix(&self) -> &IpPrefix<A> {
-        &self.prefix
+    pub const fn prefix(&self) -> IpPrefix<A> {
+        self.prefix
     }
 
     /// Get the [`RangeOperator`] for this [`PrefixRange<T>`].
-    pub fn operator(&self) -> &RangeOperator {
-        &self.op
+    pub const fn operator(&self) -> RangeOperator {
+        self.op
     }
 }
 
 impl<A: ParserAfi> TryFrom<TokenPair<'_>> for IpPrefixRange<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => PrefixRange);
         let mut pairs = pair.into_inner();
         let prefix = next_parse_or!(pairs => "failed to get inner prefix")?;
@@ -189,7 +189,7 @@ impl<A: ParserAfi> TryFrom<TokenPair<'_>> for IpPrefixRange<A> {
 }
 
 impl<A: ParserAfi> fmt::Display for IpPrefixRange<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}{}", self.prefix, self.op)
     }
 }
@@ -235,7 +235,7 @@ pub enum RangeOperator {
 impl TryFrom<TokenPair<'_>> for RangeOperator {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => PrefixOp);
         match pair.as_rule() {
             ParserRule::less_excl => Ok(Self::LessExcl),
@@ -260,13 +260,13 @@ impl TryFrom<TokenPair<'_>> for RangeOperator {
 }
 
 impl fmt::Display for RangeOperator {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::None => write!(f, ""),
             Self::LessExcl => write!(f, "^-"),
             Self::LessIncl => write!(f, "^+"),
-            Self::Exact(n) => write!(f, "^{}", n),
-            Self::Range(m, n) => write!(f, "^{}-{}", m, n),
+            Self::Exact(n) => write!(f, "^{n}"),
+            Self::Range(m, n) => write!(f, "^{m}-{n}"),
         }
     }
 }
@@ -293,6 +293,7 @@ impl Arbitrary for RangeOperator {
 /// See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5
+#[allow(variant_size_differences)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum SetNameComp {
     /// Component containing the name of an `aut-num`.
@@ -306,7 +307,7 @@ pub enum SetNameComp {
 impl TryFrom<TokenPair<'_>> for SetNameComp {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => SetNameComp);
         match pair.as_rule() {
             ParserRule::aut_num => Ok(Self::AutNum(pair.as_str().parse()?)),
@@ -322,7 +323,7 @@ impl TryFrom<TokenPair<'_>> for SetNameComp {
 }
 
 impl fmt::Display for SetNameComp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::AutNum(autnum) => autnum.fmt(f),
             Self::PeerAs => write!(f, "PeerAS"),
@@ -597,7 +598,7 @@ impl Arbitrary for DnsName {
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Date(time::Date);
 
-const DATE_FMT: &[FormatItem] = format_description!("[year][month][day]");
+const DATE_FMT: &[FormatItem<'_>] = format_description!("[year][month][day]");
 
 impl AsRef<time::Date> for Date {
     fn as_ref(&self) -> &time::Date {
@@ -615,7 +616,7 @@ impl FromStr for Date {
 impl TryFrom<TokenPair<'_>> for Date {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Date);
         match pair.as_rule() {
             ParserRule::date => pair.as_str().parse(),
@@ -625,7 +626,7 @@ impl TryFrom<TokenPair<'_>> for Date {
 }
 
 impl fmt::Display for Date {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.format(DATE_FMT).map_err(|_| fmt::Error)?)
     }
 }
@@ -656,7 +657,7 @@ pub enum SigningMethod {
 impl TryFrom<TokenPair<'_>> for SigningMethod {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => SigningMethod);
         match pair.as_rule() {
             ParserRule::signing_method_pgp => Ok(Self::Pgp),
@@ -667,7 +668,7 @@ impl TryFrom<TokenPair<'_>> for SigningMethod {
 }
 
 impl fmt::Display for SigningMethod {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Pgp => write!(f, "PGP"),
             Self::X509 => write!(f, "X509"),
@@ -723,7 +724,7 @@ pub enum Protocol {
 impl TryFrom<TokenPair<'_>> for Protocol {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Protocol);
         match pair.as_rule() {
             ParserRule::protocol_bgp4 => Ok(Self::Bgp4),
@@ -746,7 +747,7 @@ impl TryFrom<TokenPair<'_>> for Protocol {
 }
 
 impl fmt::Display for Protocol {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Bgp4 => write!(f, "BGP4"),
             Self::MpBgp => write!(f, "MPBGP"),
@@ -761,7 +762,7 @@ impl fmt::Display for Protocol {
             Self::PimSm => write!(f, "PIM-SM"),
             Self::Cbt => write!(f, "CBT"),
             Self::Mospf => write!(f, "MOSPF"),
-            Self::Unknown(name) => write!(f, "{}", name),
+            Self::Unknown(name) => write!(f, "{name}"),
         }
     }
 }
@@ -829,7 +830,7 @@ impl Arbitrary for PeerOptVal {
 /// See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.1
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct AfiSafi {
     afi: Afi,
     safi: Option<Safi>,
@@ -840,7 +841,8 @@ impl_from_str!(ParserRule::afi_safi => AfiSafi);
 impl TryFrom<TokenPair<'_>> for AfiSafi {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    #[allow(clippy::similar_names)]
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => AfiSafi);
         match pair.as_rule() {
             ParserRule::afi_safi => {
@@ -859,10 +861,10 @@ impl TryFrom<TokenPair<'_>> for AfiSafi {
 }
 
 impl fmt::Display for AfiSafi {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.afi)?;
         if let Some(safi) = &self.safi {
-            write!(f, ".{}", safi)?;
+            write!(f, ".{safi}")?;
         }
         Ok(())
     }
@@ -883,7 +885,7 @@ impl Arbitrary for AfiSafi {
 /// See [RFC4012}].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.1
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Afi {
     /// `ipv4` address family.
     Ipv4,
@@ -896,7 +898,7 @@ pub enum Afi {
 impl TryFrom<TokenPair<'_>> for Afi {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Afi);
         match pair.as_rule() {
             ParserRule::afi_ipv4 => Ok(Self::Ipv4),
@@ -908,7 +910,7 @@ impl TryFrom<TokenPair<'_>> for Afi {
 }
 
 impl fmt::Display for Afi {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Ipv4 => write!(f, "ipv4"),
             Self::Ipv6 => write!(f, "ipv6"),
@@ -930,7 +932,7 @@ impl Arbitrary for Afi {
 /// See [RFC4012}].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.1
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Safi {
     /// `unicast` SAFI.
     Unicast,
@@ -941,7 +943,7 @@ pub enum Safi {
 impl TryFrom<TokenPair<'_>> for Safi {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => SafiName);
         match pair.as_rule() {
             ParserRule::safi_unicast => Ok(Self::Unicast),
@@ -952,7 +954,7 @@ impl TryFrom<TokenPair<'_>> for Safi {
 }
 
 impl fmt::Display for Safi {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Unicast => write!(f, "unicast"),
             Self::Multicast => write!(f, "multicast"),
@@ -981,7 +983,7 @@ pub mod arbitrary {
     where
         S: Strategy<Value = String>,
     {
-        let keywords = RegexSetBuilder::new(&[
+        let keywords = RegexSetBuilder::new([
             "^ANY$",
             "^AS-ANY$",
             "^RS-ANY$",
@@ -1005,7 +1007,7 @@ pub mod arbitrary {
         ])
         .case_insensitive(true)
         .build()
-        .unwrap();
+        .expect("Unexpected regex compilation failure. Please file a bug.");
         strategy.prop_filter("names cannot collide with rpsl keywords", move |s| {
             !keywords.is_match(s)
         })
@@ -1013,12 +1015,12 @@ pub mod arbitrary {
 
     macro_rules! impl_rpsl_name_arbitrary {
         ( $t:ty ) => {
-            impl proptest::arbitrary::Arbitrary for $t {
+            impl ::proptest::arbitrary::Arbitrary for $t {
                 type Parameters = ();
-                type Strategy = proptest::strategy::BoxedStrategy<Self>;
+                type Strategy = ::proptest::strategy::BoxedStrategy<Self>;
                 fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
                     let reserved =
-                        regex::Regex::new(r"^(?i)AS\d|AS-|RS-|FLTR-|RTRS-|PRNG-").unwrap();
+                        ::regex::Regex::new(r"^(?i)AS\d|AS-|RS-|FLTR-|RTRS-|PRNG-").unwrap();
                     $crate::primitive::arbitrary::prop_filter_keywords("[A-Za-z][A-Za-z0-9_-]+")
                         .prop_filter_map("names cannot begin with a reserved sequence", move |s| {
                             if reserved.is_match(&s) {
@@ -1036,9 +1038,9 @@ pub mod arbitrary {
 
     macro_rules! impl_free_form_arbitrary {
         ( $t:ty ) => {
-            impl Arbitrary for $t {
+            impl ::proptest::arbitrary::Arbitrary for $t {
                 type Parameters = ();
-                type Strategy = BoxedStrategy<Self>;
+                type Strategy = ::proptest::strategy::BoxedStrategy<Self>;
                 fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
                     r"([^#\pC\s][^#\pC]*)?".prop_map(Self).boxed()
                 }

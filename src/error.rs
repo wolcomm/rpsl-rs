@@ -6,6 +6,7 @@ use std::num::ParseIntError;
 pub type ParseResult<T> = Result<T, ParseError>;
 
 /// Error returned during RPSL text to AST parsing failures.
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct ParseError {
     msg: String,
@@ -18,7 +19,7 @@ impl ParseError {
         S: AsRef<str>,
         E: Error + Send + Sync + 'static,
     {
-        let inner = err.map(|err| err.into());
+        let inner = err.map(Into::into);
         Self {
             msg: msg.as_ref().to_string(),
             inner,
@@ -48,14 +49,15 @@ pub(crate) use err;
 
 impl Error for ParseError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        self.inner
-            .as_ref()
-            .map(|boxed_err| boxed_err.as_ref() as &(dyn Error))
+        self.inner.as_ref().map(|boxed_err| {
+            let err: &(dyn Error) = boxed_err.as_ref();
+            err
+        })
     }
 }
 
 impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(inner_err) = self.source() {
             write!(f, "{}: {}", self.msg, inner_err)
         } else {
@@ -101,6 +103,7 @@ impl From<ValidationError> for ParseError {
 pub type ValidationResult<T> = Result<T, ValidationError>;
 
 /// Error returned during RPSL object attribute validation failure.
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct ValidationError(String);
 
@@ -113,7 +116,7 @@ impl From<String> for ValidationError {
 impl Error for ValidationError {}
 
 impl fmt::Display for ValidationError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }

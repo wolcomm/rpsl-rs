@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::hash;
 
@@ -26,6 +25,7 @@ impl_from_str!(ParserRule::just_ifaddr_expr => IfaddrExpr);
 /// RPSL `interface` expression. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-4.5
+#[allow(clippy::module_name_repetitions)]
 pub type InterfaceExpr = Expr<Any>;
 impl_from_str!(ParserRule::just_interface_expr => InterfaceExpr);
 
@@ -82,7 +82,7 @@ pub struct Expr<A: TunnelEndpointAfi> {
 impl<A: TunnelEndpointAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
             rule if rule == A::INTERFACE_EXPR_RULE => {
@@ -99,20 +99,18 @@ impl<A: TunnelEndpointAfi> TryFrom<TokenPair<'_>> for Expr<A> {
                         .as_str()
                 )
                 .parse()?;
-                let action = if let Some(ParserRule::action_expr) =
-                    pairs.peek().map(|pair| pair.as_rule())
-                {
-                    Some(next_into_or!(pairs => "failed to get action expression")?)
-                } else {
-                    None
-                };
-                let tunnel = if let Some(ParserRule::tunnel_spec) =
-                    pairs.peek().map(|pair| pair.as_rule())
-                {
-                    Some(next_into_or!(pairs => "failed to get tunnel specification")?)
-                } else {
-                    None
-                };
+                let action =
+                    if pairs.peek().map(TokenPair::as_rule) == Some(ParserRule::action_expr) {
+                        Some(next_into_or!(pairs => "failed to get action expression")?)
+                    } else {
+                        None
+                    };
+                let tunnel =
+                    if pairs.peek().map(TokenPair::as_rule) == Some(ParserRule::tunnel_spec) {
+                        Some(next_into_or!(pairs => "failed to get tunnel specification")?)
+                    } else {
+                        None
+                    };
                 Ok(Self {
                     interface,
                     action,
@@ -125,7 +123,7 @@ impl<A: TunnelEndpointAfi> TryFrom<TokenPair<'_>> for Expr<A> {
 }
 
 impl<A: TunnelEndpointAfi> fmt::Display for Expr<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{} masklen {}",
@@ -133,19 +131,19 @@ impl<A: TunnelEndpointAfi> fmt::Display for Expr<A> {
             &self.interface.prefix_len()
         )?;
         if let Some(action_expr) = &self.action {
-            write!(f, " action {}", action_expr)?;
+            write!(f, " action {action_expr}")?;
         }
         if let Some(tunnel_spec) = &self.tunnel {
-            write!(f, " {}", tunnel_spec)?;
+            write!(f, " {tunnel_spec}")?;
         }
         Ok(())
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: TunnelEndpointAfi> Arbitrary for Expr<A>
+impl<A> Arbitrary for Expr<A>
 where
-    A: fmt::Debug,
+    A: TunnelEndpointAfi + fmt::Debug,
     A::Interface: Arbitrary,
     <A::Interface as Arbitrary>::Strategy: 'static,
     A::Tunnel: Arbitrary + 'static,
@@ -172,13 +170,13 @@ where
     }
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum NeverTunnel {}
 
 impl TryFrom<TokenPair<'_>> for NeverTunnel {
     type Error = ParseError;
 
-    fn try_from(_: TokenPair) -> ParseResult<Self> {
+    fn try_from(_: TokenPair<'_>) -> ParseResult<Self> {
         Err(err!(
             "tried to construct a tunnel expression in an 'ifaddr' attribute"
         ))
@@ -186,7 +184,7 @@ impl TryFrom<TokenPair<'_>> for NeverTunnel {
 }
 
 impl fmt::Display for NeverTunnel {
-    fn fmt(&self, _: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
         Err(fmt::Error)
     }
 }
@@ -200,6 +198,7 @@ impl Arbitrary for NeverTunnel {
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TunnelInterface<A: TunnelEndpointAfi> {
     endpoint: IpAddress<A>,
@@ -209,7 +208,7 @@ pub struct TunnelInterface<A: TunnelEndpointAfi> {
 impl<A: TunnelEndpointAfi> TryFrom<TokenPair<'_>> for TunnelInterface<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => TunnelInterface);
         match pair.as_rule() {
             ParserRule::tunnel_spec => {
@@ -227,15 +226,15 @@ impl<A: TunnelEndpointAfi> TryFrom<TokenPair<'_>> for TunnelInterface<A> {
 }
 
 impl<A: TunnelEndpointAfi> fmt::Display for TunnelInterface<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "tunnel {}, {}", self.endpoint, self.encapsulation)
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: TunnelEndpointAfi> Arbitrary for TunnelInterface<A>
+impl<A> Arbitrary for TunnelInterface<A>
 where
-    A: fmt::Debug + 'static,
+    A: TunnelEndpointAfi + fmt::Debug + 'static,
     A::Address: Arbitrary,
 {
     type Parameters = ParamsFor<IpAddress<A>>;
@@ -259,7 +258,7 @@ pub enum TunnelEncaps {
 impl TryFrom<TokenPair<'_>> for TunnelEncaps {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => TunnelEncaps);
         match pair.as_rule() {
             ParserRule::encapsulation_gre => Ok(Self::Gre),
@@ -270,7 +269,7 @@ impl TryFrom<TokenPair<'_>> for TunnelEncaps {
 }
 
 impl fmt::Display for TunnelEncaps {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Gre => write!(f, "GRE"),
             Self::IpInIp => write!(f, "IPinIP"),

@@ -1,17 +1,17 @@
 macro_rules! display_fmt_parses {
     ( $( $t:ty ),* $(,)? ) => {
-        paste::paste! {
+        ::paste::paste! {
             $(
                 mod [<$t:snake>] {
                     use super::*;
 
-                    proptest::proptest! {
-                        #![proptest_config(proptest::prelude::ProptestConfig {
+                    ::proptest::proptest! {
+                        #![proptest_config(::proptest::prelude::ProptestConfig {
                             max_shrink_iters: 10000,
-                            ..proptest::prelude::ProptestConfig::default()
+                            ..::proptest::prelude::ProptestConfig::default()
                         })]
                         #[test]
-                        fn display_fmt_parses(obj in proptest::prelude::any::<$t>()) {
+                        fn display_fmt_parses(obj in ::proptest::prelude::any::<$t>()) {
                             let display = dbg!(obj.to_string());
                             let parsed = dbg!(display.parse().unwrap());
                             assert_eq!(obj, parsed)
@@ -32,7 +32,7 @@ macro_rules! compare_ast {
             } )*
         } )*
     ) => {
-        paste::paste! {
+        ::paste::paste! {
             $(
                 mod [<compare_ast_for_ $root_ty:snake>] {
                     use super::*;

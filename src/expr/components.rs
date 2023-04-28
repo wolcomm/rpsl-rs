@@ -1,6 +1,4 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
-use std::iter::FromIterator;
 
 use ip::{Any, Ipv4, Ipv6};
 
@@ -28,7 +26,7 @@ pub trait ExprAfi: ParserAfi {
 }
 
 impl ExprAfi for Ipv4 {
-    type FilterExprAfi = Ipv4;
+    type FilterExprAfi = Self;
     const COMPONENTS_EXPR_RULE: ParserRule = ParserRule::components_expr;
     const COMPONENTS_PROTO_TERMS_RULE: ParserRule = ParserRule::components_proto_terms;
     const COMPONENTS_PROTO_TERM_RULE: ParserRule = ParserRule::components_proto_term;
@@ -45,12 +43,14 @@ impl ExprAfi for Ipv6 {
 /// RPSL `components` expression for `route` objects. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-8.1
+#[allow(clippy::module_name_repetitions)]
 pub type ComponentsExpr = Expr<Ipv4>;
 impl_from_str!(ParserRule::just_components_expr => ComponentsExpr);
 
 /// RPSL `components` expression for `route6` objects. See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-3
+#[allow(clippy::module_name_repetitions)]
 pub type Components6Expr = Expr<Ipv6>;
 impl_from_str!(ParserRule::just_components6_expr => Components6Expr);
 
@@ -64,7 +64,7 @@ pub struct Expr<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
             rule if rule == A::COMPONENTS_EXPR_RULE => {
@@ -100,7 +100,7 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for Expr<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut statements = Vec::new();
         if self.atomic {
             statements.push("ATOMIC".to_string());
@@ -156,12 +156,12 @@ impl<A: ExprAfi> Default for ProtocolTerms<A> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for ProtocolTerms<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => ProtocolTerms);
         match pair.as_rule() {
             rule if rule == A::COMPONENTS_PROTO_TERMS_RULE => Ok(Self(
                 pair.into_inner()
-                    .map(|inner_pair| inner_pair.try_into())
+                    .map(ProtocolTerm::try_from)
                     .collect::<ParseResult<_>>()?,
             )),
             _ => Err(rule_mismatch!(pair => "components expression protocol terms")),
@@ -170,10 +170,10 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for ProtocolTerms<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for ProtocolTerms<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0
             .iter()
-            .map(|term| term.to_string())
+            .map(ProtocolTerm::to_string)
             .collect::<Vec<_>>()
             .join(" ")
             .fmt(f)
@@ -217,7 +217,7 @@ pub struct ProtocolTerm<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for ProtocolTerm<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => ProtocolTerm);
         match pair.as_rule() {
             rule if rule == A::COMPONENTS_PROTO_TERM_RULE => {
@@ -232,7 +232,7 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for ProtocolTerm<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for ProtocolTerm<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "protocol {} {}", self.protocol, self.filter)
     }
 }
@@ -275,7 +275,7 @@ mod tests {
                 ComponentsExpr {
                     atomic: false,
                     filter: Some("<^AS2>".parse().unwrap()),
-                    proto_terms: Default::default(),
+                    proto_terms: ProtocolTerms::default(),
                 }
             }
             rfc2622_fig29_route_example2: "\
@@ -300,21 +300,21 @@ mod tests {
                 ComponentsExpr {
                     atomic: false,
                     filter: Some("{128.8.0.0/15^-}".parse().unwrap()),
-                    proto_terms: Default::default(),
+                    proto_terms: ProtocolTerms::default(),
                 }
             }
             rfc2622_fig33_route_example: "{128.8.0.0/16, 128.9.0.0/16}" => {
                 ComponentsExpr {
                     atomic: false,
                     filter: Some("{128.8.0.0/16, 128.9.0.0/16}".parse().unwrap()),
-                    proto_terms: Default::default(),
+                    proto_terms: ProtocolTerms::default(),
                 }
             }
             regression1: "" => {
                 ComponentsExpr {
                     atomic: false,
                     filter: None,
-                    proto_terms: Default::default(),
+                    proto_terms: ProtocolTerms::default(),
                 }
             }
         }
@@ -326,7 +326,7 @@ mod tests {
                 Components6Expr {
                     atomic: false,
                     filter: None,
-                    proto_terms: Default::default(),
+                    proto_terms: ProtocolTerms::default(),
                 }
             }
         }

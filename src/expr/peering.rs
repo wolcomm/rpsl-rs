@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use ip::{Any, Ipv4};
@@ -56,6 +55,7 @@ impl ExprAfi for Any {
 /// RPSL `peering` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.6
+#[allow(clippy::module_name_repetitions)]
 pub type PeeringExpr = Expr<Ipv4>;
 impl_from_str!(ParserRule::just_peering_expr => Expr<Ipv4>);
 
@@ -74,7 +74,7 @@ pub enum Expr<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
             rule if rule == A::PEERING_EXPR_NAMED_RULE => Ok(Self::Named(
@@ -87,7 +87,7 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for Expr<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Named(peering_set) => peering_set.fmt(f),
             Self::Literal(literal) => literal.fmt(f),
@@ -96,9 +96,9 @@ impl<A: ExprAfi> fmt::Display for Expr<A> {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for Expr<A>
+impl<A> Arbitrary for Expr<A>
 where
-    A: Clone + fmt::Debug + 'static,
+    A: ExprAfi + Clone + fmt::Debug + 'static,
     A::Address: Arbitrary,
     <A::Address as Arbitrary>::Parameters: Clone,
 {
@@ -113,6 +113,7 @@ where
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct LiteralPeering<A: ExprAfi> {
     as_expr: AsExpr,
@@ -123,7 +124,7 @@ pub struct LiteralPeering<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for LiteralPeering<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => LiteralPeering);
         match pair.as_rule() {
             rule if rule == A::PEERING_EXPR_LITERAL_RULE => {
@@ -135,12 +136,12 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for LiteralPeering<A> {
                         rule if rule == A::REMOTE_RTR_EXPR_RULE => {
                             remote_rtr = Some(
                                 next_into_or!(inner_pair.into_inner() => "failed to get remote inet-rtr expression")?,
-                            )
+                            );
                         }
                         rule if rule == A::LOCAL_RTR_EXPR_RULE => {
                             local_rtr = Some(
                                 next_into_or!(inner_pair.into_inner() => "failed to get local inet-rtr expression")?,
-                            )
+                            );
                         }
                         _ => return Err(rule_mismatch!(inner_pair => "inet-rtr expression")),
                     }
@@ -157,32 +158,32 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for LiteralPeering<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for LiteralPeering<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_expr)?;
         if let Some(rtr_expr) = &self.remote_rtr {
-            write!(f, " {}", rtr_expr)?;
+            write!(f, " {rtr_expr}")?;
         }
         if let Some(rtr_expr) = &self.local_rtr {
-            write!(f, " AT {}", rtr_expr)?;
+            write!(f, " AT {rtr_expr}")?;
         }
         Ok(())
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for LiteralPeering<A>
+impl<A> Arbitrary for LiteralPeering<A>
 where
-    A: Clone + fmt::Debug + 'static,
+    A: ExprAfi + Clone + fmt::Debug + 'static,
     A::Address: Arbitrary,
     <A::Address as Arbitrary>::Parameters: Clone,
 {
-    type Parameters = (ParamsFor<AsExpr>, ParamsFor<Option<rtr::Expr<A>>>);
+    type Parameters = ParamsFor<Option<rtr::Expr<A>>>;
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
         (
-            any_with::<AsExpr>(params.0),
-            any_with::<Option<rtr::Expr<A>>>(params.1.clone()),
-            any_with::<Option<rtr::Expr<A>>>(params.1.clone()),
+            any::<AsExpr>(),
+            any_with::<Option<rtr::Expr<A>>>(params.clone()),
+            any_with::<Option<rtr::Expr<A>>>(params),
         )
             .prop_map(|(as_expr, remote_rtr, local_rtr)| Self {
                 as_expr,

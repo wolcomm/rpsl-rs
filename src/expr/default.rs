@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use ip::{Any, Ipv4};
@@ -36,6 +35,7 @@ impl ExprAfi for Any {
 /// RPSL `default` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-6.5
+#[allow(clippy::module_name_repetitions)]
 pub type DefaultExpr = Expr<Ipv4>;
 impl_from_str!(ParserRule::just_default_expr => DefaultExpr);
 
@@ -56,18 +56,17 @@ pub struct Expr<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
             rule if rule == A::DEFAULT_EXPR_RULE => {
                 let mut pairs = pair.into_inner().peekable();
-                let afis = if let Some(ParserRule::afi_safi_list) =
-                    pairs.peek().map(|inner_pair| inner_pair.as_rule())
-                {
-                    Some(next_into_or!(pairs => "failed to get afi list")?)
-                } else {
-                    None
-                };
+                let afis =
+                    if pairs.peek().map(TokenPair::as_rule) == Some(ParserRule::afi_safi_list) {
+                        Some(next_into_or!(pairs => "failed to get afi list")?)
+                    } else {
+                        None
+                    };
                 let peering = next_into_or!(pairs => "failed to get peering expression")?;
                 let (mut action, mut networks) = (None, None);
                 for pair in pairs {
@@ -94,16 +93,16 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for Expr<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(afis) = &self.afis {
-            write!(f, "afi {} ", afis)?;
+            write!(f, "afi {afis} ")?;
         }
         write!(f, "to {}", self.peering)?;
         if let Some(action) = &self.action {
-            write!(f, " action {}", action)?;
+            write!(f, " action {action}")?;
         }
         if let Some(networks) = &self.networks {
-            write!(f, " networks {}", networks)?;
+            write!(f, " networks {networks}")?;
         }
         Ok(())
     }

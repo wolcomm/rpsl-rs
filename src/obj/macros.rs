@@ -1,18 +1,18 @@
 macro_rules! attribute_rule {
     (? $attr:ident) => {
-        AttributeRule::new(AttributeType::$attr, false, false)
+        $crate::obj::AttributeRule::new($crate::attr::AttributeType::$attr, false, false)
     };
     (* $attr:ident) => {
-        AttributeRule::new(AttributeType::$attr, false, true)
+        $crate::obj::AttributeRule::new($crate::attr::AttributeType::$attr, false, true)
     };
     (+ $attr:ident) => {
-        AttributeRule::new(AttributeType::$attr, true, true)
+        $crate::obj::AttributeRule::new($crate::attr::AttributeType::$attr, true, true)
     };
     ($attr:ident) => {
-        AttributeRule::new(AttributeType::$attr, true, false)
+        $crate::obj::AttributeRule::new($crate::attr::AttributeType::$attr, true, false)
     };
 }
-pub(crate) use attribute_rule;
+pub(super) use attribute_rule;
 
 macro_rules! rpsl_object_class {
     (
@@ -30,19 +30,19 @@ macro_rules! rpsl_object_class {
         #[derive(Clone, Debug, Hash, PartialEq, Eq)]
         pub struct $obj {
             name: $name,
-            attrs: AttributeSeq,
+            attrs: $crate::attr::AttributeSeq,
         }
 
-        impl RpslObjectClass for $obj {
+        impl $crate::obj::RpslObjectClass for $obj {
             const CLASS: &'static str = $class;
-            const ATTRS: &'static [AttributeRule] = &[
+            const ATTRS: &'static [$crate::obj::AttributeRule] = &[
                 $( $crate::obj::macros::attribute_rule!( $( $attr_rule )? $attr_type) ),*
             ];
             type Name = $name;
 
-            fn new<I>(name: Self::Name, iter: I) -> ValidationResult<Self>
+            fn new<I>(name: Self::Name, iter: I) -> $crate::error::ValidationResult<Self>
             where
-                I: IntoIterator<Item=RpslAttribute>,
+                I: ::std::iter::IntoIterator<Item=$crate::attr::RpslAttribute>,
             {
                 let attrs = Self::validate(iter)?;
                 Ok(Self { name, attrs })
@@ -57,9 +57,9 @@ macro_rules! rpsl_object_class {
             }
         }
 
-        impl TryFrom<TokenPair<'_>> for $obj {
-            type Error = ParseError;
-            fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        impl ::std::convert::TryFrom<$crate::parser::TokenPair<'_>> for $obj {
+            type Error = $crate::error::ParseError;
+            fn try_from(pair: $crate::parser::TokenPair<'_>) -> $crate::error::ParseResult<Self> {
                 $crate::parser::debug_construction!(pair => $obj);
                 match pair.as_rule() {
                     $rule => {
@@ -70,7 +70,7 @@ macro_rules! rpsl_object_class {
                             .map(|inner_pair| {
                                 $crate::parser::next_into_or!(inner_pair.into_inner() => "failed to get attribute")
                             })
-                            .collect::<ParseResult<Vec<_>>>()?;
+                            .collect::<$crate::error::ParseResult<Vec<_>>>()?;
                         Ok(Self::new(name, attrs)?)
                     }
                     // TODO: class-specific error msg
@@ -79,37 +79,36 @@ macro_rules! rpsl_object_class {
             }
         }
 
-        impl fmt::Display for $obj {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        impl ::std::fmt::Display for $obj {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 writeln!(f, "{}: {}", Self::CLASS, self.name)?;
                 write!(f, "{}", self.attrs)
             }
         }
 
         #[cfg(any(test, feature = "arbitrary"))]
-        impl proptest::arbitrary::Arbitrary for $obj
+        impl ::proptest::arbitrary::Arbitrary for $obj
         where
-            Self: RpslObjectClass,
-            <Self as RpslObjectClass>::Name: proptest::arbitrary::Arbitrary,
+            Self: $crate::obj::RpslObjectClass,
+            <Self as $crate::obj::RpslObjectClass>::Name: ::proptest::arbitrary::Arbitrary,
         {
-            type Parameters = proptest::arbitrary::ParamsFor<<Self as RpslObjectClass>::Name>;
-            type Strategy = proptest::strategy::BoxedStrategy<Self>;
+            type Parameters = ::proptest::arbitrary::ParamsFor<<Self as $crate::obj::RpslObjectClass>::Name>;
+            type Strategy = ::proptest::strategy::BoxedStrategy<Self>;
             fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
-                use proptest::strategy::Strategy;
-                let name = <Self as RpslObjectClass>::Name::arbitrary_with(params);
-                let attrs = <Self as RpslObjectClass>::ATTRS
+                use ::proptest::strategy::Strategy as _;
+                let name = <Self as $crate::obj::RpslObjectClass>::Name::arbitrary_with(params);
+                let attrs = <Self as $crate::obj::RpslObjectClass>::ATTRS
                     .iter()
                     .map(|rule| {
-                        let attr = RpslAttribute::arbitrary_variant(rule.attr);
+                        let attr = $crate::attr::RpslAttribute::arbitrary_variant(rule.attr);
                         let lower = if !rule.mandatory {0} else {1};
                         let upper = if !rule.multivalued {1} else {4};
-                        proptest::collection::vec(attr, lower..=upper)
+                        ::proptest::collection::vec(attr, lower..=upper)
                     })
                     .collect::<Vec<_>>();
-                // let attrs = proptest::collection::vec(RpslAttribute::arbitrary(), 0..8);
                 (name, attrs)
                     .prop_map(|(name, attrs)| {
-                        <Self as RpslObjectClass>::new(name, attrs.into_iter().flatten())
+                        <Self as $crate::obj::RpslObjectClass>::new(name, attrs.into_iter().flatten())
                             .unwrap()
                     })
                     .boxed()
@@ -117,4 +116,4 @@ macro_rules! rpsl_object_class {
         }
     }
 }
-pub(crate) use rpsl_object_class;
+pub(super) use rpsl_object_class;

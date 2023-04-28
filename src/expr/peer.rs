@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use ip::{Any, Ipv4};
@@ -36,6 +35,7 @@ use proptest::{arbitrary::ParamsFor, prelude::*};
 /// RPSL `peer` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-9
+#[allow(clippy::module_name_repetitions)]
 pub type PeerExpr = Expr<Ipv4>;
 impl_from_str!(ParserRule::just_peer_expr => PeerExpr);
 
@@ -55,7 +55,7 @@ pub struct Expr<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
             rule if rule == A::PEER_EXPR_RULE => {
@@ -79,10 +79,10 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for Expr<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} {}", self.protocol, self.peer)?;
         if let Some(opts) = &self.opts {
-            write!(f, " {}", opts)?;
+            write!(f, " {opts}")?;
         }
         Ok(())
     }
@@ -111,6 +111,7 @@ where
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PeerSpec<A: ExprAfi> {
     Addr(IpAddress<A>),
@@ -122,7 +123,7 @@ pub enum PeerSpec<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for PeerSpec<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => PeerSpec);
         match pair.as_rule() {
             rule if rule == A::LITERAL_ADDR_RULE => Ok(Self::Addr(pair.try_into()?)),
@@ -135,7 +136,7 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for PeerSpec<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for PeerSpec<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Addr(addr) => addr.fmt(f),
             Self::InetRtr(inet_rtr) => inet_rtr.fmt(f),
@@ -164,6 +165,7 @@ where
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PeerOpt {
     key: PeerOptKey,
@@ -173,7 +175,7 @@ pub struct PeerOpt {
 impl TryFrom<TokenPair<'_>> for PeerOpt {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => PeerOpt);
         match pair.as_rule() {
             ParserRule::peer_opt => {
@@ -192,10 +194,10 @@ impl TryFrom<TokenPair<'_>> for PeerOpt {
 }
 
 impl fmt::Display for PeerOpt {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.key)?;
         if let Some(val) = &self.val {
-            write!(f, "({})", val)
+            write!(f, "({val})")
         } else {
             write!(f, "()")
         }

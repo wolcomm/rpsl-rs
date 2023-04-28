@@ -19,6 +19,7 @@ mod policy;
 mod reclaim;
 mod rtr;
 
+#[allow(clippy::module_name_repetitions)]
 pub use self::{
     action::ActionExpr,
     aggr_mtd::AggrMtdExpr,
@@ -36,7 +37,7 @@ pub use self::{
     peering::{MpPeeringExpr, PeeringExpr},
     policy::{ExportExpr, ImportExpr, MpExportExpr, MpImportExpr},
     reclaim::ReclaimExpr,
-    rtr::RtrExpr,
+    rtr::{MpRtrExpr, RtrExpr},
 };
 
 mod eval;

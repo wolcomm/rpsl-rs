@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use crate::{
@@ -25,6 +24,7 @@ use crate::primitive::arbitrary::impl_free_form_arbitrary;
 /// free-form strings.
 ///
 /// [RFC2725]: https://datatracker.ietf.org/doc/html/rfc2725#section-10
+#[allow(clippy::module_name_repetitions)]
 pub enum ReclaimExpr {
     /// The `ALL` form.
     All,
@@ -38,7 +38,7 @@ impl_from_str!(ParserRule::just_reclaim_expr => ReclaimExpr);
 impl TryFrom<TokenPair<'_>> for ReclaimExpr {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => ReclaimExpr);
         match pair.as_rule() {
             ParserRule::reclaim_expr_all => Ok(Self::All),
@@ -49,10 +49,10 @@ impl TryFrom<TokenPair<'_>> for ReclaimExpr {
 }
 
 impl fmt::Display for ReclaimExpr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::All => write!(f, "ALL"),
-            Self::Filter(s) => write!(f, "{}", s),
+            Self::Filter(s) => write!(f, "{s}"),
         }
     }
 }
@@ -70,6 +70,7 @@ impl Arbitrary for ReclaimExpr {
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug)]
 pub struct ReclaimExprFilter(String);
 impl_case_insensitive_str_primitive!(ParserRule::reclaim_expr_free_form => ReclaimExprFilter);

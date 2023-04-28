@@ -1,6 +1,4 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
-use std::iter::FromIterator;
 
 #[cfg(any(test, feature = "arbitrary"))]
 use proptest::{arbitrary::ParamsFor, prelude::*};
@@ -13,6 +11,7 @@ use crate::{
 /// Ordered list of RPSL expressions or names. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-2
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ListOf<T>(Vec<T>);
 
@@ -32,9 +31,7 @@ where
     type Error = ParseError;
 
     fn try_from(pair: TokenPair<'a>) -> ParseResult<Self> {
-        pair.into_inner()
-            .map(|inner_pair| inner_pair.try_into())
-            .collect()
+        pair.into_inner().map(T::try_from).collect()
     }
 }
 
@@ -42,10 +39,10 @@ impl<T> fmt::Display for ListOf<T>
 where
     T: fmt::Display,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0
             .iter()
-            .map(|item| item.to_string())
+            .map(T::to_string)
             .collect::<Vec<String>>()
             .join(", ")
             .fmt(f)

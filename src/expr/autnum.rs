@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 #[cfg(any(test, feature = "arbitrary"))]
@@ -30,7 +29,7 @@ impl_from_str!(ParserRule::just_as_expr => Expr);
 impl TryFrom<TokenPair<'_>> for Expr {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
             ParserRule::as_expr_unit => Ok(Self::Unit(
@@ -69,12 +68,12 @@ impl TryFrom<TokenPair<'_>> for Expr {
 }
 
 impl fmt::Display for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Unit(term) => term.fmt(f),
-            Self::And(lhs, rhs) => write!(f, "{} AND {}", lhs, rhs),
-            Self::Or(lhs, rhs) => write!(f, "{} OR {}", lhs, rhs),
-            Self::Except(lhs, rhs) => write!(f, "{} EXCEPT {}", lhs, rhs),
+            Self::And(lhs, rhs) => write!(f, "{lhs} AND {rhs}"),
+            Self::Or(lhs, rhs) => write!(f, "{lhs} OR {rhs}"),
+            Self::Except(lhs, rhs) => write!(f, "{lhs} EXCEPT {rhs}"),
         }
     }
 }
@@ -93,7 +92,7 @@ impl Arbitrary for Expr {
                         .prop_map(|(term, unit)| Self::And(term, Box::new(unit))),
                     (term.clone(), unit.clone())
                         .prop_map(|(term, unit)| Self::Or(term, Box::new(unit))),
-                    (term.clone(), unit.clone())
+                    (term.clone(), unit)
                         .prop_map(|(term, unit)| Self::Except(term, Box::new(unit))),
                 ]
             })
@@ -112,7 +111,7 @@ pub enum Term {
 impl TryFrom<TokenPair<'_>> for Term {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Term);
         match pair.as_rule() {
             ParserRule::any_as => Ok(Self::Any),
@@ -128,12 +127,12 @@ impl TryFrom<TokenPair<'_>> for Term {
 }
 
 impl fmt::Display for Term {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Any => write!(f, "AS-ANY"),
             Self::AsSet(as_set) => as_set.fmt(f),
             Self::AutNum(aut_num) => aut_num.fmt(f),
-            Self::Expr(expr) => write!(f, "({})", expr),
+            Self::Expr(expr) => write!(f, "({expr})"),
         }
     }
 }
@@ -155,7 +154,7 @@ impl Arbitrary for Term {
                     .prop_map(|(lhs, rhs)| Expr::And(lhs, Box::new(Expr::Unit(rhs)))),
                 (inner.clone(), inner.clone())
                     .prop_map(|(lhs, rhs)| Expr::Or(lhs, Box::new(Expr::Unit(rhs)))),
-                (inner.clone(), inner.clone())
+                (inner.clone(), inner)
                     .prop_map(|(lhs, rhs)| Expr::Except(lhs, Box::new(Expr::Unit(rhs)))),
             ]
             .prop_map(|expr| Self::Expr(Box::new(expr)))

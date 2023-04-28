@@ -1,6 +1,4 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
-use std::iter::FromIterator;
 
 use ip::{Ipv4, Ipv6};
 
@@ -276,7 +274,8 @@ pub enum RpslAttribute {
 impl TryFrom<TokenPair<'_>> for RpslAttribute {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    #[allow(clippy::too_many_lines)]
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => RpslAttribute);
         match pair.as_rule() {
             ParserRule::descr_attr => Ok(Self::Descr(
@@ -472,79 +471,73 @@ impl TryFrom<TokenPair<'_>> for RpslAttribute {
 }
 
 impl fmt::Display for RpslAttribute {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let attr_type: AttributeType = self.into();
-        write!(f, "{}: ", attr_type)?;
+        write!(f, "{attr_type}: ")?;
         match self {
-            Self::Descr(inner) => write!(f, "{}", inner),
-            Self::TechC(inner) => write!(f, "{}", inner),
-            Self::AdminC(inner) => write!(f, "{}", inner),
-            Self::Remarks(inner) => write!(f, "{}", inner),
-            Self::Notify(inner) => write!(f, "{}", inner),
-            Self::MntBy(inner) => write!(f, "{}", inner),
-            Self::Changed(inner) => write!(f, "{}", inner),
-            Self::Source(inner) => write!(f, "{}", inner),
-            Self::MntRoutes(inner) => write!(f, "{}", inner),
-            Self::MntLower(inner) => write!(f, "{}", inner),
-            Self::Reclaim(inner) => write!(f, "{}", inner),
-            Self::NoReclaim(inner) => write!(f, "{}", inner),
-            Self::ReferralBy(inner) => write!(f, "{}", inner),
-            Self::AuthOverride(inner) => write!(f, "{}", inner),
-            Self::NicHdl(inner) => write!(f, "{}", inner),
-            Self::Address(inner) => write!(f, "{}", inner),
-            Self::Phone(inner) => write!(f, "{}", inner),
-            Self::FaxNo(inner) => write!(f, "{}", inner),
-            Self::EMail(inner) => write!(f, "{}", inner),
-            Self::MbrsByRef(inner) => write!(f, "{}", inner),
-            Self::Auth(inner) => write!(f, "{}", inner),
-            Self::UpdTo(inner) => write!(f, "{}", inner),
-            Self::MntNfy(inner) => write!(f, "{}", inner),
-            Self::Trouble(inner) => write!(f, "{}", inner),
-            Self::Method(inner) => write!(f, "{}", inner),
-            Self::Owner(inner) => write!(f, "{}", inner),
-            Self::Fingerpr(inner) => write!(f, "{}", inner),
-            Self::Certif(inner) => write!(f, "{}", inner),
-            Self::AsName(inner) => write!(f, "{}", inner),
-            Self::AutNumMemberOf(inner) => write!(f, "{}", inner),
-            Self::Import(inner) => write!(f, "{}", inner),
-            Self::MpImport(inner) => write!(f, "{}", inner),
-            Self::Export(inner) => write!(f, "{}", inner),
-            Self::MpExport(inner) => write!(f, "{}", inner),
-            Self::Default(inner) => write!(f, "{}", inner),
-            Self::MpDefault(inner) => write!(f, "{}", inner),
-            Self::Netname(inner) => write!(f, "{}", inner),
-            Self::Country(inner) => write!(f, "{}", inner),
-            Self::Origin(inner) => write!(f, "{}", inner),
-            Self::Inject(inner) => write!(f, "{}", inner),
-            Self::Inject6(inner) => write!(f, "{}", inner),
-            Self::Components(inner) => write!(f, "{}", inner),
-            Self::Components6(inner) => write!(f, "{}", inner),
-            Self::AggrBndry(inner) => write!(f, "{}", inner),
-            Self::AggrMtd(inner) => write!(f, "{}", inner),
-            Self::ExportComps(inner) => write!(f, "{}", inner),
-            Self::ExportComps6(inner) => write!(f, "{}", inner),
-            Self::Holes(inner) => write!(f, "{}", inner),
-            Self::Holes6(inner) => write!(f, "{}", inner),
-            Self::Pingable4(inner) => write!(f, "{}", inner),
-            Self::Pingable6(inner) => write!(f, "{}", inner),
-            Self::PingHdl(inner) => write!(f, "{}", inner),
-            Self::RouteMemberOf(inner) => write!(f, "{}", inner),
-            Self::AsSetMembers(inner) => write!(f, "{}", inner),
-            Self::RouteSetMembers(inner) => write!(f, "{}", inner),
-            Self::RouteSetMpMembers(inner) => write!(f, "{}", inner),
-            Self::Filter(inner) => write!(f, "{}", inner),
-            Self::MpFilter(inner) => write!(f, "{}", inner),
-            Self::RtrSetMembers(inner) => write!(f, "{}", inner),
-            Self::RtrSetMpMembers(inner) => write!(f, "{}", inner),
-            Self::Peering(inner) => write!(f, "{}", inner),
-            Self::MpPeering(inner) => write!(f, "{}", inner),
-            Self::Alias(inner) => write!(f, "{}", inner),
-            Self::LocalAs(inner) => write!(f, "{}", inner),
-            Self::Ifaddr(inner) => write!(f, "{}", inner),
-            Self::Interface(inner) => write!(f, "{}", inner),
-            Self::Peer(inner) => write!(f, "{}", inner),
-            Self::MpPeer(inner) => write!(f, "{}", inner),
-            Self::InetRtrMemberOf(inner) => write!(f, "{}", inner),
+            Self::Descr(inner) => write!(f, "{inner}"),
+            Self::TechC(inner)
+            | Self::AdminC(inner)
+            | Self::NicHdl(inner)
+            | Self::PingHdl(inner) => write!(f, "{inner}"),
+            Self::Remarks(inner) => write!(f, "{inner}"),
+            Self::Notify(inner) | Self::EMail(inner) | Self::UpdTo(inner) | Self::MntNfy(inner) => {
+                write!(f, "{inner}")
+            }
+            Self::MntBy(inner) | Self::MntLower(inner) | Self::MbrsByRef(inner) => {
+                write!(f, "{inner}")
+            }
+            Self::Changed(inner) => write!(f, "{inner}"),
+            Self::Source(inner) => write!(f, "{inner}"),
+            Self::MntRoutes(inner) => write!(f, "{inner}"),
+            Self::Reclaim(inner) | Self::NoReclaim(inner) => write!(f, "{inner}"),
+            Self::ReferralBy(inner) => write!(f, "{inner}"),
+            Self::AuthOverride(inner) => write!(f, "{inner}"),
+            Self::Address(inner) => write!(f, "{inner}"),
+            Self::Phone(inner) | Self::FaxNo(inner) => write!(f, "{inner}"),
+            Self::Auth(inner) => write!(f, "{inner}"),
+            Self::Trouble(inner) => write!(f, "{inner}"),
+            Self::Method(inner) => write!(f, "{inner}"),
+            Self::Owner(inner) => write!(f, "{inner}"),
+            Self::Fingerpr(inner) => write!(f, "{inner}"),
+            Self::Certif(inner) => write!(f, "{inner}"),
+            Self::AsName(inner) => write!(f, "{inner}"),
+            Self::AutNumMemberOf(inner) => write!(f, "{inner}"),
+            Self::Import(inner) => write!(f, "{inner}"),
+            Self::MpImport(inner) => write!(f, "{inner}"),
+            Self::Export(inner) => write!(f, "{inner}"),
+            Self::MpExport(inner) => write!(f, "{inner}"),
+            Self::Default(inner) => write!(f, "{inner}"),
+            Self::MpDefault(inner) => write!(f, "{inner}"),
+            Self::Netname(inner) => write!(f, "{inner}"),
+            Self::Country(inner) => write!(f, "{inner}"),
+            Self::Origin(inner) | Self::LocalAs(inner) => write!(f, "{inner}"),
+            Self::Inject(inner) => write!(f, "{inner}"),
+            Self::Inject6(inner) => write!(f, "{inner}"),
+            Self::Components(inner) => write!(f, "{inner}"),
+            Self::Components6(inner) => write!(f, "{inner}"),
+            Self::AggrBndry(inner) => write!(f, "{inner}"),
+            Self::AggrMtd(inner) => write!(f, "{inner}"),
+            Self::ExportComps(inner) | Self::Filter(inner) => write!(f, "{inner}"),
+            Self::ExportComps6(inner) | Self::MpFilter(inner) => write!(f, "{inner}"),
+            Self::Holes(inner) => write!(f, "{inner}"),
+            Self::Holes6(inner) => write!(f, "{inner}"),
+            Self::Pingable4(inner) => write!(f, "{inner}"),
+            Self::Pingable6(inner) => write!(f, "{inner}"),
+            Self::RouteMemberOf(inner) => write!(f, "{inner}"),
+            Self::AsSetMembers(inner) => write!(f, "{inner}"),
+            Self::RouteSetMembers(inner) => write!(f, "{inner}"),
+            Self::RouteSetMpMembers(inner) => write!(f, "{inner}"),
+            Self::RtrSetMembers(inner) => write!(f, "{inner}"),
+            Self::RtrSetMpMembers(inner) => write!(f, "{inner}"),
+            Self::Peering(inner) => write!(f, "{inner}"),
+            Self::MpPeering(inner) => write!(f, "{inner}"),
+            Self::Alias(inner) => write!(f, "{inner}"),
+            Self::Ifaddr(inner) => write!(f, "{inner}"),
+            Self::Interface(inner) => write!(f, "{inner}"),
+            Self::Peer(inner) => write!(f, "{inner}"),
+            Self::MpPeer(inner) => write!(f, "{inner}"),
+            Self::InetRtrMemberOf(inner) => write!(f, "{inner}"),
         }
     }
 }
@@ -680,7 +673,7 @@ impl<'a> IntoIterator for &'a AttributeSeq {
 }
 
 impl fmt::Display for AttributeSeq {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.iter().try_for_each(|attr| writeln!(f, "{}", attr))
     }
 }

@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use ip::{Any, Ipv4};
@@ -57,6 +56,7 @@ impl ExprAfi for Any {
 /// RPSL `router-expression`. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.6
+#[allow(clippy::module_name_repetitions)]
 pub type RtrExpr = Expr<Ipv4>;
 impl_from_str!(ParserRule::just_rtr_expr => RtrExpr);
 
@@ -77,7 +77,7 @@ pub enum Expr<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
             rule if rule == A::RTR_EXPR_UNIT_RULE => Ok(Self::Unit(
@@ -116,20 +116,20 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Expr<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for Expr<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Unit(term) => term.fmt(f),
-            Self::And(lhs, rhs) => write!(f, "{} AND {}", lhs, rhs),
-            Self::Or(lhs, rhs) => write!(f, "{} OR {}", lhs, rhs),
-            Self::Except(lhs, rhs) => write!(f, "{} EXCEPT {}", lhs, rhs),
+            Self::And(lhs, rhs) => write!(f, "{lhs} AND {rhs}"),
+            Self::Or(lhs, rhs) => write!(f, "{lhs} OR {rhs}"),
+            Self::Except(lhs, rhs) => write!(f, "{lhs} EXCEPT {rhs}"),
         }
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for Expr<A>
+impl<A> Arbitrary for Expr<A>
 where
-    A: fmt::Debug + Clone + 'static,
+    A: ExprAfi + fmt::Debug + Clone + 'static,
     Term<A>: Arbitrary,
     <Term<A> as Arbitrary>::Parameters: Clone,
     <Term<A> as Arbitrary>::Strategy: Clone,
@@ -146,7 +146,7 @@ where
                         .prop_map(|(term, unit)| Self::And(term, Box::new(unit))),
                     (term.clone(), unit.clone())
                         .prop_map(|(term, unit)| Self::Or(term, Box::new(unit))),
-                    (term.clone(), unit.clone())
+                    (term.clone(), unit)
                         .prop_map(|(term, unit)| Self::Except(term, Box::new(unit))),
                 ]
             })
@@ -165,7 +165,7 @@ pub enum Term<A: ExprAfi> {
 impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Term<A> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Term);
         match pair.as_rule() {
             ParserRule::rtr_set => Ok(Self::RtrSet(pair.try_into()?)),
@@ -178,20 +178,20 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for Term<A> {
 }
 
 impl<A: ExprAfi> fmt::Display for Term<A> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::RtrSet(rtr_set) => rtr_set.fmt(f),
             Self::InetRtr(inet_rtr) => inet_rtr.fmt(f),
             Self::Literal(addr) => addr.fmt(f),
-            Self::Expr(expr) => write!(f, "({})", expr),
+            Self::Expr(expr) => write!(f, "({expr})"),
         }
     }
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl<A: ExprAfi> Arbitrary for Term<A>
+impl<A> Arbitrary for Term<A>
 where
-    A: fmt::Debug + 'static,
+    A: ExprAfi + fmt::Debug + 'static,
     A::Address: Arbitrary,
 {
     type Parameters = ParamsFor<IpAddress<A>>;
@@ -209,7 +209,7 @@ where
                     .prop_map(|(lhs, rhs)| Expr::And(lhs, Box::new(Expr::Unit(rhs)))),
                 (inner.clone(), inner.clone())
                     .prop_map(|(lhs, rhs)| Expr::Or(lhs, Box::new(Expr::Unit(rhs)))),
-                (inner.clone(), inner.clone())
+                (inner.clone(), inner)
                     .prop_map(|(lhs, rhs)| Expr::Except(lhs, Box::new(Expr::Unit(rhs)))),
             ]
             .prop_map(|expr| Self::Expr(Box::new(expr)))

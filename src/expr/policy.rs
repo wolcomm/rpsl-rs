@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::marker::PhantomData;
 
@@ -168,13 +167,13 @@ pub struct Statement<A: StmtAfi, P: Policy<A>> {
 impl<A: StmtAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for Statement<A, P> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Statement);
         match pair.as_rule() {
             rule if rule == P::STMT_RULE => {
                 let mut pairs = pair.into_inner().peekable();
-                let protocol_from = if let Some(ParserRule::from_protocol) =
-                    pairs.peek().map(|inner_pair| inner_pair.as_rule())
+                let protocol_from = if pairs.peek().map(TokenPair::as_rule)
+                    == Some(ParserRule::from_protocol)
                 {
                     let inner_pair = pairs.next().unwrap();
                     Some(
@@ -183,8 +182,8 @@ impl<A: StmtAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for Statement<A, P> {
                 } else {
                     None
                 };
-                let protocol_into = if let Some(ParserRule::into_protocol) =
-                    pairs.peek().map(|inner_pair| inner_pair.as_rule())
+                let protocol_into = if pairs.peek().map(TokenPair::as_rule)
+                    == Some(ParserRule::into_protocol)
                 {
                     let inner_pair = pairs.next().unwrap();
                     Some(
@@ -206,12 +205,12 @@ impl<A: StmtAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for Statement<A, P> {
 }
 
 impl<A: StmtAfi, P: Policy<A>> fmt::Display for Statement<A, P> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(protocol) = &self.protocol_from {
-            write!(f, "protocol {} ", protocol)?;
+            write!(f, "protocol {protocol} ")?;
         }
         if let Some(protocol) = &self.protocol_into {
-            write!(f, "into {} ", protocol)?;
+            write!(f, "into {protocol} ")?;
         }
         write!(f, "{}", self.afi_expr)
     }
@@ -260,18 +259,17 @@ pub struct AfiExpr<A: StmtAfi, P: Policy<A>> {
 impl<A: StmtAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for AfiExpr<A, P> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => AfiExpr);
         match pair.as_rule() {
             rule if rule == P::AFI_EXPR_RULE => {
                 let mut pairs = pair.into_inner().peekable();
-                let afis = if let Some(ParserRule::afi_safi_list) =
-                    pairs.peek().map(|inner_pair| inner_pair.as_rule())
-                {
-                    Some(next_into_or!(pairs => "failed to get afi list")?)
-                } else {
-                    None
-                };
+                let afis =
+                    if pairs.peek().map(TokenPair::as_rule) == Some(ParserRule::afi_safi_list) {
+                        Some(next_into_or!(pairs => "failed to get afi list")?)
+                    } else {
+                        None
+                    };
                 let expr = next_into_or!(pairs => "failed to get policy expression")?;
                 Ok(Self { afis, expr })
             }
@@ -281,9 +279,9 @@ impl<A: StmtAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for AfiExpr<A, P> {
 }
 
 impl<A: StmtAfi, P: Policy<A>> fmt::Display for AfiExpr<A, P> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(afis) = &self.afis {
-            write!(f, "afi {} ", afis)?;
+            write!(f, "afi {afis} ")?;
         }
         write!(f, "{}", self.expr)
     }
@@ -321,7 +319,7 @@ pub enum Expr<A: StmtAfi, P: Policy<A>> {
 impl<A: StmtAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for Expr<A, P> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Expr);
         match pair.as_rule() {
             rule if rule == P::EXPR_UNIT_RULE => Ok(Self::Unit(
@@ -347,11 +345,11 @@ impl<A: StmtAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for Expr<A, P> {
 }
 
 impl<A: StmtAfi, P: Policy<A>> fmt::Display for Expr<A, P> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Unit(term) => term.fmt(f),
-            Self::Except(term, expr) => write!(f, "{} EXCEPT {}", term, expr),
-            Self::Refine(term, expr) => write!(f, "{} REFINE {}", term, expr),
+            Self::Except(term, expr) => write!(f, "{term} EXCEPT {expr}"),
+            Self::Refine(term, expr) => write!(f, "{term} REFINE {expr}"),
         }
     }
 }
@@ -381,7 +379,7 @@ where
                     (term.clone(), afis.clone(), unit.clone()).prop_map(|(term, afis, unit)| {
                         Self::Except(term, Box::new(AfiExpr { afis, expr: unit }))
                     }),
-                    (term.clone(), afis.clone(), unit.clone()).prop_map(|(term, afis, unit)| {
+                    (term.clone(), afis.clone(), unit).prop_map(|(term, afis, unit)| {
                         Self::Refine(term, Box::new(AfiExpr { afis, expr: unit }))
                     }),
                 ]
@@ -396,12 +394,12 @@ pub struct Term<A: StmtAfi, P: Policy<A>>(Vec<Factor<A, P>>);
 impl<A: StmtAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for Term<A, P> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Term);
         match pair.as_rule() {
             rule if rule == P::TERM_RULE => Ok(Self(
                 pair.into_inner()
-                    .map(|inner_pair| inner_pair.try_into())
+                    .map(Factor::try_from)
                     .collect::<ParseResult<_>>()?,
             )),
             _ => Err(rule_mismatch!(pair => "policy expression term")),
@@ -410,7 +408,7 @@ impl<A: StmtAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for Term<A, P> {
 }
 
 impl<A: StmtAfi, P: Policy<A>> fmt::Display for Term<A, P> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.0.len() <= 1 {
             self.0[0].fmt(f)
         } else {
@@ -455,24 +453,23 @@ pub struct Factor<A: StmtAfi, P: Policy<A>> {
 impl<A: StmtAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for Factor<A, P> {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Factor);
         match pair.as_rule() {
             rule if rule == P::FACTOR_RULE => {
                 let mut pairs = pair.into_inner().peekable();
                 let mut peerings = Vec::new();
-                while let Some(rule) = pairs.peek().map(|pair| pair.as_rule()) {
+                while let Some(rule) = pairs.peek().map(TokenPair::as_rule) {
                     if !A::match_peering_expr_rule(rule) {
                         break;
                     }
                     let peering_expr = next_into_or!(pairs => "failed to get peering expression")?;
-                    let action_expr = if let Some(ParserRule::action_expr) =
-                        pairs.peek().map(|pair| pair.as_rule())
-                    {
-                        Some(next_into_or!(pairs => "failed to get action expression")?)
-                    } else {
-                        None
-                    };
+                    let action_expr =
+                        if pairs.peek().map(TokenPair::as_rule) == Some(ParserRule::action_expr) {
+                            Some(next_into_or!(pairs => "failed to get action expression")?)
+                        } else {
+                            None
+                        };
                     peerings.push((peering_expr, action_expr));
                 }
                 let filter = next_into_or!(pairs => "failed to get filter expression")?;
@@ -488,7 +485,7 @@ impl<A: StmtAfi, P: Policy<A>> TryFrom<TokenPair<'_>> for Factor<A, P> {
 }
 
 impl<A: StmtAfi, P: Policy<A>> fmt::Display for Factor<A, P> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.peerings
             .iter()
             .try_for_each(|(peering_expr, action_expr)| {
@@ -564,7 +561,7 @@ mod tests {
             },
         };
         let repr = "to AS1 to AS2 announce AS-ANY";
-        assert_eq!(expr.to_string(), repr)
+        assert_eq!(expr.to_string(), repr);
     }
 
     display_fmt_parses! {

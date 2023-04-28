@@ -8,6 +8,7 @@
 #![warn(clippy::cargo)]
 #![warn(clippy::nursery)]
 #![allow(clippy::redundant_pub_crate)]
+#![allow(clippy::multiple_crate_versions)]
 // rustc lints
 #![allow(box_pointers)]
 #![warn(absolute_paths_not_starting_with_crate)]
@@ -46,8 +47,11 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(html_root_url = "https://docs.rs/rpsl/0.1.0-alpha.1")]
 
-#[macro_use]
-extern crate pest_derive;
+// silence unused dev-dependency warnings
+#[cfg(test)]
+mod deps {
+    use version_sync as _;
+}
 
 mod parser;
 

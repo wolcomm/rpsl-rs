@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use crate::{
@@ -15,6 +14,7 @@ use proptest::{arbitrary::ParamsFor, prelude::*};
 /// RPSL `changed` expression. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-3.1
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ChangedExpr {
     by: EmailAddress,
@@ -25,7 +25,8 @@ impl_from_str!(ParserRule::just_changed_expr => ChangedExpr);
 
 impl ChangedExpr {
     /// Create a new [`ChangedExpr`].
-    pub fn new(by: EmailAddress, on: Date) -> Self {
+    #[must_use]
+    pub const fn new(by: EmailAddress, on: Date) -> Self {
         Self { by, on }
     }
 }
@@ -33,7 +34,7 @@ impl ChangedExpr {
 impl TryFrom<TokenPair<'_>> for ChangedExpr {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => ChangedExpr);
         match pair.as_rule() {
             ParserRule::changed_expr => {
@@ -49,7 +50,7 @@ impl TryFrom<TokenPair<'_>> for ChangedExpr {
 }
 
 impl fmt::Display for ChangedExpr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} {}", self.by, self.on)
     }
 }

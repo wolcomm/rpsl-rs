@@ -1,6 +1,4 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
-use std::iter::FromIterator;
 
 use ip::{Ipv4, Ipv6};
 
@@ -64,7 +62,7 @@ pub enum KeyCert {
 impl TryFrom<TokenPair<'_>> for KeyCert {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => KeyCert);
         match pair.as_rule() {
             ParserRule::key_cert_pgp => Ok(Self::Pgp(pair.as_str().to_string())),
@@ -77,7 +75,7 @@ impl TryFrom<TokenPair<'_>> for KeyCert {
 impl_from_str!(ParserRule::key_cert => KeyCert);
 
 impl fmt::Display for KeyCert {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Pgp(name) | Self::X509(name) => name.fmt(f),
         }
@@ -107,7 +105,7 @@ pub struct AutNum(u32);
 impl TryFrom<TokenPair<'_>> for AutNum {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => AutNum);
         match pair.as_rule() {
             ParserRule::aut_num => Ok(Self(
@@ -121,7 +119,7 @@ impl TryFrom<TokenPair<'_>> for AutNum {
 impl_from_str!(ParserRule::aut_num => AutNum);
 
 impl fmt::Display for AutNum {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "AS{}", self.0)
     }
 }
@@ -147,7 +145,7 @@ pub struct AsBlock {
 impl TryFrom<TokenPair<'_>> for AsBlock {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => AsBlock);
         match pair.as_rule() {
             ParserRule::as_block => {
@@ -164,7 +162,7 @@ impl TryFrom<TokenPair<'_>> for AsBlock {
 impl_from_str!(ParserRule::as_block => AsBlock);
 
 impl fmt::Display for AsBlock {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} - {}", self.lower, self.upper)
     }
 }
@@ -191,7 +189,7 @@ pub struct InetNum {
 impl TryFrom<TokenPair<'_>> for InetNum {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => InetNum);
         match pair.as_rule() {
             ParserRule::inetnum => {
@@ -208,7 +206,7 @@ impl TryFrom<TokenPair<'_>> for InetNum {
 impl_from_str!(ParserRule::inetnum => InetNum);
 
 impl fmt::Display for InetNum {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} - {}", self.lower, self.upper)
     }
 }
@@ -241,7 +239,7 @@ pub struct Inet6Num {
 impl TryFrom<TokenPair<'_>> for Inet6Num {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Inet6Num);
         match pair.as_rule() {
             ParserRule::inet6num => {
@@ -258,7 +256,7 @@ impl TryFrom<TokenPair<'_>> for Inet6Num {
 impl_from_str!(ParserRule::inet6num => Inet6Num);
 
 impl fmt::Display for Inet6Num {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} - {}", self.lower, self.upper)
     }
 }
@@ -288,7 +286,7 @@ pub struct Route(IpPrefix<Ipv4>);
 impl TryFrom<TokenPair<'_>> for Route {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Route);
         match pair.as_rule() {
             ParserRule::route => Ok(Self(
@@ -302,7 +300,7 @@ impl TryFrom<TokenPair<'_>> for Route {
 impl_from_str!(ParserRule::route => Route);
 
 impl fmt::Display for Route {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
@@ -325,7 +323,7 @@ pub struct Route6(IpPrefix<Ipv6>);
 impl TryFrom<TokenPair<'_>> for Route6 {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => Route6);
         match pair.as_rule() {
             ParserRule::route6 => Ok(Self(
@@ -339,7 +337,7 @@ impl TryFrom<TokenPair<'_>> for Route6 {
 impl_from_str!(ParserRule::route6 => Route6);
 
 impl fmt::Display for Route6 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
@@ -386,7 +384,7 @@ macro_rules! impl_set_try_from {
     ( $rule:pat => $t:ty ) => {
         impl TryFrom<TokenPair<'_>> for $t {
             type Error = ParseError;
-            fn try_from(pair: TokenPair) -> ParseResult<Self> {
+            fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
                 $crate::parser::debug_construction!(pair => $t);
                 match pair.as_rule() {
                     $rule => Ok(Self(
@@ -442,7 +440,7 @@ macro_rules! impl_into_iter_set_comps {
 macro_rules! impl_set_display {
     ( $t:ty ) => {
         impl fmt::Display for $t {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 self.into_iter()
                     .map(|component| component.to_string())
                     .collect::<Vec<_>>()

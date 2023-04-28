@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use ip::Any;
@@ -20,6 +19,7 @@ use crate::{
 /// RPSL `mnt-routes` expression. See [RFC2725].
 ///
 /// [RFC2725]: https://datatracker.ietf.org/doc/html/rfc2725#section-10
+#[allow(clippy::module_name_repetitions)]
 pub struct MntRoutesExpr {
     mntners: ListOf<Mntner>,
     qualifier: Option<MntRoutesExprQualifier>,
@@ -30,7 +30,7 @@ impl_from_str!(ParserRule::just_mnt_routes_expr => MntRoutesExpr);
 impl TryFrom<TokenPair<'_>> for MntRoutesExpr {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => MntRoutesExpr);
         match pair.as_rule() {
             ParserRule::mnt_routes_expr => {
@@ -49,10 +49,10 @@ impl TryFrom<TokenPair<'_>> for MntRoutesExpr {
 }
 
 impl fmt::Display for MntRoutesExpr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.mntners)?;
         if let Some(qualifier) = &self.qualifier {
-            write!(f, " {}", qualifier)?;
+            write!(f, " {qualifier}")?;
         }
         Ok(())
     }
@@ -72,6 +72,7 @@ impl Arbitrary for MntRoutesExpr {
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum MntRoutesExprQualifier {
     Prefixes(ListOf<IpPrefixRange<Any>>),
@@ -81,7 +82,7 @@ pub enum MntRoutesExprQualifier {
 impl TryFrom<TokenPair<'_>> for MntRoutesExprQualifier {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => MntRoutesExprQualifier);
         match pair.as_rule() {
             ParserRule::mnt_routes_expr_qual_list => Ok(Self::Prefixes(
@@ -94,9 +95,9 @@ impl TryFrom<TokenPair<'_>> for MntRoutesExprQualifier {
 }
 
 impl fmt::Display for MntRoutesExprQualifier {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Prefixes(prefixes) => write!(f, "{{{}}}", prefixes),
+            Self::Prefixes(prefixes) => write!(f, "{{{prefixes}}}"),
             Self::Any => write!(f, "ANY"),
         }
     }

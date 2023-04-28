@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 use crate::{
@@ -58,7 +57,7 @@ pub enum RpslObject {
 impl TryFrom<TokenPair<'_>> for RpslObject {
     type Error = ParseError;
 
-    fn try_from(pair: TokenPair) -> ParseResult<Self> {
+    fn try_from(pair: TokenPair<'_>) -> ParseResult<Self> {
         debug_construction!(pair => RpslObject);
         match pair.as_rule() {
             ParserRule::mntner_obj => Ok(Self::Mntner(pair.try_into()?)),
@@ -86,7 +85,7 @@ impl TryFrom<TokenPair<'_>> for RpslObject {
 impl_from_str!(ParserRule::just_rpsl_object => RpslObject);
 
 impl fmt::Display for RpslObject {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Mntner(obj) => obj.fmt(f),
             Self::Person(obj) => obj.fmt(f),
@@ -140,6 +139,7 @@ impl Arbitrary for RpslObject {
 /// Object validation rule indicating whether a given RPSL attribute type is
 /// permitted in a given RSPL object, and if so whether it is mandatory
 /// and/or multivalued.
+#[derive(Debug, Copy, Clone)]
 pub struct AttributeRule {
     attr: AttributeType,
     mandatory: bool,
@@ -160,10 +160,10 @@ impl AttributeRule {
 pub trait RpslObjectClass: Sized {
     /// The name of the RPSL class.
     const CLASS: &'static str;
-    /// The set of rules governing the ocurrence of attributes in this object
+    /// The set of rules governing the occurrence of attributes in this object
     /// class.
     const ATTRS: &'static [AttributeRule];
-    /// The type of the  eponymous attribute of the RPSL object class.
+    /// The type of the eponymous attribute of the RPSL object class.
     type Name;
 
     /// Create a new instance of [`Self`], validating its attributes in the
@@ -225,7 +225,7 @@ pub trait RpslObjectClass: Sized {
             .filter(|rule| rule.mandatory)
             .try_for_each(|rule| {
                 seen.contains_key(&rule.attr)
-                    .then(|| ())
+                    .then_some(())
                     .ok_or_else::<ValidationError, _>(|| {
                         format!(
                             "missing mandatory attribute {} in '{}' object",

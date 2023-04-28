@@ -3,22 +3,22 @@ use std::hash::Hash;
 
 use pest::iterators::Pair;
 
-/// Parser for RSPL filter expressions.
-#[derive(Debug, Parser)]
+/// Parser for RPSL filter expressions.
+#[derive(Debug, pest_derive::Parser)]
 #[grammar = "grammar.pest"]
-pub struct RpslParser;
+pub(crate) struct RpslParser;
 
-pub type ParserRule = Rule;
-pub type TokenPair<'a> = Pair<'a, ParserRule>;
+pub(crate) type ParserRule = Rule;
+pub(crate) type TokenPair<'a> = Pair<'a, ParserRule>;
 
 macro_rules! impl_from_str {
     ( $rule:expr => $t:ty ) => {
-        impl std::str::FromStr for $t {
+        impl ::std::str::FromStr for $t {
             type Err = $crate::error::ParseError;
 
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                use pest::Parser;
-                log::info!(concat!("trying to parse ", stringify!($t), " expression"));
+            fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
+                use ::pest::Parser as _;
+                ::log::info!(concat!("trying to parse ", stringify!($t), " expression"));
                 let root = $crate::parser::RpslParser::parse($rule, s)?
                     .next()
                     .ok_or_else(|| $crate::error::err!("failed to parse expression",))?;
@@ -29,15 +29,15 @@ macro_rules! impl_from_str {
     ( forall $( $bound_ty:ident: $bound:path ),+ $(,)? {
         $rule:expr => $t:ty
     } ) => {
-        impl<$($bound_ty),+> std::str::FromStr for $t
+        impl<$($bound_ty),+> ::std::str::FromStr for $t
         where
             $($bound_ty: $bound),+
         {
             type Err = $crate::error::ParseError;
 
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                use pest::Parser;
-                log::info!(concat!("trying to parse ", stringify!($t), " expression"));
+            fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
+                use ::pest::Parser as _;
+                ::log::info!(concat!("trying to parse ", stringify!($t), " expression"));
                 let root = $crate::parser::RpslParser::parse($rule, s)?
                     .next()
                     .ok_or_else(|| $crate::error::err!("failed to parse expression",))?;
@@ -50,9 +50,9 @@ pub(crate) use impl_from_str;
 
 macro_rules! impl_str_primitive {
     ( $( $rule:pat_param )|+ => $t:ty ) => {
-        impl TryFrom<TokenPair<'_>> for $t {
-            type Error = ParseError;
-            fn try_from(pair: TokenPair) -> ParseResult<Self> {
+        impl ::std::convert::TryFrom<TokenPair<'_>> for $t {
+            type Error = $crate::error::ParseError;
+            fn try_from(pair: $crate::parser::TokenPair<'_>) -> ::std::result::Result<Self, Self::Error> {
                 $crate::parser::debug_construction!(pair => $t);
                 match pair.as_rule() {
                     $( $rule )|+ => Ok(Self(pair.as_str().to_string())),
@@ -64,12 +64,12 @@ macro_rules! impl_str_primitive {
                 }
             }
         }
-        impl fmt::Display for $t {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        impl ::std::fmt::Display for $t {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> ::std::fmt::Result {
                 self.0.fmt(f)
             }
         }
-        impl std::convert::From<&str> for $t {
+        impl ::std::convert::From<&str> for $t {
             fn from(s: &str) -> Self {
                 Self(s.to_string())
             }
@@ -81,16 +81,16 @@ pub(crate) use impl_str_primitive;
 macro_rules! impl_case_insensitive_str_primitive {
     ( $( $rule:pat_param )|+ => $t:ty ) => {
         $crate::parser::impl_str_primitive!($( $rule )|+ => $t);
-        impl std::cmp::PartialEq for $t {
+        impl ::std::cmp::PartialEq for $t {
             fn eq(&self, other: &Self) -> bool {
                 self.0.to_uppercase() == other.0.to_uppercase()
             }
         }
-        impl std::cmp::Eq for $t {}
-        impl std::hash::Hash for $t {
+        impl ::std::cmp::Eq for $t {}
+        impl ::std::hash::Hash for $t {
             fn hash<H>(&self, state: &mut H)
             where
-                H: std::hash::Hasher,
+                H: ::std::hash::Hasher,
             {
                 self.0.hash(state)
             }
@@ -122,7 +122,7 @@ pub(crate) use next_parse_or;
 
 macro_rules! debug_construction {
     ( $pair:ident => $node:ty ) => {
-        log::debug!(
+        ::log::debug!(
             concat!(
                 "constructing AST node '",
                 stringify!($node),
@@ -148,6 +148,7 @@ pub(crate) use rule_mismatch;
 
 #[cfg(test)]
 #[allow(non_fmt_panics)]
+#[allow(clippy::cognitive_complexity)]
 mod tests {
     use paste::paste;
     use pest::{consumes_to, parses_to};
