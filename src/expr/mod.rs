@@ -41,3 +41,4 @@ pub use self::{
 };
 
 mod eval;
+pub use self::eval::{Evaluated, Evaluator, Resolver};

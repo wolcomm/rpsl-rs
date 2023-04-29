@@ -57,12 +57,12 @@ mod parser;
 
 /// RPSL attributes.
 pub mod attr;
+/// RPSL container-like syntax types.
+pub mod containers;
 /// Error types
 pub mod error;
 /// RPSL policy and filter expressions.
 pub mod expr;
-/// RPSL list-like syntax types.
-pub mod list;
 /// RPSL object class names.
 pub mod names;
 /// RPSL objects.

@@ -1,5 +1,3 @@
-use std::fmt;
-
 use ip::{Any, Ipv4};
 
 use crate::{
@@ -11,9 +9,6 @@ use crate::{
     primitive::{IpAddress, IpPrefix, ParserAfi, RangeOperator},
 };
 
-#[cfg(any(test, feature = "arbitrary"))]
-use proptest::{arbitrary::ParamsFor, prelude::*};
-
 /// Names that can appear in the `members` attribute of an `as-set` object.
 /// See [RFC2622].
 ///
@@ -22,7 +17,12 @@ pub type AsSetMember = self::as_set::Member;
 impl_from_str!(ParserRule::as_set_member_choice => AsSetMember);
 
 mod as_set {
-    use super::*;
+    use core::fmt;
+
+    use super::{
+        debug_construction, rule_mismatch, AsSet, AutNum, ParseError, ParseResult, ParserRule,
+        TokenPair,
+    };
 
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
     pub enum Member {
@@ -55,15 +55,25 @@ mod as_set {
     }
 
     #[cfg(any(test, feature = "arbitrary"))]
-    impl Arbitrary for Member {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-        fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-            prop_oneof![
-                any::<AutNum>().prop_map(Self::AutNum),
-                any::<AsSet>().prop_map(Self::AsSet),
-            ]
-            .boxed()
+    mod arbitrary {
+        use proptest::{
+            arbitrary::{any, Arbitrary},
+            prop_oneof,
+            strategy::{BoxedStrategy, Strategy as _},
+        };
+
+        use super::{AsSet, AutNum, Member};
+
+        impl Arbitrary for Member {
+            type Parameters = ();
+            type Strategy = BoxedStrategy<Self>;
+            fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+                prop_oneof![
+                    any::<AutNum>().prop_map(Self::AutNum),
+                    any::<AsSet>().prop_map(Self::AsSet),
+                ]
+                .boxed()
+            }
         }
     }
 }
@@ -81,7 +91,13 @@ pub type RouteSetMember = self::route_set::Member<Ipv4>;
 pub type RouteSetMpMember = self::route_set::Member<Any>;
 
 mod route_set {
-    use super::*;
+    use core::fmt;
+
+    use super::{
+        debug_construction, impl_from_str, next_into_or, rule_mismatch, Any, AsSet, AutNum,
+        IpPrefix, Ipv4, ParseError, ParseResult, ParserAfi, ParserRule, RangeOperator, RouteSet,
+        TokenPair,
+    };
 
     pub trait MemberAfi: ParserAfi {
         /// Address family specific [`ParserRule`] for `route-set` member items.
@@ -141,21 +157,6 @@ mod route_set {
         }
     }
 
-    #[cfg(any(test, feature = "arbitrary"))]
-    impl<A> Arbitrary for Member<A>
-    where
-        A: MemberAfi + fmt::Debug + Clone + 'static,
-        A::Prefix: Arbitrary,
-    {
-        type Parameters = ParamsFor<RangeOperator>;
-        type Strategy = BoxedStrategy<Self>;
-        fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
-            (any::<MemberElem<A>>(), any_with::<RangeOperator>(params))
-                .prop_map(|(base, op)| Self { base, op })
-                .boxed()
-        }
-    }
-
     /// RPSL names that can appear as the base of a member element in the `members`
     /// or `mp-members` attribute of a `route-set` object.
     /// See [RFC2622] and [RFC4012].
@@ -209,23 +210,50 @@ mod route_set {
     }
 
     #[cfg(any(test, feature = "arbitrary"))]
-    impl<A> Arbitrary for MemberElem<A>
-    where
-        A: MemberAfi + fmt::Debug + Clone + 'static,
-        A::Prefix: Arbitrary,
-    {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-        fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-            prop_oneof![
-                any::<IpPrefix<A>>().prop_map(Self::Prefix),
-                Just(Self::RsAny),
-                Just(Self::AsAny),
-                any::<RouteSet>().prop_map(Self::RouteSet),
-                any::<AsSet>().prop_map(Self::AsSet),
-                any::<AutNum>().prop_map(Self::AutNum),
-            ]
-            .boxed()
+    mod arbitrary {
+        use core::fmt;
+
+        use proptest::{
+            arbitrary::{any, any_with, Arbitrary, ParamsFor},
+            prop_oneof,
+            strategy::{BoxedStrategy, Just, Strategy as _},
+        };
+
+        use super::{
+            AsSet, AutNum, IpPrefix, Member, MemberAfi, MemberElem, RangeOperator, RouteSet,
+        };
+
+        impl<A> Arbitrary for Member<A>
+        where
+            A: MemberAfi + fmt::Debug + Clone + 'static,
+            A::Prefix: Arbitrary,
+        {
+            type Parameters = ParamsFor<RangeOperator>;
+            type Strategy = BoxedStrategy<Self>;
+            fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
+                (any::<MemberElem<A>>(), any_with::<RangeOperator>(params))
+                    .prop_map(|(base, op)| Self { base, op })
+                    .boxed()
+            }
+        }
+        impl<A> Arbitrary for MemberElem<A>
+        where
+            A: MemberAfi + fmt::Debug + Clone + 'static,
+            A::Prefix: Arbitrary,
+        {
+            type Parameters = ();
+            type Strategy = BoxedStrategy<Self>;
+            fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+                prop_oneof![
+                    any::<IpPrefix<A>>().prop_map(Self::Prefix),
+                    Just(Self::RsAny),
+                    Just(Self::AsAny),
+                    any::<RouteSet>().prop_map(Self::RouteSet),
+                    any::<AsSet>().prop_map(Self::AsSet),
+                    any::<AutNum>().prop_map(Self::AutNum),
+                ]
+                .boxed()
+            }
         }
     }
 }
@@ -245,7 +273,12 @@ pub type RtrSetMember = self::rtr_set::Member<Ipv4>;
 pub type RtrSetMpMember = self::rtr_set::Member<Any>;
 
 mod rtr_set {
-    use super::*;
+    use core::fmt;
+
+    use super::{
+        debug_construction, impl_from_str, rule_mismatch, Any, InetRtr, IpAddress, Ipv4,
+        ParseError, ParseResult, ParserAfi, ParserRule, RtrSet, TokenPair,
+    };
 
     pub trait MemberAfi: ParserAfi {
         /// Address family specific [`ParserRule`] for `rtr-set` member items.
@@ -301,20 +334,32 @@ mod rtr_set {
     }
 
     #[cfg(any(test, feature = "arbitrary"))]
-    impl<A> Arbitrary for Member<A>
-    where
-        A: MemberAfi + fmt::Debug + Clone + 'static,
-        A::Address: Arbitrary,
-    {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-        fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-            prop_oneof![
-                any::<IpAddress<A>>().prop_map(Self::Addr),
-                any::<InetRtr>().prop_map(Self::InetRtr),
-                any::<RtrSet>().prop_map(Self::RtrSet),
-            ]
-            .boxed()
+    mod arbitrary {
+        use core::fmt;
+
+        use proptest::{
+            arbitrary::{any, Arbitrary},
+            prop_oneof,
+            strategy::{BoxedStrategy, Strategy as _},
+        };
+
+        use super::{InetRtr, IpAddress, Member, MemberAfi, RtrSet};
+
+        impl<A> Arbitrary for Member<A>
+        where
+            A: MemberAfi + fmt::Debug + Clone + 'static,
+            A::Address: Arbitrary,
+        {
+            type Parameters = ();
+            type Strategy = BoxedStrategy<Self>;
+            fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+                prop_oneof![
+                    any::<IpAddress<A>>().prop_map(Self::Addr),
+                    any::<InetRtr>().prop_map(Self::InetRtr),
+                    any::<RtrSet>().prop_map(Self::RtrSet),
+                ]
+                .boxed()
+            }
         }
     }
 }

@@ -7,8 +7,8 @@ use ip::{Any, Ipv4};
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
+    containers::ListOf,
     error::{ParseError, ParseResult},
-    list::ListOf,
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },
@@ -415,7 +415,7 @@ impl<A: StmtAfi, P: Policy<A>> fmt::Display for Term<A, P> {
             write!(f, "{{")?;
             self.0
                 .iter()
-                .try_for_each(|factor| write!(f, " {};", factor))?;
+                .try_for_each(|factor| write!(f, " {factor};"))?;
             write!(f, " }}")
         }
     }
@@ -489,9 +489,9 @@ impl<A: StmtAfi, P: Policy<A>> fmt::Display for Factor<A, P> {
         self.peerings
             .iter()
             .try_for_each(|(peering_expr, action_expr)| {
-                write!(f, "{} {} ", P::PEER_DIRECTION, peering_expr)?;
+                write!(f, "{} {peering_expr} ", P::PEER_DIRECTION)?;
                 if let Some(action_expr) = action_expr {
-                    write!(f, "ACTION {} ", action_expr)?;
+                    write!(f, "ACTION {action_expr} ")?;
                 }
                 Ok(())
             })?;

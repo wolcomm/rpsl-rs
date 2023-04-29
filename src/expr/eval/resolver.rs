@@ -23,7 +23,7 @@ where
         result.map_err(|err| {
             EvaluationError::new_from(
                 EvaluationErrorKind::Resolution,
-                format!("error while resolving named prefix set {:?}", item),
+                format!("error while resolving named prefix set {item:?}"),
                 Some(err),
             )
         })

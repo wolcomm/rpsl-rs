@@ -3,8 +3,8 @@ use std::fmt;
 use ip::{Any, Ipv4};
 
 use crate::{
+    containers::ListOf,
     error::{ParseError, ParseResult},
-    list::ListOf,
     names::{InetRtr, PeeringSet, RtrSet},
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
@@ -113,7 +113,7 @@ where
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum PeerSpec<A: ExprAfi> {
+pub(crate) enum PeerSpec<A: ExprAfi> {
     Addr(IpAddress<A>),
     InetRtr(InetRtr),
     RtrSet(RtrSet),

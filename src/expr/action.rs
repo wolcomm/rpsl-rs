@@ -4,8 +4,8 @@ use std::fmt;
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
+    containers::ListOf,
     error::{ParseError, ParseResult},
-    list::ListOf,
     parser::{
         debug_construction, impl_case_insensitive_str_primitive, impl_from_str, next_into_or,
         rule_mismatch, ParserRule, TokenPair,
@@ -205,7 +205,7 @@ impl Arbitrary for MethodStmt {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Property {
+pub(crate) enum Property {
     Pref,
     Med,
     Dpa,
@@ -270,13 +270,13 @@ impl Arbitrary for Property {
 }
 
 #[derive(Clone, Debug)]
-pub struct UnknownProperty(String);
+pub(crate) struct UnknownProperty(String);
 impl_case_insensitive_str_primitive!(ParserRule::rp_unknown => UnknownProperty);
 #[cfg(any(test, feature = "arbitrary"))]
 impl_rpsl_name_arbitrary!(UnknownProperty);
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-pub enum Operator {
+pub(crate) enum Operator {
     Assign,
     Append,
     LshAssign,
@@ -371,7 +371,7 @@ impl_case_insensitive_str_primitive!(ParserRule::action_meth => Method);
 impl_rpsl_name_arbitrary!(Method);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Value {
+pub(crate) enum Value {
     Unit(String),
     List(Box<ListOf<Value>>),
 }
@@ -416,6 +416,7 @@ impl Arbitrary for Value {
     }
 }
 
+// TODO
 // #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 // pub enum Value {
 //     EmailAddr(EmailAddress),

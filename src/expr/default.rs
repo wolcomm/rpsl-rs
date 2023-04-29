@@ -3,8 +3,8 @@ use std::fmt;
 use ip::{Any, Ipv4};
 
 use crate::{
+    containers::ListOf,
     error::{ParseError, ParseResult},
-    list::ListOf,
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,
     },

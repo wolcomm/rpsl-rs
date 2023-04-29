@@ -8,9 +8,6 @@ use crate::{
     parser::{debug_construction, impl_from_str, rule_mismatch, ParserRule, TokenPair},
 };
 
-#[cfg(any(test, feature = "arbitrary"))]
-use proptest::prelude::*;
-
 mod macros;
 
 use self::macros::rpsl_object_class;
@@ -109,30 +106,43 @@ impl fmt::Display for RpslObject {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-impl Arbitrary for RpslObject {
-    type Parameters = ();
-    type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        prop_oneof![
-            any::<Mntner>().prop_map(Self::Mntner),
-            any::<Person>().prop_map(Self::Person),
-            any::<Role>().prop_map(Self::Role),
-            any::<KeyCert>().prop_map(Self::KeyCert),
-            any::<AsBlock>().prop_map(Self::AsBlock),
-            any::<AutNum>().prop_map(Self::AutNum),
-            any::<InetNum>().prop_map(Self::InetNum),
-            any::<Inet6Num>().prop_map(Self::Inet6Num),
-            any::<Route>().prop_map(Self::Route),
-            any::<Route6>().prop_map(Self::Route6),
-            any::<AsSet>().prop_map(Self::AsSet),
-            any::<RouteSet>().prop_map(Self::RouteSet),
-            any::<FilterSet>().prop_map(Self::FilterSet),
-            any::<RtrSet>().prop_map(Self::RtrSet),
-            any::<PeeringSet>().prop_map(Self::PeeringSet),
-            any::<InetRtr>().prop_map(Self::InetRtr),
-            any::<Dictionary>().prop_map(Self::Dictionary),
-        ]
-        .boxed()
+mod arbitrary {
+    use proptest::{
+        arbitrary::{any, Arbitrary},
+        prop_oneof,
+        strategy::{BoxedStrategy, Strategy as _},
+    };
+
+    use super::{
+        AsBlock, AsSet, AutNum, Dictionary, FilterSet, Inet6Num, InetNum, InetRtr, KeyCert, Mntner,
+        PeeringSet, Person, Role, Route, Route6, RouteSet, RpslObject, RtrSet,
+    };
+
+    impl Arbitrary for RpslObject {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+            prop_oneof![
+                any::<Mntner>().prop_map(Self::Mntner),
+                any::<Person>().prop_map(Self::Person),
+                any::<Role>().prop_map(Self::Role),
+                any::<KeyCert>().prop_map(Self::KeyCert),
+                any::<AsBlock>().prop_map(Self::AsBlock),
+                any::<AutNum>().prop_map(Self::AutNum),
+                any::<InetNum>().prop_map(Self::InetNum),
+                any::<Inet6Num>().prop_map(Self::Inet6Num),
+                any::<Route>().prop_map(Self::Route),
+                any::<Route6>().prop_map(Self::Route6),
+                any::<AsSet>().prop_map(Self::AsSet),
+                any::<RouteSet>().prop_map(Self::RouteSet),
+                any::<FilterSet>().prop_map(Self::FilterSet),
+                any::<RtrSet>().prop_map(Self::RtrSet),
+                any::<PeeringSet>().prop_map(Self::PeeringSet),
+                any::<InetRtr>().prop_map(Self::InetRtr),
+                any::<Dictionary>().prop_map(Self::Dictionary),
+            ]
+            .boxed()
+        }
     }
 }
 
@@ -168,6 +178,10 @@ pub trait RpslObjectClass: Sized {
 
     /// Create a new instance of [`Self`], validating its attributes in the
     /// process.
+    ///
+    /// # Errors
+    ///
+    /// See [`RpslObjectClass::validate`].
     fn new<I>(name: Self::Name, iter: I) -> ValidationResult<Self>
     where
         I: IntoIterator<Item = RpslAttribute>;
@@ -178,8 +192,17 @@ pub trait RpslObjectClass: Sized {
     /// Get the attributes of the object.
     fn attrs(&self) -> &AttributeSeq;
 
-    /// Validate that an interator of [`RpslAttribute`]s yields can be used to
+    /// Validate that an iterator of [`RpslAttribute`]s yields can be used to
     /// construct a valid instance of [`Self`].
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`ValidationError`] if the construction rules for `Self` are
+    /// violated:
+    ///
+    /// - All mandatory attributes are present in `attrs`;
+    /// - No disallowed attributes are present in `attrs`; and
+    /// - Non-multivalued attributes are present at most once in `attrs`.
     fn validate<I>(attrs: I) -> ValidationResult<AttributeSeq>
     where
         I: IntoIterator<Item = RpslAttribute>,

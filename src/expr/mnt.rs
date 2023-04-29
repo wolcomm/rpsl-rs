@@ -6,8 +6,8 @@ use ip::Any;
 use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use crate::{
+    containers::ListOf,
     error::{ParseError, ParseResult},
-    list::ListOf,
     names::Mntner,
     parser::{
         debug_construction, impl_from_str, next_into_or, rule_mismatch, ParserRule, TokenPair,

@@ -5,6 +5,7 @@ use ip::{Ipv4, Ipv6};
 use strum::EnumDiscriminants;
 
 use crate::{
+    containers::ListOf,
     error::{ParseError, ParseResult},
     expr::{
         AggrMtdExpr, AsExpr, AsSetMember, AuthExpr, ChangedExpr, Components6Expr, ComponentsExpr,
@@ -13,7 +14,6 @@ use crate::{
         MpPeerExpr, MpPeeringExpr, PeerExpr, PeeringExpr, ReclaimExpr, RouteSetMember,
         RouteSetMpMember, RtrSetMember, RtrSetMpMember,
     },
-    list::ListOf,
     names,
     parser::{debug_construction, next_into_or, rule_mismatch, ParserRule, TokenPair},
     primitive::{
@@ -22,9 +22,6 @@ use crate::{
         SigningMethod, TelNumber, Trouble,
     },
 };
-
-#[cfg(any(test, feature = "arbitrary"))]
-use proptest::prelude::*;
 
 /// Enumeration of RPSL attribute types.
 #[derive(Clone, Debug, EnumDiscriminants, Hash, PartialEq, Eq)]
@@ -543,7 +540,25 @@ impl fmt::Display for RpslAttribute {
 }
 
 #[cfg(any(test, feature = "arbitrary"))]
-macro_rules! arbitrary_variants {
+mod arbitrary {
+    use proptest::{
+        arbitrary::{any, Arbitrary},
+        prop_oneof,
+        strategy::{BoxedStrategy, Strategy as _},
+    };
+
+    use super::{
+        names, Address, AggrMtdExpr, AsExpr, AsName, AsSetMember, AttributeType, AuthExpr,
+        Certificate, ChangedExpr, Components6Expr, ComponentsExpr, CountryCode, Date, DefaultExpr,
+        DnsName, EmailAddress, ExportExpr, FilterExpr, Fingerprint, IfaddrExpr, ImportExpr,
+        Inject6Expr, InjectExpr, InterfaceExpr, IpAddress, IpPrefix, Ipv4, Ipv6, KeyOwner, ListOf,
+        MntRoutesExpr, MpDefaultExpr, MpExportExpr, MpFilterExpr, MpImportExpr, MpPeerExpr,
+        MpPeeringExpr, Netname, NicHdl, ObjectDescr, PeerExpr, PeeringExpr, ReclaimExpr,
+        RegistryName, Remarks, RouteSetMember, RouteSetMpMember, RpslAttribute, RtrSetMember,
+        RtrSetMpMember, SigningMethod, TelNumber, Trouble,
+    };
+
+    macro_rules! arbitrary_variants {
     ( $( $variant:ident($contents:ty) );* $(;)? ) => {
         paste::paste! {
             impl RpslAttribute {
@@ -569,85 +584,84 @@ macro_rules! arbitrary_variants {
     }
 }
 
-#[cfg(any(test, feature = "arbitrary"))]
-arbitrary_variants! {
-    Descr(ObjectDescr);
-    TechC(NicHdl);
-    AdminC(NicHdl);
-    Remarks(Remarks);
-    Notify(EmailAddress);
-    MntBy(ListOf<names::Mntner>);
-    Changed(ChangedExpr);
-    Source(RegistryName);
-    MntRoutes(MntRoutesExpr);
-    MntLower(ListOf<names::Mntner>);
-    Reclaim(ReclaimExpr);
-    NoReclaim(ReclaimExpr);
-    ReferralBy(names::Mntner);
-    AuthOverride(Date);
-    NicHdl(NicHdl);
-    Address(Address);
-    Phone(TelNumber);
-    FaxNo(TelNumber);
-    EMail(EmailAddress);
-    MbrsByRef(ListOf<names::Mntner>);
-    Auth(AuthExpr);
-    UpdTo(EmailAddress);
-    MntNfy(EmailAddress);
-    Trouble(Trouble);
-    Method(SigningMethod);
-    Owner(KeyOwner);
-    Fingerpr(Fingerprint);
-    Certif(Certificate);
-    AsName(AsName);
-    AutNumMemberOf(ListOf<names::AsSet>);
-    Import(ImportExpr);
-    MpImport(MpImportExpr);
-    Export(ExportExpr);
-    MpExport(MpExportExpr);
-    Default(DefaultExpr);
-    MpDefault(MpDefaultExpr);
-    Netname(Netname);
-    Country(CountryCode);
-    Origin(names::AutNum);
-    RouteMemberOf(ListOf<names::RouteSet>);
-    Inject(InjectExpr);
-    Inject6(Inject6Expr);
-    Components(ComponentsExpr);
-    Components6(Components6Expr);
-    AggrBndry(AsExpr);
-    AggrMtd(AggrMtdExpr);
-    ExportComps(FilterExpr);
-    ExportComps6(MpFilterExpr);
-    Holes(ListOf<IpPrefix<Ipv4>>);
-    Holes6(ListOf<IpPrefix<Ipv6>>);
-    Pingable4(IpAddress<Ipv4>);
-    Pingable6(IpAddress<Ipv6>);
-    PingHdl(NicHdl);
-    AsSetMembers(ListOf<AsSetMember>);
-    RouteSetMembers(ListOf<RouteSetMember>);
-    RouteSetMpMembers(ListOf<RouteSetMpMember>);
-    Filter(FilterExpr);
-    MpFilter(MpFilterExpr);
-    RtrSetMembers(ListOf<RtrSetMember>);
-    RtrSetMpMembers(ListOf<RtrSetMpMember>);
-    Peering(PeeringExpr);
-    MpPeering(MpPeeringExpr);
-    Alias(DnsName);
-    LocalAs(names::AutNum);
-    Ifaddr(IfaddrExpr);
-    Interface(InterfaceExpr);
-    Peer(PeerExpr);
-    MpPeer(MpPeerExpr);
-    InetRtrMemberOf(ListOf<names::RtrSet>);
-}
+    arbitrary_variants! {
+        Descr(ObjectDescr);
+        TechC(NicHdl);
+        AdminC(NicHdl);
+        Remarks(Remarks);
+        Notify(EmailAddress);
+        MntBy(ListOf<names::Mntner>);
+        Changed(ChangedExpr);
+        Source(RegistryName);
+        MntRoutes(MntRoutesExpr);
+        MntLower(ListOf<names::Mntner>);
+        Reclaim(ReclaimExpr);
+        NoReclaim(ReclaimExpr);
+        ReferralBy(names::Mntner);
+        AuthOverride(Date);
+        NicHdl(NicHdl);
+        Address(Address);
+        Phone(TelNumber);
+        FaxNo(TelNumber);
+        EMail(EmailAddress);
+        MbrsByRef(ListOf<names::Mntner>);
+        Auth(AuthExpr);
+        UpdTo(EmailAddress);
+        MntNfy(EmailAddress);
+        Trouble(Trouble);
+        Method(SigningMethod);
+        Owner(KeyOwner);
+        Fingerpr(Fingerprint);
+        Certif(Certificate);
+        AsName(AsName);
+        AutNumMemberOf(ListOf<names::AsSet>);
+        Import(ImportExpr);
+        MpImport(MpImportExpr);
+        Export(ExportExpr);
+        MpExport(MpExportExpr);
+        Default(DefaultExpr);
+        MpDefault(MpDefaultExpr);
+        Netname(Netname);
+        Country(CountryCode);
+        Origin(names::AutNum);
+        RouteMemberOf(ListOf<names::RouteSet>);
+        Inject(InjectExpr);
+        Inject6(Inject6Expr);
+        Components(ComponentsExpr);
+        Components6(Components6Expr);
+        AggrBndry(AsExpr);
+        AggrMtd(AggrMtdExpr);
+        ExportComps(FilterExpr);
+        ExportComps6(MpFilterExpr);
+        Holes(ListOf<IpPrefix<Ipv4>>);
+        Holes6(ListOf<IpPrefix<Ipv6>>);
+        Pingable4(IpAddress<Ipv4>);
+        Pingable6(IpAddress<Ipv6>);
+        PingHdl(NicHdl);
+        AsSetMembers(ListOf<AsSetMember>);
+        RouteSetMembers(ListOf<RouteSetMember>);
+        RouteSetMpMembers(ListOf<RouteSetMpMember>);
+        Filter(FilterExpr);
+        MpFilter(MpFilterExpr);
+        RtrSetMembers(ListOf<RtrSetMember>);
+        RtrSetMpMembers(ListOf<RtrSetMpMember>);
+        Peering(PeeringExpr);
+        MpPeering(MpPeeringExpr);
+        Alias(DnsName);
+        LocalAs(names::AutNum);
+        Ifaddr(IfaddrExpr);
+        Interface(InterfaceExpr);
+        Peer(PeerExpr);
+        MpPeer(MpPeerExpr);
+        InetRtrMemberOf(ListOf<names::RtrSet>);
+    }
 
-#[cfg(any(test, feature = "arbitrary"))]
-impl Arbitrary for RpslAttribute {
-    type Parameters = ();
-    type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        Self::any_arbitrary_variant()
+    impl Arbitrary for RpslAttribute {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+        fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+            Self::any_arbitrary_variant()
+        }
     }
 }
 
@@ -674,6 +688,6 @@ impl<'a> IntoIterator for &'a AttributeSeq {
 
 impl fmt::Display for AttributeSeq {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.iter().try_for_each(|attr| writeln!(f, "{}", attr))
+        self.0.iter().try_for_each(|attr| writeln!(f, "{attr}"))
     }
 }

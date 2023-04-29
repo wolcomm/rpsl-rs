@@ -250,7 +250,7 @@ where
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum TunnelEncaps {
+pub(crate) enum TunnelEncaps {
     Gre,
     IpInIp,
 }

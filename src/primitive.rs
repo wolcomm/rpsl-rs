@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::str::FromStr;
 
@@ -21,8 +20,11 @@ use crate::{
 #[cfg(any(test, feature = "arbitrary"))]
 use self::arbitrary::{impl_free_form_arbitrary, impl_rpsl_name_arbitrary, prop_filter_keywords};
 
+/// Address-family classes for which IP address parsing is implemented.
 pub trait ParserAfi: AfiClass + 'static {
+    /// Address family specific [`ParserRule`] for IP addresses.
     const LITERAL_ADDR_RULE: ParserRule;
+    /// Address family specific [`ParserRule`] for IP prefixes.
     const LITERAL_PREFIX_RULE: ParserRule;
 }
 impl ParserAfi for Ipv4 {
@@ -45,10 +47,12 @@ pub struct IpAddress<A: ParserAfi> {
 }
 
 impl<A: ParserAfi> IpAddress<A> {
+    /// Construct a new [`Self`].
     pub const fn new(address: A::Address) -> Self {
         Self { inner: address }
     }
 
+    /// Extract the underlying [`A::Address`][ip::traits::Address] value, consuming `self`.
     pub const fn into_inner(self) -> A::Address {
         self.inner
     }
@@ -101,10 +105,12 @@ pub struct IpPrefix<A: ParserAfi> {
 }
 
 impl<A: ParserAfi> IpPrefix<A> {
+    /// Construct a new [`Self`].
     pub const fn new(prefix: A::Prefix) -> Self {
         Self { inner: prefix }
     }
 
+    /// Extract the underlying [`A::Prefix`][ip::traits::Prefix] value, consuming `self`.
     pub const fn into_inner(self) -> A::Prefix {
         self.inner
     }
@@ -435,7 +441,7 @@ impl Arbitrary for EmailAddress {
     type Strategy = BoxedStrategy<Self>;
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
         (any::<DnsName>(), any::<DnsName>())
-            .prop_map(|(user, host)| format!("{}@{}", user, host))
+            .prop_map(|(user, host)| format!("{user}@{host}"))
             .prop_map(Self)
             .boxed()
     }
@@ -974,7 +980,8 @@ impl Arbitrary for Safi {
 /// Helpers for implementing [`Arbitrary`] for primitive types.
 #[cfg(any(test, feature = "arbitrary"))]
 pub mod arbitrary {
-    use super::*;
+    use proptest::strategy::Strategy;
+
     use regex::RegexSetBuilder;
 
     /// Filter the values yielded by a [`Strategy<Value = String>`] for

@@ -14,10 +14,20 @@ mod error;
 use self::error::{EvaluationError, EvaluationErrorKind, EvaluationErrors, EvaluationResult};
 
 mod resolver;
-use self::resolver::{map_errors, Resolver, ResolverError};
+pub use self::resolver::Resolver;
+use self::resolver::{map_errors, ResolverError};
 
+/// An object capable of evaluating arbitrary RPSL expressions.
+pub trait Evaluator: Sized {
+    /// Evaluate an RPSL expression.
+    fn evaluate<T: Evaluate<Self>>(&mut self, expr: T) -> Evaluated<Self, T> {
+        expr.evaluate(self)
+    }
+}
+
+/// The value produced by evaluating an RPSL expression `T`.
 #[derive(Debug)]
-struct Evaluated<R, T: Evaluate<R>> {
+pub struct Evaluated<R, T: Evaluate<R>> {
     output: T::Output,
     errors: EvaluationErrors,
 }
@@ -41,6 +51,7 @@ where
     }
 }
 
+#[allow(clippy::missing_const_for_fn)]
 impl<R, T: Evaluate<R>> Evaluated<R, T> {
     fn new(output: T::Output, errors: Option<EvaluationErrors>) -> Self {
         Self {
@@ -49,14 +60,17 @@ impl<R, T: Evaluate<R>> Evaluated<R, T> {
         }
     }
 
+    /// Get a reference to the output of the evaluation.
     pub const fn output(&self) -> &T::Output {
         &self.output
     }
 
+    /// Extract the evaluation output, consuming `self`.
     pub fn into_output(self) -> T::Output {
         self.output
     }
 
+    /// Get an iterator over the errors produced during the evaluation.
     pub const fn errors(&self) -> &EvaluationErrors {
         &self.errors
     }
@@ -169,7 +183,7 @@ where
     }
 }
 
-trait Evaluate<R>: Sized {
+pub trait Evaluate<R>: Sized {
     type Output;
     fn evaluate(self, resolver: &mut R) -> Evaluated<R, Self>;
 }

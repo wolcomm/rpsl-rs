@@ -601,7 +601,7 @@ impl Arbitrary for AsPathRegexpElem {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum AsPathRegexpComponent {
+pub(crate) enum AsPathRegexpComponent {
     AutNum(AutNum),
     AsSet(AsSet),
     Any,
@@ -712,7 +712,7 @@ impl Arbitrary for AsPathRegexpComponent {
 
 #[allow(variant_size_differences)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum AsPathRegexpComponentSetMember {
+pub(crate) enum AsPathRegexpComponentSetMember {
     AutNum(AutNum),
     AsSet(AsSet),
     AsRange(AutNum, AutNum),

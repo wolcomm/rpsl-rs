@@ -11,7 +11,6 @@ use crate::{
 /// Ordered list of RPSL expressions or names. See [RFC2622].
 ///
 /// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-2
-#[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ListOf<T>(Vec<T>);
 

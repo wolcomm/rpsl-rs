@@ -2,7 +2,7 @@ use proptest::{arbitrary::ParamsFor, prelude::*};
 
 use ip::{Any, Ipv4};
 
-use crate::{list::ListOf, primitive::AfiSafi};
+use crate::{containers::ListOf, primitive::AfiSafi};
 
 use super::{default, policy};
 
