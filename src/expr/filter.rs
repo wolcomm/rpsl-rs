@@ -13,7 +13,7 @@ use crate::{
         debug_construction, impl_from_str, next_into_or, next_parse_or, rule_mismatch, ParserRule,
         TokenPair,
     },
-    primitive::{IpPrefixRange, ParserAfi, RangeOperator},
+    primitive::{IpPrefixRange, ParserAfi, PeerAs, RangeOperator},
 };
 
 use super::action;
@@ -392,7 +392,7 @@ pub enum NamedPrefixSet<A: ExprAfi> {
     /// The `AS-ANY` token.
     AsAny,
     /// The `PeerAS` token.
-    PeerAs,
+    PeerAs(PeerAs),
     /// A `route-set` name.
     RouteSet(RouteSet, PhantomData<A>),
     /// An `as-set` name.
@@ -409,7 +409,7 @@ impl<A: ExprAfi> TryFrom<TokenPair<'_>> for NamedPrefixSet<A> {
         match pair.as_rule() {
             ParserRule::any_rs => Ok(Self::RsAny),
             ParserRule::any_as => Ok(Self::AsAny),
-            ParserRule::peeras => Ok(Self::PeerAs),
+            ParserRule::peeras => Ok(Self::PeerAs(PeerAs)),
             ParserRule::route_set => Ok(Self::RouteSet(pair.try_into()?, PhantomData)),
             ParserRule::as_set => Ok(Self::AsSet(pair.try_into()?, PhantomData)),
             ParserRule::aut_num => Ok(Self::AutNum(pair.try_into()?, PhantomData)),
@@ -423,7 +423,7 @@ impl<A: ExprAfi> fmt::Display for NamedPrefixSet<A> {
         match self {
             Self::RsAny => write!(f, "RS-ANY"),
             Self::AsAny => write!(f, "AS-ANY"),
-            Self::PeerAs => write!(f, "PeerAS"),
+            Self::PeerAs(_) => write!(f, "PeerAS"),
             Self::RouteSet(set, _) => set.fmt(f),
             Self::AsSet(set, _) => set.fmt(f),
             Self::AutNum(autnum, _) => autnum.fmt(f),
@@ -442,7 +442,7 @@ where
         prop_oneof![
             Just(Self::RsAny),
             Just(Self::AsAny),
-            Just(Self::PeerAs),
+            Just(Self::PeerAs(PeerAs)),
             any::<RouteSet>().prop_map(|set| Self::RouteSet(set, PhantomData)),
             any::<AsSet>().prop_map(|set| Self::AsSet(set, PhantomData)),
             any::<AutNum>().prop_map(|autnum| Self::AutNum(autnum, PhantomData)),
@@ -929,7 +929,7 @@ mod tests {
             ))),
         peeras: "PeerAS" => FilterExpr:
             FilterExpr::Unit(Term::Literal(Literal::PrefixSet(
-                PrefixSetExpr::Named(NamedPrefixSet::PeerAs),
+                PrefixSetExpr::Named(NamedPrefixSet::PeerAs(PeerAs)),
                 RangeOperator::None
             ))),
         any: "RS-ANY" => FilterExpr:
@@ -994,7 +994,7 @@ mod tests {
                     PrefixSetExpr::Named(NamedPrefixSet::AsSet(vec![
                         SetNameComp::AutNum("AS65000".parse().unwrap()),
                         SetNameComp::Name("AS-FOO".into()),
-                        SetNameComp::PeerAs,
+                        SetNameComp::PeerAs(PeerAs),
                     ].into_iter().collect(), PhantomData)),
                     RangeOperator::None
                 )))
@@ -1002,7 +1002,7 @@ mod tests {
         parens_peeras: "(PeerAS)" => MpFilterExpr:
             MpFilterExpr::Unit(Term::Expr(Box::new(
                 Expr::Unit(Term::Literal(Literal::PrefixSet(
-                    PrefixSetExpr::Named(NamedPrefixSet::PeerAs),
+                    PrefixSetExpr::Named(NamedPrefixSet::PeerAs(PeerAs)),
                     RangeOperator::None
                 )))
             ))),

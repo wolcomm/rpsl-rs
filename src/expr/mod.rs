@@ -40,5 +40,5 @@ pub use self::{
     rtr::{MpRtrExpr, RtrExpr},
 };
 
-mod eval;
-pub use self::eval::{Evaluated, Evaluator, Resolver};
+/// API items for RPSL expression evaluation.
+pub mod eval;

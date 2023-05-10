@@ -305,7 +305,7 @@ pub enum SetNameComp {
     /// Component containing the name of an `aut-num`.
     AutNum(AutNum),
     /// Component containing the `PeerAS` token.
-    PeerAs,
+    PeerAs(PeerAs),
     /// Component containing a set name, according to the class of the set.
     Name(SetNameCompName),
 }
@@ -317,7 +317,7 @@ impl TryFrom<TokenPair<'_>> for SetNameComp {
         debug_construction!(pair => SetNameComp);
         match pair.as_rule() {
             ParserRule::aut_num => Ok(Self::AutNum(pair.as_str().parse()?)),
-            ParserRule::peeras => Ok(Self::PeerAs),
+            ParserRule::peeras => Ok(Self::PeerAs(PeerAs)),
             ParserRule::filter_set_name
             | ParserRule::route_set_name
             | ParserRule::as_set_name
@@ -332,7 +332,7 @@ impl fmt::Display for SetNameComp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::AutNum(autnum) => autnum.fmt(f),
-            Self::PeerAs => write!(f, "PeerAS"),
+            Self::PeerAs(_) => write!(f, "PeerAS"),
             Self::Name(name) => name.fmt(f),
         }
     }
@@ -345,12 +345,19 @@ impl Arbitrary for SetNameComp {
     fn arbitrary_with(params: Self::Parameters) -> Self::Strategy {
         prop_oneof![
             any::<AutNum>().prop_map(Self::AutNum),
-            Just(Self::PeerAs),
+            Just(Self::PeerAs(PeerAs)),
             any_with::<SetNameCompName>(params).prop_map(Self::Name),
         ]
         .boxed()
     }
 }
+
+/// '`PeerAS`' RPSL keyword token.
+/// See [RFC2622].
+///
+/// [RFC2622]: https://datatracker.ietf.org/doc/html/rfc2622#section-5.4
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct PeerAs;
 
 /// RPSL set class name component.
 /// See [RFC2622].
