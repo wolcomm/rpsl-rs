@@ -1,6 +1,6 @@
 [package]
 name = "rpsl"
-version = "0.1.0-alpha.1"
+version = "0.1.0-rc.1"
 resolver = "2"
 edition = "2021"
 authors = ["Ben Maddison <benm@workonline.africa>"]
