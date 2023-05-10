@@ -18,6 +18,7 @@ jobs:
         toolchain: [stable, nightly]
         args:
           - --lib
+          - --test evaluate
           - --test versions
         include:
           - toolchain: nightly
