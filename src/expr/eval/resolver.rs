@@ -247,14 +247,14 @@ pub trait Evaluator<'a>: Sized {
     }
 
     /// Perform the final conversion from the type returned by [`Evaluate::<Self>::evaluate`]
-    /// (i.e. [`T::Output`]) into [`Self::Output<T>`].
+    /// (i.e. `T::Output`) into [`Self::Output<T>`].
     ///
     /// # Errors
     ///
     /// If any fatal errors are encountered during conversion then the implementation should return
     /// an [`Err`] containing a [`Self::Error`].
     /// For non-fatal errors, implementations are encouraged to make use of the error handling
-    /// functionality from [`collect_result`], [`collect_results`] and [`sink_error`].
+    /// functionality from [`Self::collect_result`], [`Self::collect_results`] and [`Self::sink_error`].
     ///
     /// # Examples
     ///

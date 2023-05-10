@@ -195,14 +195,17 @@ pub enum RpslAttribute {
     #[strum_discriminants(strum(to_string = "holes"))]
     Holes6(ListOf<IpPrefix<Ipv6>>),
     /// RPSL `pingable` attribute for `route` objects. See [RFC5943].
+    ///
     /// [RFC5943]: https://datatracker.ietf.org/doc/html/rfc5943
     #[strum_discriminants(strum(to_string = "pingable"))]
     Pingable4(IpAddress<Ipv4>),
     /// RPSL `pingable` attribute for `route6` objects. See [RFC5943].
+    ///
     /// [RFC5943]: https://datatracker.ietf.org/doc/html/rfc5943
     #[strum_discriminants(strum(to_string = "pingable"))]
     Pingable6(IpAddress<Ipv6>),
     /// RPSL `ping-hdl` attribute. See [RFC5943].
+    ///
     /// [RFC5943]: https://datatracker.ietf.org/doc/html/rfc5943
     #[strum_discriminants(strum(to_string = "ping-hdl"))]
     PingHdl(NicHdl),
@@ -563,7 +566,7 @@ mod arbitrary {
         paste::paste! {
             impl RpslAttribute {
 
-                /// Return a [`Strategy`] that yields a single attribute type.
+                /// Return a [`Strategy`][proptest::strategy::Strategy] that yields a single attribute type.
                 pub fn arbitrary_variant(attr_type: AttributeType) -> BoxedStrategy<Self> {
                     match attr_type {
                         $( AttributeType::$variant => Self::[<arbitrary_ $variant:snake>](), )*

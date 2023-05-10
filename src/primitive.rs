@@ -22,9 +22,9 @@ use self::arbitrary::{impl_free_form_arbitrary, impl_rpsl_name_arbitrary, prop_f
 
 /// Address-family classes for which IP address parsing is implemented.
 pub trait ParserAfi: AfiClass + 'static {
-    /// Address family specific [`ParserRule`] for IP addresses.
+    /// Address family specific `ParserRule` for IP addresses.
     const LITERAL_ADDR_RULE: ParserRule;
-    /// Address family specific [`ParserRule`] for IP prefixes.
+    /// Address family specific `ParserRule` for IP prefixes.
     const LITERAL_PREFIX_RULE: ParserRule;
 }
 impl ParserAfi for Ipv4 {
@@ -163,17 +163,17 @@ pub struct IpPrefixRange<A: ParserAfi> {
 }
 
 impl<A: ParserAfi> IpPrefixRange<A> {
-    /// Construct a new [`PrefixRange<T>`].
+    /// Construct a new [`IpPrefixRange<A>`].
     pub const fn new(prefix: IpPrefix<A>, op: RangeOperator) -> Self {
         Self { prefix, op }
     }
 
-    /// Get the IP prefix represented by this [`PrefixRange<T>`].
+    /// Get the IP prefix represented by this [`IpPrefixRange<A>`].
     pub const fn prefix(&self) -> IpPrefix<A> {
         self.prefix
     }
 
-    /// Get the [`RangeOperator`] for this [`PrefixRange<T>`].
+    /// Get the [`RangeOperator`] for this [`IpPrefixRange<A>`].
     pub const fn operator(&self) -> RangeOperator {
         self.op
     }
@@ -895,7 +895,7 @@ impl Arbitrary for AfiSafi {
 }
 
 /// RPSL address family indicator.
-/// See [RFC4012}].
+/// See [RFC4012].
 ///
 /// [RFC4012]: https://datatracker.ietf.org/doc/html/rfc4012#section-2.1
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
