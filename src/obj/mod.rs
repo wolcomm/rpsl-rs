@@ -121,7 +121,7 @@ mod arbitrary {
     impl Arbitrary for RpslObject {
         type Parameters = ();
         type Strategy = BoxedStrategy<Self>;
-        fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
             prop_oneof![
                 any::<Mntner>().prop_map(Self::Mntner),
                 any::<Person>().prop_map(Self::Person),

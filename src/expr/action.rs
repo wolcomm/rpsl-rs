@@ -142,7 +142,7 @@ impl fmt::Display for OperatorStmt {
 impl Arbitrary for OperatorStmt {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         (any::<Property>(), any::<Operator>(), any::<Value>())
             .prop_map(|(prop, op, val)| Self { prop, op, val })
             .boxed()
@@ -343,7 +343,7 @@ impl fmt::Display for Operator {
 impl Arbitrary for Operator {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![
             Just(Self::Assign),
             Just(Self::Append),
@@ -404,7 +404,7 @@ impl fmt::Display for Value {
 impl Arbitrary for Value {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         let leaf = r"[0-9A-Za-z]+".prop_map(Self::Unit);
         leaf.prop_recursive(1, 4, 4, |unit| {
             proptest::collection::vec(unit, 0..4)

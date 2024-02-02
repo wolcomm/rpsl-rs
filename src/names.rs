@@ -86,7 +86,7 @@ impl fmt::Display for KeyCert {
 impl Arbitrary for KeyCert {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![
             "PGPKEY-[0-9A-Fa-f]+".prop_map(Self::Pgp),
             "X509-[0-9]+".prop_map(Self::X509),
@@ -215,7 +215,7 @@ impl fmt::Display for InetNum {
 impl Arbitrary for InetNum {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         any::<IpAddress<Ipv4>>()
             .prop_flat_map(|lower| {
                 let upper = (lower.into_inner().into_primitive()..)
@@ -265,7 +265,7 @@ impl fmt::Display for Inet6Num {
 impl Arbitrary for Inet6Num {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         any::<IpAddress<Ipv6>>()
             .prop_flat_map(|lower| {
                 let upper = (lower.into_inner().into_primitive()..)
@@ -309,7 +309,7 @@ impl fmt::Display for Route {
 impl Arbitrary for Route {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         any::<IpPrefix<Ipv4>>().prop_map(Self).boxed()
     }
 }
@@ -346,7 +346,7 @@ impl fmt::Display for Route6 {
 impl Arbitrary for Route6 {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         any::<IpPrefix<Ipv6>>().prop_map(Self).boxed()
     }
 }
@@ -363,7 +363,7 @@ impl_from_str!(ParserRule::inet_rtr => InetRtr);
 impl Arbitrary for InetRtr {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_filter_keywords(any::<DnsName>().prop_map(|dns_name| dns_name.to_string()))
             .prop_map(Self)
             .boxed()
@@ -427,6 +427,7 @@ macro_rules! impl_into_iter_set_comps {
             }
         }
 
+        #[allow(clippy::into_iter_without_iter)]
         impl<'a> IntoIterator for &'a $t {
             type IntoIter = std::slice::Iter<'a, $item>;
             type Item = &'a $item;

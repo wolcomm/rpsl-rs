@@ -662,7 +662,7 @@ mod arbitrary {
     impl Arbitrary for RpslAttribute {
         type Parameters = ();
         type Strategy = BoxedStrategy<Self>;
-        fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
             Self::any_arbitrary_variant()
         }
     }
@@ -671,6 +671,14 @@ mod arbitrary {
 /// An ordered sequence of RPSL attributes.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct AttributeSeq(Vec<RpslAttribute>);
+
+impl AttributeSeq {
+    /// Get a by-reference iterator over the RPSL attributes in `self`.
+    #[must_use]
+    pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
+        self.into_iter()
+    }
+}
 
 impl FromIterator<RpslAttribute> for AttributeSeq {
     fn from_iter<I>(iter: I) -> Self

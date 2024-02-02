@@ -193,7 +193,7 @@ impl fmt::Display for NeverTunnel {
 impl Arbitrary for NeverTunnel {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         panic!("Tried to construct a NeverTunnel")
     }
 }
@@ -281,7 +281,7 @@ impl fmt::Display for TunnelEncaps {
 impl Arbitrary for TunnelEncaps {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![Just(Self::Gre), Just(Self::IpInIp),].boxed()
     }
 }

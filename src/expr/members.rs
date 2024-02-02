@@ -67,7 +67,7 @@ mod as_set {
         impl Arbitrary for Member {
             type Parameters = ();
             type Strategy = BoxedStrategy<Self>;
-            fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+            fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
                 prop_oneof![
                     any::<AutNum>().prop_map(Self::AutNum),
                     any::<AsSet>().prop_map(Self::AsSet),
@@ -243,7 +243,7 @@ mod route_set {
         {
             type Parameters = ();
             type Strategy = BoxedStrategy<Self>;
-            fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+            fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
                 prop_oneof![
                     any::<IpPrefix<A>>().prop_map(Self::Prefix),
                     Just(Self::RsAny),
@@ -352,7 +352,7 @@ mod rtr_set {
         {
             type Parameters = ();
             type Strategy = BoxedStrategy<Self>;
-            fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+            fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
                 prop_oneof![
                     any::<IpAddress<A>>().prop_map(Self::Addr),
                     any::<InetRtr>().prop_map(Self::InetRtr),

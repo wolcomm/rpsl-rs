@@ -446,7 +446,7 @@ impl_case_insensitive_str_primitive!(ParserRule::email_addr => EmailAddress);
 impl Arbitrary for EmailAddress {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         (any::<DnsName>(), any::<DnsName>())
             .prop_map(|(user, host)| format!("{user}@{host}"))
             .prop_map(Self)
@@ -466,7 +466,7 @@ impl_case_insensitive_str_primitive!(ParserRule::tel_number => TelNumber);
 impl Arbitrary for TelNumber {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         r"\+[0-9][0-9 ]*( ext\. [0-9]+)?".prop_map(Self).boxed()
     }
 }
@@ -534,7 +534,7 @@ impl_case_insensitive_str_primitive!(ParserRule::key_fingerprint => Fingerprint)
 impl Arbitrary for Fingerprint {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         r"[0-9A-Fa-f]+".prop_map(Self).boxed()
     }
 }
@@ -580,7 +580,7 @@ impl_case_insensitive_str_primitive!(ParserRule::country_code => CountryCode);
 impl Arbitrary for CountryCode {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         r"[A-Za-z]{2}".prop_map(Self).boxed()
     }
 }
@@ -597,7 +597,7 @@ impl_case_insensitive_str_primitive!(ParserRule::dns_name => DnsName);
 impl Arbitrary for DnsName {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_filter_keywords(r"[A-Za-z][0-9A-Za-z_-]*(\.[A-Za-z][0-9A-Za-z_-]*)*")
             .prop_map(Self)
             .boxed()
@@ -648,7 +648,7 @@ impl fmt::Display for Date {
 impl Arbitrary for Date {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         (time::macros::date!(0000 - 01 - 01).to_julian_day()..time::Date::MAX.to_julian_day())
             .prop_map(|day| Self(time::Date::from_julian_day(day).unwrap()))
             .boxed()
@@ -693,7 +693,7 @@ impl fmt::Display for SigningMethod {
 impl Arbitrary for SigningMethod {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![Just(Self::Pgp), Just(Self::X509)].boxed()
     }
 }
@@ -784,7 +784,7 @@ impl fmt::Display for Protocol {
 impl Arbitrary for Protocol {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![
             Just(Self::Bgp4),
             Just(Self::MpBgp),
@@ -834,7 +834,7 @@ impl_case_insensitive_str_primitive!(ParserRule::peer_opt_val => PeerOptVal);
 impl Arbitrary for PeerOptVal {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         r"[^\);\pC]+".prop_map(Self).boxed()
     }
 }
@@ -936,7 +936,7 @@ impl fmt::Display for Afi {
 impl Arbitrary for Afi {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![Just(Self::Ipv4), Just(Self::Ipv6), Just(Self::Any)].boxed()
     }
 }
@@ -979,7 +979,7 @@ impl fmt::Display for Safi {
 impl Arbitrary for Safi {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![Just(Self::Unicast), Just(Self::Multicast)].boxed()
     }
 }
@@ -993,6 +993,7 @@ pub mod arbitrary {
 
     /// Filter the values yielded by a [`Strategy<Value = String>`] for
     /// reserved RPSL keywords.
+    #[allow(clippy::missing_panics_doc)]
     pub fn prop_filter_keywords<S>(strategy: S) -> impl Strategy<Value = String>
     where
         S: Strategy<Value = String>,

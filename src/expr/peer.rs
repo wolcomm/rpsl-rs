@@ -154,7 +154,7 @@ where
 {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![
             any::<IpAddress<A>>().prop_map(Self::Addr),
             any::<InetRtr>().prop_map(Self::InetRtr),

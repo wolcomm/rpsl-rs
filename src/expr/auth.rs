@@ -84,7 +84,7 @@ impl fmt::Display for AuthExpr {
 impl Arbitrary for AuthExpr {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![
             Just(Self::None),
             any::<EmailAddressRegex>().prop_map(Self::Mail),

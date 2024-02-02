@@ -438,7 +438,7 @@ where
 {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![
             Just(Self::RsAny),
             Just(Self::AsAny),
@@ -682,7 +682,7 @@ impl fmt::Display for AsPathRegexpComponent {
 impl Arbitrary for AsPathRegexpComponent {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![
             any::<AutNum>().prop_map(Self::AutNum),
             any::<AsSet>().prop_map(Self::AsSet),
@@ -752,7 +752,7 @@ impl fmt::Display for AsPathRegexpComponentSetMember {
 impl Arbitrary for AsPathRegexpComponentSetMember {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![
             any::<AutNum>().prop_map(Self::AutNum),
             any::<AsSet>().prop_map(Self::AsSet),
@@ -842,7 +842,7 @@ impl fmt::Display for AsPathRegexpOp {
 impl Arbitrary for AsPathRegexpOp {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         prop_oneof![
             Just(Self::Optional),
             Just(Self::Any),

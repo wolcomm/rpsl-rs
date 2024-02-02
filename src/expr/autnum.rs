@@ -82,7 +82,7 @@ impl fmt::Display for Expr {
 impl Arbitrary for Expr {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         let term = any::<Term>();
         any::<Term>()
             .prop_map(Self::Unit)
@@ -141,7 +141,7 @@ impl fmt::Display for Term {
 impl Arbitrary for Term {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         let leaf = prop_oneof![
             Just(Self::Any),
             any::<AsSet>().prop_map(Self::AsSet),
