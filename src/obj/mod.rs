@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::fmt;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     attr::{AttributeSeq, AttributeType, RpslAttribute},
@@ -259,6 +259,26 @@ pub trait RpslObjectClass: Sized {
                     })
             })?;
         Ok(seq)
+    }
+}
+
+/// Interface for per-object primary key indices.
+pub trait ObjectKey: Display {
+    /// The RPSL object class for which `Self` is the key.
+    type Class: RpslObjectClass;
+
+    fn fmt_key(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt(f)
+    }
+}
+
+trait WrappedKey {
+    fn boxed(self) -> Box<dyn WrappedKey>;
+}
+
+impl<T: ObjectKey + 'static> WrappedKey for T {
+    fn boxed(self) -> Box<dyn WrappedKey> {
+        Box::new(self)
     }
 }
 

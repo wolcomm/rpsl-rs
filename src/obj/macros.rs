@@ -26,6 +26,32 @@ macro_rules! rpsl_object_class {
             ],
         }
     ) => {
+        rpsl_object_class! {
+            $( #[$doc] )*
+            $obj {
+                class: $class,
+                name: $name,
+                key: $name,
+                parser_rule: $rule,
+                attributes: [
+                    $( $attr_type $( ($attr_rule) )?, )*
+                ],
+            }
+        }
+    };
+
+    (
+        $( #[$doc:meta] )*
+        $obj:ident {
+            class: $class:literal,
+            name: $name:ty,
+            key: $key:ty,
+            parser_rule: $rule:pat,
+            attributes: [
+                $( $attr_type:ident $( ( $attr_rule:tt ) )? ),* $(,)?
+            ],
+        }
+    ) => {
         $(#[$doc])*
         #[derive(Clone, Debug, Hash, PartialEq, Eq)]
         pub struct $obj {
@@ -113,6 +139,10 @@ macro_rules! rpsl_object_class {
                     })
                     .boxed()
             }
+        }
+
+        impl $crate::obj::ObjectKey for $key {
+            type Class = $obj;
         }
     }
 }
