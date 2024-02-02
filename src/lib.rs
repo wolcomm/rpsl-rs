@@ -45,7 +45,7 @@
 #![warn(variant_size_differences)]
 // docs.rs build config
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![doc(html_root_url = "https://docs.rs/rpsl/0.1.0-rc.1")]
+#![doc(html_root_url = "https://docs.rs/rpsl/0.1.0-rc.2")]
 
 // silence unused dev-dependency warnings
 #[cfg(test)]
