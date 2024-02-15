@@ -18,7 +18,7 @@ macro_rules! impl_from_str {
 
             fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
                 use ::pest::Parser as _;
-                ::log::info!(concat!("trying to parse ", stringify!($t), " expression"));
+                ::tracing::debug!(s, concat!("trying to parse ", stringify!($t), " expression"));
                 let root = $crate::parser::RpslParser::parse($rule, s)?
                     .next()
                     .ok_or_else(|| $crate::error::err!("failed to parse expression",))?;
@@ -37,7 +37,7 @@ macro_rules! impl_from_str {
 
             fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
                 use ::pest::Parser as _;
-                ::log::info!(concat!("trying to parse ", stringify!($t), " expression"));
+                ::tracing::debug!(s, concat!("trying to parse ", stringify!($t), " expression"));
                 let root = $crate::parser::RpslParser::parse($rule, s)?
                     .next()
                     .ok_or_else(|| $crate::error::err!("failed to parse expression",))?;
@@ -122,7 +122,7 @@ pub(crate) use next_parse_or;
 
 macro_rules! debug_construction {
     ( $pair:ident => $node:ty ) => {
-        ::log::debug!(
+        ::tracing::trace!(
             concat!(
                 "constructing AST node '",
                 stringify!($node),
